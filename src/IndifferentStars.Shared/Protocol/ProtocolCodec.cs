@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Text;
@@ -12,6 +13,30 @@ namespace IndifferentStars.Shared.Protocol;
 public static class ProtocolCodec
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
+
+    public static IReadOnlyList<byte[]> EncodeSnapshotPackets(SnapshotMessage snapshot)
+    {
+        var packets = new List<byte[]>();
+        var entities = new List<EntitySnapshot>();
+        foreach (var entity in snapshot.Entities)
+        {
+            entities.Add(entity);
+            try
+            {
+                Encode(new SnapshotMessage(snapshot.Tick, snapshot.ServerTimeMs, entities.ToArray()));
+            }
+            catch (ArgumentException) when (entities.Count > 1)
+            {
+                entities.RemoveAt(entities.Count - 1);
+                packets.Add(Encode(new SnapshotMessage(snapshot.Tick, snapshot.ServerTimeMs, entities.ToArray())));
+                entities.Clear();
+                entities.Add(entity);
+            }
+        }
+        if (entities.Count > 0 || packets.Count == 0)
+            packets.Add(Encode(new SnapshotMessage(snapshot.Tick, snapshot.ServerTimeMs, entities.ToArray())));
+        return packets;
+    }
 
     public static byte[] Encode(IProtocolMessage message)
     {

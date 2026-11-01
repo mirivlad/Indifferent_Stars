@@ -322,10 +322,10 @@ public sealed class UdpGameServer : IDisposable
             (ulong)(_clock.Elapsed.TotalMilliseconds),
             _world.BuildSnapshot());
 
-        byte[] encoded;
+        IReadOnlyList<byte[]> packets;
         try
         {
-            encoded = ProtocolCodec.Encode(snapshot);
+            packets = ProtocolCodec.EncodeSnapshotPackets(snapshot);
         }
         catch (Exception ex)
         {
@@ -337,7 +337,8 @@ public sealed class UdpGameServer : IDisposable
         {
             try
             {
-                _socket.SendTo(encoded, session.Endpoint);
+                foreach (var packet in packets)
+                    _socket.SendTo(packet, session.Endpoint);
             }
             catch (SocketException ex)
             {

@@ -105,6 +105,25 @@ public sealed class ProtocolTests
     }
 
     [Fact]
+    public void LargeSnapshotSplitsWithoutDroppingEntities()
+    {
+        var entities = Enumerable.Range(0, 70)
+            .Select(i => new EntitySnapshot((uint)i, EntityKind.Npc, new string('n', 48), Vec3d.Zero, 0, 0, Vec3d.Zero, 0))
+            .ToArray();
+        var packets = ProtocolCodec.EncodeSnapshotPackets(new SnapshotMessage(12, 34, entities));
+        Assert.True(packets.Count > 1);
+        var decoded = packets.Select(packet =>
+        {
+            Assert.True(packet.Length <= ProtocolConstants.MaxPacketSize);
+            Assert.True(ProtocolCodec.TryDecode(packet, out var message, out var error), error);
+            var snapshot = Assert.IsType<SnapshotMessage>(message);
+            Assert.Equal(12ul, snapshot.Tick);
+            return snapshot.Entities;
+        }).SelectMany(items => items).ToArray();
+        Assert.Equal(entities, decoded);
+    }
+
+    [Fact]
     public void UnknownMessageTypeIsRejected()
     {
         var bytes = ProtocolCodec.Encode(new PingMessage(1));
