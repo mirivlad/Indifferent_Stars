@@ -8,11 +8,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 PORT="${IS_PORT:-7777}"
-LOG="${IS_SERVER_LOG:-/tmp/indifferent-stars-server.log}"
+LOG="${IS_SERVER_LOG:-$(mktemp /tmp/indifferent-stars-server-XXXXXX.log)}"
 
 dotnet build src/IndifferentStars.Server -v q --nologo >/dev/null
 
-dotnet run --project src/IndifferentStars.Server --no-build -- --port "$PORT" >"$LOG" 2>&1 &
+dotnet src/IndifferentStars.Server/bin/Debug/net10.0/IndifferentStars.Server.dll --port "$PORT" >"$LOG" 2>&1 &
 SERVER_PID=$!
 
 cleanup() {
@@ -24,8 +24,10 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Wait until the server reports its listening socket (max ~10 s).
+ready=false
 for _ in $(seq 1 50); do
     if grep -q "Listening on udp" "$LOG" 2>/dev/null; then
+        ready=true
         break
     fi
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -35,6 +37,12 @@ for _ in $(seq 1 50); do
     fi
     sleep 0.2
 done
+
+if [[ "$ready" != true ]]; then
+    echo "Server did not start within 10 seconds. Log: $LOG" >&2
+    cat "$LOG" >&2
+    exit 1
+fi
 
 echo "Server log: $LOG"
 tools/run-client.sh --server "127.0.0.1:$PORT" "$@"
