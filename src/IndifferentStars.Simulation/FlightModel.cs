@@ -13,12 +13,10 @@ public static class FlightModel
     public const double Acceleration = 150.0;
     public const double ReverseFactor = 0.45;
     public const double VerticalAcceleration = 85.0;
-    public const double LinearDrag = 0.35;
-    public const double BrakeDrag = 5.0;
+    public const double BrakeAcceleration = 300.0;
     public const double YawRate = 1.15;
     public const double PitchRate = 0.85;
     public const double MaxPitch = 1.45;
-    public const double ThrottleResponse = 2.4;
 
     public static (Vec3d Forward, Vec3d Right, Vec3d Up) Basis(double yaw, double pitch)
     {
@@ -49,8 +47,7 @@ public static class FlightModel
         input = input.Clamped();
         var (forward, _, up) = Basis(ship.Yaw, ship.Pitch);
 
-        var targetThrottle = (double)input.Throttle;
-        ship.Throttle = MoveTowards(ship.Throttle, targetThrottle, ThrottleResponse * dt);
+        ship.Throttle = input.Throttle;
         ship.Boosting = input.Boost && ship.Throttle > 0.05;
         ship.Braking = input.Brake;
 
@@ -62,26 +59,22 @@ public static class FlightModel
         var primaryAccel = throttle >= 0
             ? throttle * Acceleration * (ship.Boosting ? 2.2 : 1.0)
             : throttle * Acceleration * ReverseFactor;
-        ship.Velocity += forward * (primaryAccel * dt);
-        ship.Velocity += up * (input.Vertical * VerticalAcceleration * dt);
-
-        // Light flight assist keeps the arcade model readable without removing inertia.
-        if (throttle > 0.05 && ship.Velocity.LengthSquared > 1)
+        if (input.Brake)
         {
             var speed = ship.Velocity.Length;
-            var desired = forward * speed;
-            var blend = Math.Clamp(1.2 * throttle * dt, 0, 1);
-            ship.Velocity = Vec3d.Lerp(ship.Velocity, desired, blend);
+            ship.Velocity = speed <= BrakeAcceleration * dt
+                ? Vec3d.Zero
+                : ship.Velocity * ((speed - BrakeAcceleration * dt) / speed);
         }
-
-        if (input.Brake)
-            ship.Velocity *= Math.Exp(-BrakeDrag * dt);
-
-        ship.Velocity *= 1.0 / (1.0 + LinearDrag * dt);
-
-        var maxSpeed = ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
-        if (ship.Velocity.Length > maxSpeed)
-            ship.Velocity = ship.Velocity.Normalized() * maxSpeed;
+        else
+        {
+            var previousSpeed = ship.Velocity.Length;
+            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * VerticalAcceleration)) * dt;
+            var maxSpeed = ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
+            var allowedSpeed = Math.Max(previousSpeed, maxSpeed);
+            if (ship.Velocity.Length > allowedSpeed)
+                ship.Velocity = ship.Velocity.Normalized() * allowedSpeed;
+        }
 
         ship.Position += ship.Velocity * dt;
     }
@@ -111,13 +104,6 @@ public static class FlightModel
 
             route.Index = (route.Index + 1) % route.Waypoints.Count;
         }
-    }
-
-    private static double MoveTowards(double current, double target, double maxDelta)
-    {
-        if (Math.Abs(target - current) <= maxDelta)
-            return target;
-        return current + Math.Sign(target - current) * maxDelta;
     }
 
     private static double WrapAngle(double angle)
