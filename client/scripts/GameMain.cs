@@ -54,6 +54,10 @@ public sealed partial class GameMain : Node3D
     private float _warpCooldown;
     private float _scanCooldown;
     private float _marketRetry;
+    private readonly bool _trace = System.Environment.GetEnvironmentVariable("IS_TRACE") == "1";
+    private Vec3d _traceLast;
+    private bool _traceReady;
+    private ulong _traceAt;
     private float _lastHudUpdate;
     private ulong _serverTick;
     private string _sectorId = "";
@@ -102,7 +106,7 @@ public sealed partial class GameMain : Node3D
         _settingsMenu = new SettingsMenu(_settings, ApplySettings, StartConnection);
         AddChild(_settingsMenu);
         ApplySettings();
-        if (_captureDir is not null)
+        if (_captureDir is not null || _trace)
         {
             _settingsMenu.Visible = false;
             StartConnection();
@@ -191,6 +195,20 @@ public sealed partial class GameMain : Node3D
         {
             _playerShip.Boosting = _input.Boost;
             _playerShip.UpdateVisual(_renderOrigin);
+            if (_trace && _playerShip.Track.HasData)
+            {
+                var p = _playerShip.Track.WorldPosition;
+                var at = Time.GetTicksUsec();
+                if (_traceReady && dt > 0)
+                {
+                    var moved = Vec3d.Distance(p, _traceLast);
+                    var wall = (at - _traceAt) / 1_000_000.0;
+                    GD.Print($"TRACE dt={dt:F4} wall={wall:F4} moved={moved:F3} v={_playerShip.Track.Velocity.Length():F1} fps={Engine.GetFramesPerSecond()}");
+                }
+                _traceLast = p;
+                _traceAt = at;
+                _traceReady = true;
+            }
             var docked = _playerShip.Track.Docked;
             if (_stationView.Visible != docked)
             {
@@ -520,13 +538,16 @@ public sealed partial class GameMain : Node3D
             return;
 
         var sector = _catalog.SectorAt(_playerShip.Track.WorldPosition);
-        if (sector.Id == _sectorId)
+        var outside = Vec3d.Distance(_playerShip.Track.WorldPosition, sector.Center) > sector.Radius;
+        var id = outside ? "deep-space" : sector.Id;
+        var name = outside ? Locale.Text("deep_space") : sector.Name;
+        if (id == _sectorId)
             return;
 
-        _sectorId = sector.Id;
-        _hud.SetSector(sector.Name);
+        _sectorId = id;
+        _hud.SetSector(name);
         if (_net?.State == ConnectionState.Connected)
-            _hud.ShowToast(Locale.Format("sector_entered", sector.Name.ToUpperInvariant()),
+            _hud.ShowToast(Locale.Format("sector_entered", name.ToUpperInvariant()),
                 new Color(0.55f, 0.85f, 1.0f), 3.5f);
     }
 
@@ -537,6 +558,8 @@ public sealed partial class GameMain : Node3D
 
         var playerPosition = _playerShip?.Track.WorldPosition ?? Vec3d.Zero;
         _tactical.PlayerPosition = playerPosition;
+        var velocity = _playerShip?.Track.Velocity ?? Vector3.Zero;
+        _tactical.PlayerVelocity = new Vec3d(velocity.X, velocity.Y, velocity.Z);
         _tactical.PlayerYaw = _playerShip?.Track.Yaw ?? 0;
         _tactical.PlayerAltitude = (float)playerPosition.Y;
         _tactical.PlayerId = _playerId;

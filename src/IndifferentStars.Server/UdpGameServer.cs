@@ -364,7 +364,7 @@ public sealed class UdpGameServer : IDisposable
         if (_sessions.Count == 0)
             return;
 
-        var serverTimeMs = (ulong)_clock.Elapsed.TotalMilliseconds;
+        var serverTimeMs = (ulong)Math.Round(_world.TickCount * 1000.0 / _config.TickRate);
         foreach (var session in _sessions.Values)
         {
             try

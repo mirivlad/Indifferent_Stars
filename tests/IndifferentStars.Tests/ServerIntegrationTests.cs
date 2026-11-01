@@ -36,6 +36,9 @@ public sealed class ServerIntegrationTests
 
             Send(udp, new HelloMessage(Guid.NewGuid(), "Integration Trader"));
             Assert.NotNull(WaitFor<HelloAcceptedMessage>(udp, _ => true));
+            var snapshot = WaitFor<SnapshotMessage>(udp, message => message.Tick > 0);
+            Assert.NotNull(snapshot);
+            Assert.Equal((ulong)Math.Round(snapshot!.Tick * 1000.0 / config.TickRate), snapshot.ServerTimeMs);
 
             Send(udp, new MarketRequestMessage(41));
             var market = WaitFor<MarketStateMessage>(udp, message => message.RequestId == 41);

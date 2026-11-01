@@ -3,16 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using IndifferentStars.Shared;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Client;
 
 public sealed partial class WorldBuilder
 {
-    private void BuildAsteroidBelt()
+    private void BuildAsteroidBelt(Node3D parent, IEnumerable<StaticBody> bodies, Mesh[] meshes)
     {
-        var meshes = LoadAsteroidMeshes();
-        var groups = Catalog.Asteroids.GroupBy(a => a.Variant % meshes.Length).ToArray();
-        var random = new Random(Catalog.Seed);
+        var groups = bodies.GroupBy(a => a.Variant % meshes.Length).ToArray();
 
         foreach (var group in groups)
         {
@@ -27,6 +26,7 @@ public sealed partial class WorldBuilder
             for (var i = 0; i < asteroids.Length; i++)
             {
                 var body = asteroids[i];
+                var random = new Random(unchecked(Catalog.Seed * 397 ^ body.Id));
                 var rotation = new Vector3(
                     (float)(random.NextDouble() * Math.PI * 2),
                     body.Rotation,
@@ -41,9 +41,8 @@ public sealed partial class WorldBuilder
                 Name = $"AsteroidBelt_{group.Key}",
                 Multimesh = multiMesh,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                CustomAabb = new Aabb(new Vector3(-16000, -1200, -16000), new Vector3(32000, 2400, 32000)),
             };
-            _root.AddChild(instance);
+            parent.AddChild(instance);
         }
     }
 

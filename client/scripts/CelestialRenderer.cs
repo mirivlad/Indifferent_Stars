@@ -273,8 +273,8 @@ public sealed class CelestialRenderer
             Body = planet,
             Holder = holder,
             Surface = surface,
-            // A mild artistic gain: the planet reads as "huge" without lying about physics.
-            AngularGain = 1.14f,
+            // Preserve angular growth during approach and through the true-scale transition.
+            AngularGain = 1f,
             SpinSpeed = 0.0035f,
         });
     }

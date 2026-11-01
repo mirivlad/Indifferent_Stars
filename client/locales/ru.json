@@ -1,4 +1,7 @@
 {
+  "deep_space":"Открытый космос",
+  "planet_surface_distance":"До поверхности: {0:N1} км",
+  "planet_closing_speed":"Сближение: {0:+0.0;-0.0;0.0} м/с (+ ближе, − дальше)",
   "play":"Начать полёт", "resume":"Продолжить", "settings":"Настройки", "quit":"Выход", "back":"Назад",
   "graphics":"Графика", "sound":"Звук", "controls":"Управление", "language":"Язык", "network":"Игра и сеть",
   "fullscreen":"Полный экран", "render_scale":"Масштаб 3D", "glow":"Свечение", "antialiasing":"Сглаживание",
