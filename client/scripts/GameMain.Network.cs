@@ -142,6 +142,7 @@ public sealed partial class GameMain
 
         _playerShip!.DisplayName = welcome.PlayerName;
         _playerShip.Track.Reset(welcome.Spawn, welcome.SpawnYaw, 0);
+        _tactical.CenterOnPlayer();
         _targetId = (uint)_catalog.Station.Id;
         _hasTarget = true;
 
@@ -311,6 +312,15 @@ public sealed partial class GameMain
 
         if (_catalog.Find((int)id) is { } body)
             return MakeContact(body, player);
+
+        if (_catalog.FindCelestial((int)id) is { } celestial)
+        {
+            var local = celestial.SystemPosition - _catalog.LocalFrameOrigin;
+            var observer = _playerShip?.Track.WorldPosition ?? Vec3d.Zero;
+            return new ContactRef(id, celestial.Name, celestial.Kind.ToString(), ShipTrack.ToVector3(local),
+                (float)celestial.Radius, false, (float)Math.Max(0, Vec3d.Distance(observer, local) - celestial.Radius),
+                (float)(local.Y - observer.Y));
+        }
 
         if (_remoteShips.TryGetValue(id, out var ship) && ship.Track.HasData)
         {

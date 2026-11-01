@@ -184,6 +184,12 @@ public sealed partial class GameMain : Node3D
                 case Key.H:
                     RequestDock();
                     break;
+                case Key.Home when _mode == ViewMode.Tactical:
+                    _tactical.CenterOnPlayer();
+                    break;
+                case Key.M when _mode == ViewMode.Tactical:
+                    _tactical.ShowSystem();
+                    break;
                 case Key.Escape:
                     if (Input.MouseMode == Input.MouseModeEnum.Captured)
                         Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -197,6 +203,10 @@ public sealed partial class GameMain : Node3D
             _mouseTurn = motion.Relative;
             _mouseTurnAt = Time.GetTicksMsec();
         }
+        else if (@event is InputEventMouseMotion pan && _mode == ViewMode.Tactical && (pan.ButtonMask & MouseButtonMask.Middle) != 0)
+        {
+            _tactical.Pan(pan.Relative);
+        }
         else if (@event is InputEventMouseButton capture && capture.Pressed && capture.ButtonIndex == MouseButton.Left && _mode != ViewMode.Tactical)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
@@ -204,20 +214,31 @@ public sealed partial class GameMain : Node3D
         else if (@event is InputEventMouseButton mouse && mouse.Pressed && _mode == ViewMode.Tactical)
         {
             if (mouse.ButtonIndex == MouseButton.WheelUp)
-                _tactical.ZoomRange = Mathf.Clamp(_tactical.ZoomRange * 0.82f, 2400f, 26000f);
+                _tactical.ZoomAt(mouse.Position, 0.65);
             else if (mouse.ButtonIndex == MouseButton.WheelDown)
-                _tactical.ZoomRange = Mathf.Clamp(_tactical.ZoomRange / 0.82f, 2400f, 26000f);
+                _tactical.ZoomAt(mouse.Position, 1 / 0.65);
             else if (mouse.ButtonIndex is MouseButton.Left or MouseButton.Right)
             {
-                var scale = Mathf.Min(_tactical.Size.X, _tactical.Size.Y) * 0.43f / _tactical.ZoomRange;
-                var center = _tactical.Size * 0.5f;
-                var player = PlayerPosition();
-                var contact = BuildContacts().Where(c => c.Id != _playerId)
-                    .Select(c => (Contact: c, Distance: (center + new Vector2(c.Position.X - player.X, c.Position.Z - player.Z) * scale).DistanceTo(mouse.Position)))
+                var contact = BuildContacts().Where(c => c.Id != _playerId && _tactical.ZoomRange < 100_000_000)
+                    .Select(c => (Contact: c, Distance: _tactical.ScreenPosition(new Vec3d(c.Position.X, c.Position.Y, c.Position.Z)).DistanceTo(mouse.Position)))
                     .Where(c => c.Distance < 20).OrderBy(c => c.Distance).FirstOrDefault();
-                if (contact.Contact.Id != 0)
+                var selectedId = contact.Contact.Id;
+                var selectedDistance = selectedId == 0 ? float.MaxValue : contact.Distance;
+                if (_tactical.ZoomRange >= 100_000_000)
                 {
-                    _targetId = contact.Contact.Id;
+                    foreach (var celestial in new[] { _catalog.Star, _catalog.Planet })
+                    {
+                        var distance = _tactical.ScreenPosition(celestial.SystemPosition - _catalog.LocalFrameOrigin).DistanceTo(mouse.Position);
+                        if (distance < 20 && distance < selectedDistance)
+                        {
+                            selectedId = (uint)celestial.Id;
+                            selectedDistance = distance;
+                        }
+                    }
+                }
+                if (selectedId != 0)
+                {
+                    _targetId = selectedId;
                     _hasTarget = true;
                     if (mouse.ButtonIndex == MouseButton.Right)
                     {
@@ -408,10 +429,10 @@ public sealed partial class GameMain : Node3D
         if (!_tactical.Visible)
             return;
 
-        var playerPosition = PlayerPosition();
+        var playerPosition = _playerShip?.Track.WorldPosition ?? Vec3d.Zero;
         _tactical.PlayerPosition = playerPosition;
         _tactical.PlayerYaw = _playerShip?.Track.Yaw ?? 0;
-        _tactical.PlayerAltitude = playerPosition.Y;
+        _tactical.PlayerAltitude = (float)playerPosition.Y;
         _tactical.PlayerId = _playerId;
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
@@ -425,7 +446,7 @@ public sealed partial class GameMain : Node3D
                 Id = ship.Id,
                 Name = ship.DisplayName,
                 Kind = ship.Kind == EntityKind.Player ? "PLAYER" : "NPC",
-                Position = ship.Track.Position,
+                Position = ship.Track.WorldPosition,
                 Color = ship.Kind == EntityKind.Player ? new Color(0.55f, 0.95f, 0.7f) : new Color(1.0f, 0.66f, 0.3f),
                 IsPlayer = ship.Kind == EntityKind.Player,
             });
