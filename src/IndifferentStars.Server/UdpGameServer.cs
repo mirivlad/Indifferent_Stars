@@ -159,7 +159,7 @@ public sealed class UdpGameServer : IDisposable
                     {
                         session.LastInputSequence = input.Sequence;
                         _world.ApplyInput(session.PlayerId, InputState.FromWire(
-                            input.Throttle, input.Steer, input.Pitch, input.Vertical, input.Boost, input.Brake, input.Strafe, input.Roll));
+                            input.Throttle, input.Steer, input.Pitch, input.Vertical, input.Boost, input.Brake, input.Strafe, input.Roll, input.FlightAssist));
                     }
                 }
                 break;

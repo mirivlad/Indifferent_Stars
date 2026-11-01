@@ -97,7 +97,7 @@ public sealed partial class GameMain
     private InputState ReadInput()
     {
         if (_mode == ViewMode.Tactical || _playerShip?.Track.Docked == true)
-            return InputState.None;
+            return InputState.None with { FlightAssist = _flightAssist };
         var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
         var steer = (Input.IsKeyPressed(Key.Left) ? 1f : 0f) - (Input.IsKeyPressed(Key.Right) ? 1f : 0f);
         var pitch = (Input.IsKeyPressed(Key.Up) ? 1f : 0f) - (Input.IsKeyPressed(Key.Down) ? 1f : 0f);
@@ -111,7 +111,7 @@ public sealed partial class GameMain
         var roll = (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
         var boost = Input.IsKeyPressed(Key.Shift);
         var brake = Input.IsKeyPressed(Key.Space);
-        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll);
+        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)

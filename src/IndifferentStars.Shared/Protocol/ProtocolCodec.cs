@@ -57,6 +57,7 @@ public static class ProtocolCodec
                 writer.Write(input.Brake);
                 writer.Write(input.Strafe);
                 writer.Write(input.Roll);
+                writer.Write(input.FlightAssist);
                 break;
 
             case SnapshotMessage snapshot:
@@ -82,6 +83,7 @@ public static class ProtocolCodec
                     writer.Write(entity.ApproachTargetId);
                     writer.Write(entity.Docked);
                     writer.Write(entity.DockingGranted);
+                    writer.Write(entity.FlightAssist);
                 }
                 break;
 
@@ -224,7 +226,8 @@ public static class ProtocolCodec
                     reader.ReadBoolean(),
                     reader.ReadBoolean(),
                     reader.ReadSByte(),
-                    reader.ReadSByte()),
+                    reader.ReadSByte(),
+                    reader.ReadBoolean()),
 
                 MessageType.Snapshot => ReadSnapshot(reader),
 
@@ -318,6 +321,7 @@ public static class ProtocolCodec
                 reader.ReadSByte(),
                 new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()),
                 reader.ReadUInt32(),
+                reader.ReadBoolean(),
                 reader.ReadBoolean(),
                 reader.ReadBoolean());
         }

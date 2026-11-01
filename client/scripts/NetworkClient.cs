@@ -244,7 +244,8 @@ public sealed partial class NetworkClient : IDisposable
             input.Boost,
             input.Brake,
             ToSByte(input.Strafe),
-            ToSByte(input.Roll));
+            ToSByte(input.Roll),
+            input.FlightAssist);
         Send(message);
     }
 

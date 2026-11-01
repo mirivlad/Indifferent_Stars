@@ -86,6 +86,8 @@ public sealed class GameWorld
         if (!_inputs.TryGetValue(playerId, out var slot))
             return;
         slot.Input = input.Clamped();
+        if (_players.TryGetValue(playerId, out var assistedShip))
+            assistedShip.FlightAssist = input.FlightAssist;
         if (_players.TryGetValue(playerId, out var ship) &&
             (input.Throttle != 0 || input.Steer != 0 || input.Pitch != 0 || input.Vertical != 0 || input.Strafe != 0 || input.Roll != 0 || input.Brake))
             ship.ApproachTargetId = 0;
@@ -300,7 +302,8 @@ public sealed class GameWorld
         ship.Orientation,
         ship.ApproachTargetId,
         ship.Docked,
-        ship.DockingGranted);
+        ship.DockingGranted,
+        ship.FlightAssist);
 
     private static string DescribeVessel(ShipState npc)
     {

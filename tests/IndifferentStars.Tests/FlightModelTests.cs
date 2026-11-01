@@ -138,6 +138,26 @@ public sealed class FlightModelTests
         Assert.True(Math.Abs(ship.Orientation.W) > 0.99999);
     }
 
+    [Fact]
+    public void FlightAssistUsesLimitedLateralThrustAndCanBeDisabled()
+    {
+        var world = NewWorld();
+        var ship = world.AddPlayer("Assist");
+        ship.SetAngles(0, 0);
+        ship.Velocity = new Vec3d(100, 0, -120);
+        var assisted = InputState.None with { FlightAssist = true };
+        world.ApplyInput(ship.Id, assisted);
+        world.Tick(0.5);
+        Assert.True(ship.FlightAssist);
+        Assert.Equal(100 - FlightModel.VerticalAcceleration * 0.5, ship.Velocity.X, 5);
+        Assert.Equal(-120, ship.Velocity.Z, 5);
+        world.ApplyInput(ship.Id, InputState.None);
+        var velocity = ship.Velocity;
+        world.Tick(0.5);
+        Assert.False(ship.FlightAssist);
+        Assert.Equal(velocity, ship.Velocity);
+    }
+
     [Theory]
     [InlineData(8500)]
     [InlineData(10000)]

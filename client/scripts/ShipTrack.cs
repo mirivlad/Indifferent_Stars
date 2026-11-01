@@ -39,6 +39,7 @@ public sealed class ShipTrack
     public uint ApproachTargetId { get; private set; }
     public bool Docked { get; private set; }
     public bool DockingGranted { get; private set; }
+    public bool FlightAssist { get; private set; }
 
     public static Vector3 ToVector3(Vec3d value) => new((float)value.X, (float)value.Y, (float)value.Z);
 
@@ -49,6 +50,7 @@ public sealed class ShipTrack
         ApproachTargetId = snapshot.ApproachTargetId;
         Docked = snapshot.Docked;
         DockingGranted = snapshot.DockingGranted;
+        FlightAssist = snapshot.FlightAssist;
         var position = snapshot.Position;
 
         if (_points.Count > 0)

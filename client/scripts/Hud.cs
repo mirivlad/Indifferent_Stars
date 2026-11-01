@@ -125,7 +125,7 @@ public sealed partial class Hud : CanvasLayer
         _targetDetailLabel.Text = subtitle;
     }
 
-    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot)
+    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist)
     {
         _speedLabel.Text = $"{speed,5:F0} m/s";
         _speedLabel.AddThemeColorOverride("font_color", boosting ? Warm : Cyan);
@@ -134,7 +134,7 @@ public sealed partial class Hud : CanvasLayer
         var warp = warpCooldown <= 0 ? "READY" : $"{warpCooldown:F1}s";
         _telemetryLabel.Text =
             $"THROTTLE {(throttle >= 0 ? "+" : "")}{throttle * 100:F0}%    ALT {(altitude >= 0 ? "+" : "")}{altitude:F0} m\n" +
-            $"SCAN RANGE {scanRangeKm:F1} km    WARP {warp}    AUTOPILOT {(autopilot ? "ON" : "OFF")}";
+            $"SCAN {scanRangeKm:F1} km  WARP {warp}  AUTO {(autopilot ? "ON" : "OFF")}  ASSIST {(assist ? "ON" : "OFF")}";
         _warpLabel.Text = boosting ? "BOOST" : "";
     }
 
@@ -234,7 +234,7 @@ public sealed partial class Hud : CanvasLayer
 
         var controls = MakeLabel(
             "[W/S] THRUST   [A/D] STRAFE   [ARROWS/MOUSE] TURN\n" +
-            "[Q/E] ROLL   [R/C] VERTICAL   [SHIFT] BOOST   [SPACE] BRAKE\n" +
+            "[Q/E] ROLL  [R/C] UP/DOWN  [Z] ASSIST  [SHIFT] BOOST  [SPACE] BRAKE\n" +
             "[TAB] CONTACT  [F] SCAN  [G] APPROACH  [H] DOCK  [X] WARP\n" +
             "[F1] 2D NAV      [F2] EXTERNAL 3D  [F3] COCKPIT  [F4] QUALITY",
             13, Dim);

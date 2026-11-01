@@ -35,6 +35,7 @@ public sealed class ShipState
     public double Throttle { get; set; }
     public bool Boosting { get; set; }
     public bool Braking { get; set; }
+    public bool FlightAssist { get; set; }
     public uint ApproachTargetId { get; set; }
     public Vec3d ApproachDestination { get; set; }
     public bool DockingGranted { get; set; }

@@ -17,7 +17,7 @@ public sealed class ProtocolTests
                 7, "Captain Vega", new Vec3d(10, 20, -30), 1.2f, 20261101,
                 "Vesper — Kestrel Reach", 4200, 21000, 720, 42, 20),
             new HelloRejectedMessage("Protocol mismatch: client v0, server v1."),
-            new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60),
+            new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true),
             new SnapshotMessage(100, 5000, new[]
             {
                 new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f)),

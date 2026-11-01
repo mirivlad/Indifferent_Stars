@@ -77,6 +77,14 @@ public static class FlightModel
         {
             var previousSpeed = ship.Velocity.Length;
             ship.Velocity += (forward * primaryAccel + up * (input.Vertical * VerticalAcceleration) + right * (input.Strafe * VerticalAcceleration)) * dt;
+            if (input.FlightAssist)
+            {
+                var limit = VerticalAcceleration * dt;
+                if (input.Strafe == 0)
+                    ship.Velocity += right * Math.Clamp(-Vec3d.Dot(ship.Velocity, right), -limit, limit);
+                if (input.Vertical == 0)
+                    ship.Velocity += up * Math.Clamp(-Vec3d.Dot(ship.Velocity, up), -limit, limit);
+            }
             var maxSpeed = ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
             var allowedSpeed = Math.Max(previousSpeed, maxSpeed);
             if (ship.Velocity.Length > allowedSpeed)

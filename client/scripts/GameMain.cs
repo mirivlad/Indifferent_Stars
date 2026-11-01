@@ -54,6 +54,7 @@ public sealed partial class GameMain : Node3D
     private float _lastHudUpdate;
     private ulong _serverTick;
     private InputState _input = InputState.None;
+    private bool _flightAssist;
     private Vec3d _renderOrigin = Vec3d.Zero;
     private Vector2 _mouseTurn;
     private ulong _mouseTurnAt;
@@ -183,6 +184,9 @@ public sealed partial class GameMain : Node3D
                     break;
                 case Key.H:
                     RequestDock();
+                    break;
+                case Key.Z when _mode != ViewMode.Tactical:
+                    _flightAssist = !_flightAssist;
                     break;
                 case Key.Home when _mode == ViewMode.Tactical:
                     _tactical.CenterOnPlayer();
@@ -510,7 +514,7 @@ public sealed partial class GameMain : Node3D
         {
             var track = _playerShip.Track;
             var speed = track.Velocity.Length();
-            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f, track.ApproachTargetId != 0);
+            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f, track.ApproachTargetId != 0, track.FlightAssist);
         }
 
         if (!_hasTarget)
