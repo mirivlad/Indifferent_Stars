@@ -47,7 +47,6 @@ public sealed class FlightModelTests
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Racer");
-        // Start from the centre of the play space so the boundary cannot cap the run.
         ship.Position = Vec3d.Zero;
         ship.Yaw = Math.PI / 2;
         ship.Pitch = 0;
@@ -84,22 +83,26 @@ public sealed class FlightModelTests
         Assert.True(ship.Velocity.Length < 1.0, $"Ship did not coast down, speed={ship.Velocity.Length:F2}");
     }
 
-    [Fact]
-    public void PlayerCannotExceedPlaySpaceBoundary()
+    [Theory]
+    [InlineData(8500)]
+    [InlineData(10000)]
+    [InlineData(50000)]
+    [InlineData(100000)]
+    public void PlayerContinuesOutwardPastFormerBoundary(double boundary)
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Voyager");
-        ship.Position = new Vec3d(WorldCatalog.PlayRadius - 100, 0, 0);
+        ship.Position = new Vec3d(boundary - 100, 0, 0);
         ship.Yaw = -Math.PI / 2; // forward = +X, away from origin
 
-        for (var i = 0; i < 300; i++)
+        for (var i = 0; i < 100; i++)
         {
             world.ApplyInput(ship.Id, new InputState(1f, 0, 0, 0, true, false));
             world.Tick(0.05);
         }
 
-        Assert.True(ship.Position.Length <= WorldCatalog.PlayRadius + 1.0,
-            $"Position escaped play space: {ship.Position.Length:F1}");
+        Assert.True(ship.Position.X > boundary, $"Ship did not pass {boundary:F0} m: {ship.Position.X:F1}");
+        Assert.True(ship.Velocity.X > 0, "Outward velocity was removed.");
     }
 
     [Fact]

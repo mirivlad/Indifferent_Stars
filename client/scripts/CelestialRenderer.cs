@@ -119,7 +119,7 @@ public sealed class CelestialRenderer
             {
                 var angular = Math.Min(1.45, _catalog.AngularRadius(body) * visual.AngularGain);
                 var sin = Math.Sin(angular);
-                var clearance = Math.Max(MinimumSurfaceClearance, (float)WorldCatalog.PlayRadius * 2.1f);
+                var clearance = Math.Max(MinimumSurfaceClearance, 17_850f);
                 displayRadius = clearance * sin / Math.Max(0.0001, 1.0 - sin);
                 displayDistance = displayRadius + clearance;
                 position = ToVector3(observer) + ToVector3(direction) * (float)displayDistance;

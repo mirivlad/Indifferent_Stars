@@ -52,9 +52,6 @@ public enum SectorKind : byte
 
 public sealed class WorldCatalog
 {
-    // Local sector gameplay limits (metres). The sector is intentionally small enough
-    // for a readable arcade dogfight; interplanetary travel is a later milestone.
-    public const double PlayRadius = 8500.0;
     public const double WarpRange = 21000.0;
     public const double ScanRange = 4200.0;
     public const double MaxSpeed = 260.0;

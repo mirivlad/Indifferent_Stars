@@ -84,7 +84,6 @@ public static class FlightModel
             ship.Velocity = ship.Velocity.Normalized() * maxSpeed;
 
         ship.Position += ship.Velocity * dt;
-        ClampToPlaySpace(ship);
     }
 
     public static void StepNpc(ShipState ship, double dt)
@@ -112,19 +111,6 @@ public static class FlightModel
 
             route.Index = (route.Index + 1) % route.Waypoints.Count;
         }
-    }
-
-    private static void ClampToPlaySpace(ShipState ship)
-    {
-        var distance = ship.Position.Length;
-        if (distance <= WorldCatalog.PlayRadius)
-            return;
-
-        var outward = ship.Position.Normalized();
-        ship.Position = outward * WorldCatalog.PlayRadius;
-        var outwardSpeed = Vec3d.Dot(ship.Velocity, outward);
-        if (outwardSpeed > 0)
-            ship.Velocity -= outward * outwardSpeed;
     }
 
     private static double MoveTowards(double current, double target, double maxDelta)
