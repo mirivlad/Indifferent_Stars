@@ -14,6 +14,10 @@ export_presets.cfg.bak
 logs/
 *.log
 
+# Local music drafts: keep out of the repository until provenance/licence is
+# confirmed (AGENTS.md §9). Remove this line once the tracks are cleared.
+client/assets/music/
+
 # OS / editor noise
 .DS_Store
 .vscode/

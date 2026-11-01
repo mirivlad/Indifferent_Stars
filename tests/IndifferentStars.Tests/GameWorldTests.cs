@@ -65,18 +65,47 @@ public sealed class GameWorldTests
     public void WarpRequiresRangeAndCooldown()
     {
         var (world, ship) = NewWorldWithPlayer();
-        var planetId = (uint)world.Catalog.Planet.Id;
+        var stationId = (uint)world.Catalog.Asteroids
+            .OrderByDescending(a => Vec3d.Distance(a.Position, ship.Position))
+            .First().Id;
 
-        var first = world.Warp(ship.Id, planetId);
+        var first = world.Warp(ship.Id, stationId);
         Assert.True(first.Success, first.Message);
-        Assert.True(Vec3d.Distance(first.NewPosition, world.Catalog.Planet.Position) < 5000);
+        Assert.True(Vec3d.Distance(first.NewPosition, world.Catalog.Asteroids.First(a => a.Id == (int)stationId).Position) < 5000);
 
-        var second = world.Warp(ship.Id, planetId);
+        var second = world.Warp(ship.Id, stationId);
         Assert.False(second.Success);
         Assert.Contains("recharging", second.Message, StringComparison.OrdinalIgnoreCase);
 
-        Assert.False(world.Warp(123456, planetId).Success);
+        Assert.False(world.Warp(123456, stationId).Success);
         Assert.False(world.Warp(ship.Id, 999999).Success);
+    }
+
+    [Fact]
+    public void CelestialBodiesAreWorldObjectsWithAstronomicalScale()
+    {
+        var catalog = WorldCatalog.Generate(20261101);
+        var planet = catalog.FindCelestial(catalog.Planet.Id);
+        var star = catalog.FindCelestial(catalog.Star.Id);
+
+        Assert.NotNull(planet);
+        Assert.NotNull(star);
+        Assert.True(planet!.Radius > 1_000_000, "Planet radius must be measured in thousands of km.");
+        Assert.True(star!.Radius > planet.Radius * 50, "Star must dwarf the planet.");
+        Assert.True(Vec3d.Distance(star.SystemPosition, planet.SystemPosition) > 100_000_000,
+            "Planet must be millions of kilometres from the star.");
+
+        var angular = catalog.AngularRadius(planet);
+        Assert.True(angular > 0.5, $"Planet should loom over the sector, got {angular:F3} rad.");
+
+        var (world, ship) = NewWorldWithPlayer();
+        var result = world.Scan(ship.Id, (uint)planet.Id);
+        Assert.False(result.Success);
+        Assert.Contains("out of range", result.Title, StringComparison.OrdinalIgnoreCase);
+
+        var warp = world.Warp(ship.Id, (uint)planet.Id);
+        Assert.False(warp.Success);
+        Assert.Contains("interplanetary", warp.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -84,7 +113,7 @@ public sealed class GameWorldTests
     {
         var (world, ship) = NewWorldWithPlayer();
         var before = ship.Position;
-        var result = world.Warp(ship.Id + 100, (uint)world.Catalog.Planet.Id);
+        var result = world.Warp(ship.Id + 100, (uint)world.Catalog.Station.Id);
 
         Assert.False(result.Success);
         Assert.Equal(before.X, ship.Position.X);

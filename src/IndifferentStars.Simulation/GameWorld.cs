@@ -50,9 +50,10 @@ public sealed class GameWorld
     {
         var slot = _players.Count;
         var station = Catalog.Station.Position;
-        var outward = station.Normalized();
-        var side = Vec3d.Cross(Vec3d.Up, outward).Normalized();
-        var position = station - outward * (480 + slot * 95) + side * (slot * 85) + Vec3d.Up * (50 + slot * 28);
+        // Player slot on a wide parking arc in front of the station, facing the planet below.
+        var angle = 0.35 + slot * 1.35;
+        var radius = 900.0 + slot * 130.0;
+        var position = station + new Vec3d(Math.Cos(angle) * radius, 260 + slot * 70, Math.Sin(angle) * radius);
         var toStation = (station - position).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toStation);
 
@@ -121,27 +122,30 @@ public sealed class GameWorld
             return new ScanOutcome(false, targetId, "Scan failed", "Unknown or unowned ship.");
 
         var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
-        var distance = npc is not null
-            ? Vec3d.Distance(player.Position, npc.Position)
-            : Catalog.Find((int)targetId) is { } body
-                ? Math.Max(0, Vec3d.Distance(player.Position, body.Position) - body.Radius)
-                : double.NaN;
+        if (npc is not null)
+        {
+            var shipDistance = Vec3d.Distance(player.Position, npc.Position);
+            if (shipDistance > WorldCatalog.ScanRange)
+                return OutOfRange(targetId, shipDistance);
+            return new ScanOutcome(true, targetId, $"{npc.Role}: {npc.Name}", DescribeVessel(npc));
+        }
 
-        if (double.IsNaN(distance))
+        if (Catalog.FindCelestial((int)targetId) is { } celestial)
+        {
+            var realDistance = (celestial.SystemPosition - ToSystemPosition(player.Position)).Length - celestial.Radius;
+            if (realDistance > WorldCatalog.ScanRange)
+                return OutOfRange(targetId, realDistance);
+            return new ScanOutcome(true, targetId, celestial.Name, DescribeCelestial(celestial, realDistance));
+        }
+
+        if (Catalog.Find((int)targetId) is not { } body)
             return new ScanOutcome(false, targetId, "No contact", "The selected object is not in the scanner database.");
 
+        var distance = Math.Max(0, Vec3d.Distance(player.Position, body.Position) - body.Radius);
         if (distance > WorldCatalog.ScanRange)
-            return new ScanOutcome(
-                false,
-                targetId,
-                "Out of range",
-                $"Scanner range is {WorldCatalog.ScanRange / 1000:F1} km, contact is {distance / 1000:F1} km away.");
+            return OutOfRange(targetId, distance);
 
-        if (npc is not null)
-            return new ScanOutcome(true, targetId, $"{npc.Role}: {npc.Name}", DescribeVessel(npc));
-
-        var staticBody = Catalog.Find((int)targetId)!;
-        return new ScanOutcome(true, targetId, staticBody.Name, DescribeBody(staticBody, distance));
+        return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance));
     }
 
     public WarpOutcome Warp(uint playerId, uint targetId)
@@ -153,7 +157,16 @@ public sealed class GameWorld
         var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
         var body = Catalog.Find((int)targetId);
         if (npc is null && body is null)
+        {
+            if (Catalog.FindCelestial((int)targetId) is not null)
+            {
+                var realDistance = (Catalog.FindCelestial((int)targetId)!.SystemPosition - ToSystemPosition(player.Position)).Length;
+                return WarpFail(targetId,
+                    $"In-system warp has no solution for a target {realDistance / 1_000_000:F1} Mm away. Interplanetary travel arrives in a later milestone.");
+            }
+
             return WarpFail(targetId, "Warp target is not a known contact.");
+        }
 
         if (TimeSeconds - player.LastWarpAtSeconds < 8.0)
             return WarpFail(targetId, $"Warp drive is recharging ({8.0 - (TimeSeconds - player.LastWarpAtSeconds):F1} s).");
@@ -193,6 +206,15 @@ public sealed class GameWorld
     private static WarpOutcome WarpFail(uint targetId, string message) =>
         new(false, targetId, message, Vec3d.Zero, 0, 0);
 
+    private static ScanOutcome OutOfRange(uint targetId, double distance) =>
+        new(false,
+            targetId,
+            "Out of range",
+            $"Scanner range is {WorldCatalog.ScanRange / 1000:F1} km, contact is {distance / 1000:F1} km away.");
+
+    /// <summary>Promotes a sector-local position into real system coordinates (double precision).</summary>
+    private Vec3d ToSystemPosition(Vec3d local) => Catalog.LocalFrameOrigin + local;
+
     private static EntitySnapshot ToSnapshot(ShipState ship) => new(
         ship.Id,
         ship.IsPlayer ? EntityKind.Player : EntityKind.Npc,
@@ -225,18 +247,25 @@ public sealed class GameWorld
                 "Traffic control online. Reactor signature stable.\n" +
                 $"Range: {distance / 1000:F2} km\n" +
                 "Docking interface is not part of First Flight; station services are telemetry only.",
-            BodyKind.Planet =>
-                "Gas giant — class II\n" +
-                $"Radius: {body.Radius / 1000:F2} km\n" +
-                "Ring system detected: two broad ice bands.\n" +
-                "Atmospheric probe telemetry nominal.",
-            BodyKind.Star =>
-                "G-type main-sequence star\n" +
-                $"Photosphere radius: {body.Radius / 1000:F2} km\n" +
-                "Coronal activity: low. No flare risk in the next cycle.",
             _ => "Unclassified object.",
         };
     }
+
+    private string DescribeCelestial(CelestialBody body, double distance) => body.Kind switch
+    {
+        CelestialKind.Planet =>
+            "Terrestrial world — class M\n" +
+            $"Radius: {body.Radius / 1000:F0} km\n" +
+            (body.RingOuterRadii > 0 ? "Ring system detected: two broad ice bands.\n" : "") +
+            (body.AtmosphereHeight > 0 ? $"Atmosphere: {body.AtmosphereHeight / 1000:F0} km shell, breathable proxy.\n" : "") +
+            $"Range to surface: {distance / 1000:F0} km",
+        CelestialKind.Star =>
+            "G-type main-sequence star\n" +
+            $"Photosphere radius: {body.Radius / 1000:F0} km\n" +
+            "Coronal activity: low. No flare risk in the next cycle.\n" +
+            $"Distance: {distance / 1_000_000:F1} Mm",
+        _ => "Unclassified object.",
+    };
 
     private string DescribeAsteroid(StaticBody body, double distance)
     {
@@ -270,9 +299,9 @@ public sealed class GameWorld
         AddOrbitNpc("Pale Meridian", "Hauler", station, 1550, 120, 2.6, 58, 2.4);
         AddOrbitNpc("Quiet Ledger", "Surveyor", station, 2050, 300, 5.4, 72, 0.6);
 
-        var planet = Catalog.Planet.Position;
-        var midpoint = (station + planet) / 2 + new Vec3d(0, 500, 0);
-        var nearPlanet = planet + (station - planet).Normalized() * 4200 + new Vec3d(0, 350, 0);
+        // Freighter lane: from the station down towards the planet's upper atmosphere.
+        var midpoint = station + new Vec3d(2600, -900, -1800);
+        var nearPlanet = station + new Vec3d(4200, -3400, -2600);
         _npcs.Add(CreateNpc(
             "Long Cargo",
             "Hauler",
@@ -285,11 +314,11 @@ public sealed class GameWorld
             "Surveyor",
             new[]
             {
-                new Vec3d(5200, 260, 2200),
-                new Vec3d(7600, -150, 3900),
-                new Vec3d(8200, 320, 900),
-                new Vec3d(6100, 120, -1400),
-                new Vec3d(4300, -220, 900),
+                station + new Vec3d(4200, 260, 2200),
+                station + new Vec3d(6400, -150, 3400),
+                station + new Vec3d(6800, 320, 900),
+                station + new Vec3d(4800, 120, -1400),
+                station + new Vec3d(2900, -220, 900),
             },
             84,
             2));

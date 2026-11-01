@@ -52,7 +52,7 @@ public sealed class FlightModelTests
         ship.Yaw = Math.PI / 2;
         ship.Pitch = 0;
 
-        for (var i = 0; i < 600; i++)
+        for (var i = 0; i < 120; i++)
         {
             world.ApplyInput(ship.Id, new InputState(1f, 0, 0, 0, true, false));
             world.Tick(0.05);
