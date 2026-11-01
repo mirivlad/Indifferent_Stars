@@ -321,6 +321,7 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem("Request docking", 4);
         _contactMenu.AddItem("Warp to 500 m", 5);
         _contactMenu.AddItem("Warp to 5 km", 6);
+        _contactMenu.AddItem("Follow", 7);
         _contactMenu.IdPressed += id =>
         {
             if (id == 1) RequestApproach();
@@ -329,6 +330,7 @@ public sealed partial class GameMain : Node3D
             else if (id == 4) RequestDock();
             else if (id == 5) RequestWarp(500);
             else if (id == 6) RequestWarp(5000);
+            else if (id == 7) RequestApproach(true);
         };
         AddChild(_contactMenu);
 
@@ -514,7 +516,7 @@ public sealed partial class GameMain : Node3D
         {
             var track = _playerShip.Track;
             var speed = track.Velocity.Length();
-            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f, track.ApproachTargetId != 0, track.FlightAssist);
+            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f, track.ApproachTargetId != 0, track.FlightAssist, track.ApproachFollowing);
         }
 
         if (!_hasTarget)

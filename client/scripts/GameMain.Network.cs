@@ -234,10 +234,10 @@ public sealed partial class GameMain
             _net?.RequestDock(_targetId, false);
     }
 
-    private void RequestApproach()
+    private void RequestApproach(bool follow = false)
     {
         if (_hasTarget)
-            _net?.RequestApproach(_targetId);
+            _net?.RequestApproach(_targetId, follow);
     }
 
     private void UpdateTargeting()

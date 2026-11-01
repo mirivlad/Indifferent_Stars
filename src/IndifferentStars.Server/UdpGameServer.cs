@@ -172,7 +172,7 @@ public sealed class UdpGameServer : IDisposable
                 if (_sessionsByEndpoint.TryGetValue(endpoint, out var pilot))
                 {
                     pilot.LastSeenSeconds = now;
-                    Send(endpoint, new ApproachResultMessage(approach.TargetId, _world.StartApproach(pilot.PlayerId, approach.TargetId)));
+                    Send(endpoint, new ApproachResultMessage(approach.TargetId, _world.StartApproach(pilot.PlayerId, approach.TargetId, approach.Follow)));
                 }
                 break;
 

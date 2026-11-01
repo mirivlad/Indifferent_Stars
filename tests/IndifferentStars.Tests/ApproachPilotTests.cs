@@ -51,4 +51,30 @@ public sealed class ApproachPilotTests
         world.ApplyInput(ship.Id, new InputState(0, 0, 0, 0, false, false, 1, 0));
         Assert.Equal(0u, ship.ApproachTargetId);
     }
+
+    [Fact]
+    public void FollowTracksMovingShipAndStopsWhenTargetLeaves()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(12345));
+        var follower = world.AddPlayer("Follower");
+        var leader = world.AddPlayer("Leader");
+        follower.Position = new Vec3d(0, 0, 0);
+        leader.Position = new Vec3d(2000, 0, 0);
+        leader.Velocity = new Vec3d(50, 0, 0);
+        Assert.NotEqual((uint)world.Catalog.Station.Id, follower.Id);
+        Assert.False(world.StartApproach(follower.Id, follower.Id, true));
+        Assert.True(world.StartApproach(follower.Id, leader.Id, true));
+        for (var i = 0; i < 2000; i++)
+        {
+            world.ApplyInput(follower.Id, InputState.None);
+            world.ApplyInput(leader.Id, InputState.None);
+            world.Tick(0.05);
+        }
+        Assert.Equal(leader.Id, follower.ApproachTargetId);
+        Assert.InRange(Vec3d.Distance(follower.Position, leader.Position), 490, 550);
+        Assert.InRange(Vec3d.Distance(follower.Velocity, leader.Velocity), 0, 3);
+        world.RemovePlayer(leader.Id);
+        world.Tick(0.05);
+        Assert.Equal(0u, follower.ApproachTargetId);
+    }
 }

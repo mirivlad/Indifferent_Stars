@@ -37,6 +37,7 @@ public sealed class ShipState
     public bool Braking { get; set; }
     public bool FlightAssist { get; set; }
     public uint ApproachTargetId { get; set; }
+    public bool ApproachFollowing { get; set; }
     public Vec3d ApproachDestination { get; set; }
     public bool DockingGranted { get; set; }
     public bool Docked { get; set; }

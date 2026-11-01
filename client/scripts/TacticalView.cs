@@ -73,6 +73,8 @@ public sealed partial class TacticalView : Control
         DrawAsteroids(center, scale, size);
         if (ApproachTargetId != 0 && Catalog?.Find((int)ApproachTargetId) is { } destination)
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, destination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
+        else if (ApproachTargetId != 0 && Contacts.Find(contact => contact.Id == ApproachTargetId) is { } movingDestination)
+            DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, movingDestination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
         DrawContactLabels(center, scale, size);
         DrawPlayer(center, scale);
         FlushLabels();

@@ -125,7 +125,7 @@ public sealed partial class Hud : CanvasLayer
         _targetDetailLabel.Text = subtitle;
     }
 
-    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist)
+    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following)
     {
         _speedLabel.Text = $"{speed,5:F0} m/s";
         _speedLabel.AddThemeColorOverride("font_color", boosting ? Warm : Cyan);
@@ -134,7 +134,7 @@ public sealed partial class Hud : CanvasLayer
         var warp = warpCooldown <= 0 ? "READY" : $"{warpCooldown:F1}s";
         _telemetryLabel.Text =
             $"THROTTLE {(throttle >= 0 ? "+" : "")}{throttle * 100:F0}%    ALT {(altitude >= 0 ? "+" : "")}{altitude:F0} m\n" +
-            $"SCAN {scanRangeKm:F1} km  WARP {warp}  AUTO {(autopilot ? "ON" : "OFF")}  ASSIST {(assist ? "ON" : "OFF")}";
+            $"SCAN {scanRangeKm:F1} km  WARP {warp}  AUTO {(following ? "FOLLOW" : autopilot ? "ON" : "OFF")}  ASSIST {(assist ? "ON" : "OFF")}";
         _warpLabel.Text = boosting ? "BOOST" : "";
     }
 

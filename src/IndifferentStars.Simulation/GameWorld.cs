@@ -31,7 +31,7 @@ public sealed class GameWorld
     private readonly Dictionary<uint, ShipState> _players = new();
     private readonly Dictionary<uint, PlayerInputSlot> _inputs = new();
     private readonly List<ShipState> _npcs = new();
-    private uint _nextPlayerId = 1;
+    private uint _nextPlayerId = 10000;
 
     public GameWorld(WorldCatalog catalog)
     {
@@ -94,17 +94,21 @@ public sealed class GameWorld
         slot.AgeSeconds = 0;
     }
 
-    public bool StartApproach(uint playerId, uint targetId)
+    public bool StartApproach(uint playerId, uint targetId, bool follow = false)
     {
         var player = GetPlayer(playerId);
         var body = Catalog.Find((int)targetId);
-        if (player is null || player.Docked || body is null)
+        var targetShip = _players.GetValueOrDefault(targetId) ?? _npcs.FirstOrDefault(n => n.Id == targetId);
+        if (player is null || player.Docked || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null))
             return false;
-        var away = (player.Position - body.Position).Normalized();
+        var targetPosition = targetShip?.Position ?? body!.Position;
+        var targetRadius = targetShip is null ? body!.Radius : 20;
+        var away = (player.Position - targetPosition).Normalized();
         if (away.LengthSquared < 0.5)
             return false;
         player.ApproachTargetId = targetId;
-        player.ApproachDestination = body.Position + away * (body.Radius + 500);
+        player.ApproachFollowing = follow;
+        player.ApproachDestination = targetPosition + away * (targetRadius + 500);
         return true;
     }
 
@@ -118,6 +122,7 @@ public sealed class GameWorld
         if (away.LengthSquared < 0.5)
             return false;
         player.DockingGranted = true;
+        player.ApproachFollowing = false;
         player.DockingPoint = station.Position + away * (station.Radius + 100);
         player.ApproachDestination = player.DockingPoint;
         player.ApproachTargetId = targetId;
@@ -154,7 +159,22 @@ public sealed class GameWorld
             var input = slot.AgeSeconds <= InputTimeoutSeconds ? slot.Input : InputState.None;
             if (ship.ApproachTargetId != 0)
             {
-                if (ApproachPilot.Arrived(ship, ship.ApproachDestination))
+                var targetShip = ship.ApproachFollowing
+                    ? _players.GetValueOrDefault(ship.ApproachTargetId) ?? _npcs.FirstOrDefault(n => n.Id == ship.ApproachTargetId)
+                    : null;
+                if (ship.ApproachFollowing && targetShip is null)
+                {
+                    ship.ApproachTargetId = 0;
+                    ship.ApproachFollowing = false;
+                }
+                else if (targetShip is not null)
+                {
+                    var away = (ship.Position - targetShip.Position).Normalized();
+                    if (away.LengthSquared < 0.5) away = -ship.Forward;
+                    ship.ApproachDestination = targetShip.Position + away * 520;
+                    input = ApproachPilot.Steer(ship, ship.ApproachDestination, targetShip.Velocity);
+                }
+                else if (ApproachPilot.Arrived(ship, ship.ApproachDestination))
                     ship.ApproachTargetId = 0;
                 else
                     input = ApproachPilot.Steer(ship, ship.ApproachDestination);
@@ -184,13 +204,13 @@ public sealed class GameWorld
         if (player is null)
             return new ScanOutcome(false, targetId, "Scan failed", "Unknown or unowned ship.");
 
-        var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
-        if (npc is not null)
+        var contactShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
+        if (contactShip is not null && contactShip.Id != playerId)
         {
-            var shipDistance = Vec3d.Distance(player.Position, npc.Position);
+            var shipDistance = Vec3d.Distance(player.Position, contactShip.Position);
             if (shipDistance > WorldCatalog.ScanRange)
                 return OutOfRange(targetId, shipDistance);
-            return new ScanOutcome(true, targetId, $"{npc.Role}: {npc.Name}", DescribeVessel(npc));
+            return new ScanOutcome(true, targetId, $"{contactShip.Role}: {contactShip.Name}", DescribeVessel(contactShip));
         }
 
         if (Catalog.FindCelestial((int)targetId) is { } celestial)
@@ -221,7 +241,9 @@ public sealed class GameWorld
         if (arrivalDistance is not (500 or 1000 or 5000))
             return WarpFail(targetId, "Invalid arrival distance.");
 
-        var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
+        var npc = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
+        if (npc?.Id == playerId)
+            return WarpFail(targetId, "Cannot warp to your own ship.");
         var body = Catalog.Find((int)targetId);
         if (npc is null && body is null)
         {
@@ -303,7 +325,8 @@ public sealed class GameWorld
         ship.ApproachTargetId,
         ship.Docked,
         ship.DockingGranted,
-        ship.FlightAssist);
+        ship.FlightAssist,
+        ship.ApproachTargetId != 0 && ship.ApproachFollowing);
 
     private static string DescribeVessel(ShipState npc)
     {

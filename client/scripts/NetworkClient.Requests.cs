@@ -13,10 +13,10 @@ public sealed partial class NetworkClient
     public bool IsScanPending => _pendingScan.HasValue;
     public bool IsWarpPending => _pendingWarp.HasValue;
 
-    public void RequestApproach(uint targetId)
+    public void RequestApproach(uint targetId, bool follow = false)
     {
         if (State == ConnectionState.Connected)
-            Send(new ApproachRequestMessage(targetId));
+            Send(new ApproachRequestMessage(targetId, follow));
     }
 
     public void RequestDock(uint targetId, bool undock)

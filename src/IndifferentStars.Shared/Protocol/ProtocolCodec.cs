@@ -109,6 +109,7 @@ public static class ProtocolCodec
                     writer.Write(entity.Docked);
                     writer.Write(entity.DockingGranted);
                     writer.Write(entity.FlightAssist);
+                    writer.Write(entity.ApproachFollowing);
                 }
                 break;
 
@@ -155,6 +156,7 @@ public static class ProtocolCodec
 
             case ApproachRequestMessage approach:
                 writer.Write(approach.TargetId);
+                writer.Write(approach.Follow);
                 break;
 
             case ApproachResultMessage approachResult:
@@ -286,7 +288,7 @@ public static class ProtocolCodec
                 MessageType.Disconnect => new DisconnectMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
-                MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32()),
+                MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.ApproachResult => new ApproachResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.DockRequest => new DockRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.DockResult => new DockResultMessage(reader.ReadBoolean(), reader.ReadBoolean()),
@@ -346,6 +348,7 @@ public static class ProtocolCodec
                 reader.ReadSByte(),
                 new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()),
                 reader.ReadUInt32(),
+                reader.ReadBoolean(),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
                 reader.ReadBoolean());
