@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using Godot;
 
@@ -16,4 +17,5 @@ public static class Locale
     }
 
     public static string Text(string key) => _strings.GetValueOrDefault(key, key);
+    public static string Format(string key, params object[] args) => string.Format(CultureInfo.InvariantCulture, Text(key), args);
 }

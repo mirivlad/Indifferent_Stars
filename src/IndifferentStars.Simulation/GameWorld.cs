@@ -15,7 +15,8 @@ public sealed record WarpOutcome(
     string Message,
     Vec3d NewPosition,
     float Yaw,
-    float Pitch);
+    float Pitch,
+    string RussianMessage = "");
 
 /// <summary>
 /// Authoritative, engine-independent world state. Fixed-step and free of Godot types.
@@ -198,77 +199,76 @@ public sealed class GameWorld
         return entities.ToArray();
     }
 
-    public ScanOutcome Scan(uint playerId, uint targetId)
+    public ScanOutcome Scan(uint playerId, uint targetId, string language = "en")
     {
         var player = GetPlayer(playerId);
         if (player is null)
-            return new ScanOutcome(false, targetId, "Scan failed", "Unknown or unowned ship.");
+            return new ScanOutcome(false, targetId, ServerText.Get(language, "scan_failed"), ServerText.Get(language, "unknown_ship"));
 
         var contactShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
         if (contactShip is not null && contactShip.Id != playerId)
         {
             var shipDistance = Vec3d.Distance(player.Position, contactShip.Position);
             if (shipDistance > WorldCatalog.ScanRange)
-                return OutOfRange(targetId, shipDistance);
-            return new ScanOutcome(true, targetId, $"{contactShip.Role}: {contactShip.Name}", DescribeVessel(contactShip));
+                return OutOfRange(targetId, shipDistance, language);
+            return new ScanOutcome(true, targetId, ServerText.Get(language, "vessel_title", contactShip.Role, contactShip.Name), DescribeVessel(contactShip, language));
         }
 
         if (Catalog.FindCelestial((int)targetId) is { } celestial)
         {
             var realDistance = (celestial.SystemPosition - ToSystemPosition(player.Position)).Length - celestial.Radius;
             if (realDistance > WorldCatalog.ScanRange)
-                return OutOfRange(targetId, realDistance);
-            return new ScanOutcome(true, targetId, celestial.Name, DescribeCelestial(celestial, realDistance));
+                return OutOfRange(targetId, realDistance, language);
+            return new ScanOutcome(true, targetId, celestial.Name, DescribeCelestial(celestial, realDistance, language));
         }
 
         if (Catalog.Find((int)targetId) is not { } body)
-            return new ScanOutcome(false, targetId, "No contact", "The selected object is not in the scanner database.");
+            return new ScanOutcome(false, targetId, ServerText.Get(language, "no_contact"), ServerText.Get(language, "unknown_contact"));
 
         var distance = Math.Max(0, Vec3d.Distance(player.Position, body.Position) - body.Radius);
         if (distance > WorldCatalog.ScanRange)
-            return OutOfRange(targetId, distance);
+            return OutOfRange(targetId, distance, language);
 
-        return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance));
+        return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance, language));
     }
 
     public WarpOutcome Warp(uint playerId, uint targetId, ushort arrivalDistance = 1000)
     {
         var player = GetPlayer(playerId);
         if (player is null)
-            return WarpFail(targetId, "Unknown or unowned ship.");
+            return WarpFail(targetId, "unknown_ship");
         if (player.Docked)
-            return WarpFail(targetId, "Undock before using warp.");
+            return WarpFail(targetId, "warp_undock");
         if (arrivalDistance is not (500 or 1000 or 5000))
-            return WarpFail(targetId, "Invalid arrival distance.");
+            return WarpFail(targetId, "warp_invalid");
 
         var npc = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
         if (npc?.Id == playerId)
-            return WarpFail(targetId, "Cannot warp to your own ship.");
+            return WarpFail(targetId, "warp_self");
         var body = Catalog.Find((int)targetId);
         if (npc is null && body is null)
         {
             if (Catalog.FindCelestial((int)targetId) is not null)
             {
                 var realDistance = (Catalog.FindCelestial((int)targetId)!.SystemPosition - ToSystemPosition(player.Position)).Length;
-                return WarpFail(targetId,
-                    $"In-system warp has no solution for a target {realDistance / 1_000_000:F1} Mm away. Interplanetary travel arrives in a later milestone.");
+                return WarpFail(targetId, "warp_celestial", realDistance / 1_000_000);
             }
 
-            return WarpFail(targetId, "Warp target is not a known contact.");
+            return WarpFail(targetId, "warp_unknown");
         }
 
         if (TimeSeconds - player.LastWarpAtSeconds < 8.0)
-            return WarpFail(targetId, $"Warp drive is recharging ({8.0 - (TimeSeconds - player.LastWarpAtSeconds):F1} s).");
+            return WarpFail(targetId, "warp_cooldown", 8.0 - (TimeSeconds - player.LastWarpAtSeconds));
 
         var targetPosition = npc?.Position ?? body!.Position;
         var targetRadius = npc is not null ? 20.0 : body!.Radius;
         var distance = Vec3d.Distance(player.Position, targetPosition);
         if (distance > WorldCatalog.WarpRange)
-            return WarpFail(targetId, $"Target beyond warp range ({distance / 1000:F1} km > {WorldCatalog.WarpRange / 1000:F0} km).");
+            return WarpFail(targetId, "warp_range", distance / 1000, WorldCatalog.WarpRange / 1000);
 
         var arrivalOffset = targetRadius + arrivalDistance;
         if (distance <= arrivalOffset + 250)
-            return WarpFail(targetId, "Already inside safe arrival distance.");
+            return WarpFail(targetId, "warp_close");
 
         var direction = (targetPosition - player.Position).Normalized();
         var arrival = targetPosition - direction * arrivalOffset;
@@ -278,7 +278,7 @@ public sealed class GameWorld
             _players.Values.Any(other => other.Id != playerId && Vec3d.Distance(arrival, other.Position) < 2 * clearance) ||
             new[] { Catalog.Star, Catalog.Planet }.Any(other =>
                 Vec3d.Distance(ToSystemPosition(arrival), other.SystemPosition) < other.Radius + clearance))
-            return WarpFail(targetId, "Arrival point obstructed.");
+            return WarpFail(targetId, "warp_blocked");
         var toTarget = (targetPosition - arrival).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toTarget);
 
@@ -294,20 +294,21 @@ public sealed class GameWorld
         return new WarpOutcome(
             true,
             targetId,
-            $"Short warp complete — {label}, {arrivalDistance / 1000.0:F1} km from surface.",
+            ServerText.Get("en", "warp_success", label, arrivalDistance / 1000.0),
             arrival,
             (float)yaw,
-            (float)pitch);
+            (float)pitch,
+            ServerText.Get("ru", "warp_success", label, arrivalDistance / 1000.0));
     }
 
-    private static WarpOutcome WarpFail(uint targetId, string message) =>
-        new(false, targetId, message, Vec3d.Zero, 0, 0);
+    private static WarpOutcome WarpFail(uint targetId, string key, params object[] args) =>
+        new(false, targetId, ServerText.Get("en", key, args), Vec3d.Zero, 0, 0, ServerText.Get("ru", key, args));
 
-    private static ScanOutcome OutOfRange(uint targetId, double distance) =>
+    private static ScanOutcome OutOfRange(uint targetId, double distance, string language) =>
         new(false,
             targetId,
-            "Out of range",
-            $"Scanner range is {WorldCatalog.ScanRange / 1000:F1} km, contact is {distance / 1000:F1} km away.");
+            ServerText.Get(language, "out_of_range"),
+            ServerText.Get(language, "scanner_range", WorldCatalog.ScanRange / 1000, distance / 1000));
 
     /// <summary>Promotes a sector-local position into real system coordinates (double precision).</summary>
     private Vec3d ToSystemPosition(Vec3d local) => Catalog.LocalFrameOrigin + local;
@@ -328,49 +329,35 @@ public sealed class GameWorld
         ship.FlightAssist,
         ship.ApproachTargetId != 0 && ship.ApproachFollowing);
 
-    private static string DescribeVessel(ShipState npc)
+    private static string DescribeVessel(ShipState npc, string language)
     {
         var speed = npc.Velocity.Length;
         var heading = (npc.Yaw * 180.0 / Math.PI + 360) % 360;
-        return
-            $"Transponder: civilian\n" +
-            $"Role: {npc.Role}\n" +
-            $"Speed: {speed:F0} m/s\n" +
-            $"Heading: {heading:F0}°  Altitude: {npc.Position.Y:F0} m\n" +
-            "No hostile intent detected. Traffic lanes are nominal.";
+        return ServerText.Get(language, "vessel", npc.Role, speed, heading, npc.Position.Y);
     }
 
-    private string DescribeBody(StaticBody body, double distance)
+    private string DescribeBody(StaticBody body, double distance, string language)
     {
         return body.Kind switch
         {
-            BodyKind.Asteroid => DescribeAsteroid(body, distance),
-            BodyKind.Station =>
-                "Orbital station — Kestrel Reach\n" +
-                "Traffic control online. Reactor signature stable.\n" +
-                $"Range: {distance / 1000:F2} km\n" +
-                "Docking clearance available. Trading services are currently unavailable.",
-            _ => "Unclassified object.",
+            BodyKind.Asteroid => DescribeAsteroid(body, distance, language),
+            BodyKind.Station => ServerText.Get(language, "station", distance / 1000),
+            _ => ServerText.Get(language, "unclassified"),
         };
     }
 
-    private string DescribeCelestial(CelestialBody body, double distance) => body.Kind switch
+    private string DescribeCelestial(CelestialBody body, double distance, string language) => body.Kind switch
     {
         CelestialKind.Planet =>
-            "Terrestrial world — class M\n" +
-            $"Radius: {body.Radius / 1000:F0} km\n" +
-            (body.RingOuterRadii > 0 ? "Ring system detected: two broad ice bands.\n" : "") +
-            (body.AtmosphereHeight > 0 ? $"Atmosphere: {body.AtmosphereHeight / 1000:F0} km shell, breathable proxy.\n" : "") +
-            $"Range to surface: {distance / 1000:F0} km",
+            ServerText.Get(language, "planet", body.Radius / 1000,
+                body.RingOuterRadii > 0 ? ServerText.Get(language, "rings") : "",
+                body.AtmosphereHeight > 0 ? ServerText.Get(language, "atmosphere", body.AtmosphereHeight / 1000) : "", distance / 1000),
         CelestialKind.Star =>
-            "G-type main-sequence star\n" +
-            $"Photosphere radius: {body.Radius / 1000:F0} km\n" +
-            "Coronal activity: low. No flare risk in the next cycle.\n" +
-            $"Distance: {distance / 1_000_000:F1} Mm",
-        _ => "Unclassified object.",
+            ServerText.Get(language, "star", body.Radius / 1000, distance / 1_000_000),
+        _ => ServerText.Get(language, "unclassified"),
     };
 
-    private string DescribeAsteroid(StaticBody body, double distance)
+    private string DescribeAsteroid(StaticBody body, double distance, string language)
     {
         var random = new Random(unchecked(Catalog.Seed * 73856093 ^ body.Id * 19349663));
         var silicate = 25 + random.Next(0, 30);
@@ -383,14 +370,8 @@ public sealed class GameWorld
         ice = ice * 100 / total;
         iron = Math.Max(0, 100 - silicate - carbon - ice);
         var quality = 70 + random.Next(0, 31);
-        var className = ice > 16 ? "C-type carbonaceous" : silicate > 34 ? "S-type silicaceous" : "M-type metallic";
-
-        return
-            $"Asteroid — {className}\n" +
-            $"Radius: {body.Radius:F1} m\n" +
-            $"Composition: silicate {silicate}%, carbon {carbon}%, water ice {ice}%, nickel-iron {iron}%\n" +
-            $"Scan quality: {quality}%   Range: {distance / 1000:F2} km\n" +
-            "No active emissions. Prospecting yield estimate is available in a later milestone.";
+        var className = ServerText.Get(language, ice > 16 ? "class_c" : silicate > 34 ? "class_s" : "class_m");
+        return ServerText.Get(language, "asteroid", className, body.Radius, silicate, carbon, ice, iron, quality, distance / 1000);
     }
 
     private void SpawnNpcs()

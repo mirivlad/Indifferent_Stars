@@ -124,6 +124,8 @@ public static class ProtocolCodec
                 writer.Write(scanResult.Success);
                 WriteString(writer, scanResult.Title, ProtocolConstants.MaxStringBytes);
                 WriteString(writer, scanResult.Body, ProtocolConstants.MaxTextBytes);
+                WriteString(writer, scanResult.RussianTitle, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, scanResult.RussianBody, ProtocolConstants.MaxTextBytes);
                 break;
 
             case WarpRequestMessage warpRequest:
@@ -140,6 +142,7 @@ public static class ProtocolCodec
                 WriteVec3(writer, warpResult.NewPosition);
                 writer.Write(warpResult.Yaw);
                 writer.Write(warpResult.Pitch);
+                WriteString(writer, warpResult.RussianMessage, ProtocolConstants.MaxStringBytes);
                 break;
 
             case PingMessage ping:
@@ -267,6 +270,8 @@ public static class ProtocolCodec
                     reader.ReadUInt32(),
                     reader.ReadBoolean(),
                     ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadString(reader, ProtocolConstants.MaxTextBytes),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
                     ReadString(reader, ProtocolConstants.MaxTextBytes)),
 
                 MessageType.WarpRequest => new WarpRequestMessage(
@@ -281,7 +286,8 @@ public static class ProtocolCodec
                     ReadString(reader, ProtocolConstants.MaxStringBytes),
                     ReadVec3(reader),
                     reader.ReadSingle(),
-                    reader.ReadSingle()),
+                    reader.ReadSingle(),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
                 MessageType.Ping => new PingMessage(reader.ReadUInt64()),
                 MessageType.Pong => new PongMessage(reader.ReadUInt64()),

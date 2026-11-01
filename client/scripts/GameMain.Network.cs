@@ -199,7 +199,8 @@ public sealed partial class GameMain
     private void OnScanCompleted(ScanResultMessage result)
     {
         _audio.NavigationCue();
-        _hud.ShowScanResult(result.Title, result.Body, result.Success);
+        _hud.ShowScanResult(_settings.Language == "ru" ? result.RussianTitle : result.Title,
+            _settings.Language == "ru" ? result.RussianBody : result.Body, result.Success);
         _hud.ShowToast(result.Success ? "SCAN COMPLETE" : "SCAN REJECTED",
             result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 2.6f);
         GD.Print($"Scan #{result.TargetId}: {result.Title}");
@@ -208,16 +209,17 @@ public sealed partial class GameMain
     private void OnWarpCompleted(WarpResultMessage result)
     {
         _audio.NavigationCue();
+        var text = _settings.Language == "ru" ? result.RussianMessage : result.Message;
         if (result.Success && _playerShip is not null)
         {
             _playerShip.Track.Reset(result.NewPosition, result.Yaw, result.Pitch);
             _cameraSnap = true;
             _warpCooldown = 8f;
-            _hud.ShowToast(result.Message, new Color(1f, 0.78f, 0.4f), 5f);
+            _hud.ShowToast(text, new Color(1f, 0.78f, 0.4f), 5f);
         }
         else
         {
-            _hud.ShowToast(result.Message, new Color(1f, 0.5f, 0.4f), 4.5f);
+            _hud.ShowToast(text, new Color(1f, 0.5f, 0.4f), 4.5f);
         }
 
         GD.Print($"Warp result: {result.Message}");

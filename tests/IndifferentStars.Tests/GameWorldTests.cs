@@ -10,6 +10,19 @@ namespace IndifferentStars.Tests;
 
 public sealed class GameWorldTests
 {
+    [Fact]
+    public void ScanResultsAreAvailableInRussianAndEnglish()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(12345));
+        var ship = world.AddPlayer("Translator");
+        var english = world.Scan(ship.Id, (uint)world.Catalog.Station.Id, "en");
+        var russian = world.Scan(ship.Id, (uint)world.Catalog.Station.Id, "ru");
+        Assert.True(english.Success);
+        Assert.True(russian.Success);
+        Assert.Equal(english.TargetId, russian.TargetId);
+        Assert.Contains("Orbital station", english.Body);
+        Assert.Contains("Орбитальная станция", russian.Body);
+    }
     private static (GameWorld World, ShipState Ship) NewWorldWithPlayer()
     {
         var world = new GameWorld(WorldCatalog.Generate(777));

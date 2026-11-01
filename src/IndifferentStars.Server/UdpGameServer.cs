@@ -271,12 +271,15 @@ public sealed class UdpGameServer : IDisposable
         session.LastScanAtSeconds = now;
 
         var result = _world.Scan(session.PlayerId, request.TargetId);
+        var russian = _world.Scan(session.PlayerId, request.TargetId, "ru");
         Send(endpoint, new ScanResultMessage(
             request.RequestId,
             result.TargetId,
             result.Success,
             result.Title,
-            result.Body));
+            result.Body,
+            russian.Title,
+            russian.Body));
 
         if (result.Success)
             Log($"{session.Name} scanned {result.Title}.");
@@ -305,7 +308,8 @@ public sealed class UdpGameServer : IDisposable
             result.Message,
             result.NewPosition,
             result.Yaw,
-            result.Pitch);
+            result.Pitch,
+            result.RussianMessage);
         session.LastWarpResult = response;
         Send(endpoint, response);
 

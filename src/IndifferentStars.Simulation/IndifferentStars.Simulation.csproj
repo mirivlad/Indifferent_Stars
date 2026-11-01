@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IndifferentStars.Shared\IndifferentStars.Shared.csproj" />
+    <EmbeddedResource Include="Texts/*.json" />
   </ItemGroup>
 
   <PropertyGroup>
