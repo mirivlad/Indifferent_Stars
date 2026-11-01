@@ -76,6 +76,7 @@ public sealed class CelestialRenderer
 
     public Node3D PlanetHolder => _visuals.Count > 0 ? _visuals[0].Holder : _celestialRoot;
     public float SunEnergy { get => _sunLight.LightEnergy; set => _sunLight.LightEnergy = value; }
+    public bool ShadowsEnabled { get => _sunLight.ShadowEnabled; set => _sunLight.ShadowEnabled = value; }
 
     public void Update(Vec3d observerLocal, Vec3d renderOrigin, float delta)
     {

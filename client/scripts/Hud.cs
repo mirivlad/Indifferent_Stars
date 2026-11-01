@@ -33,6 +33,7 @@ public sealed partial class Hud : CanvasLayer
     private Control _overlay = null!;
     private Label _overlayLabel = null!;
     private Label _overlayHint = null!;
+    private Label _controlsLabel = null!;
 
     private float _toastTime;
     private float _toastDuration;
@@ -187,6 +188,16 @@ public sealed partial class Hud : CanvasLayer
 
     public void SetQuality(bool high) => ShowToast(high ? "QUALITY: HIGH (bloom + atmosphere)" : "QUALITY: LOW (bloom off)", Dim, 2.5f);
 
+    public void SetControls(ClientSettings settings)
+    {
+        string K(string action) => OS.GetKeycodeString(settings.Keys[action]);
+        _controlsLabel.Text =
+            $"[{K("forward")}/{K("reverse")}] {Locale.Text("thrust_hint")}   [{K("left")}/{K("right")}] {Locale.Text("strafe_hint")}\n" +
+            $"[{K("roll_left")}/{K("roll_right")}] {Locale.Text("roll_hint")}  [{K("up")}/{K("down")}] {Locale.Text("vertical_hint")}  [{K("assist")}] ASSIST\n" +
+            $"[{K("target")}] {Locale.Text("target")}  [{K("scan")}] {Locale.Text("scan")}  [{K("approach")}] {Locale.Text("approach")}  [{K("dock")}] {Locale.Text("dock")}\n" +
+            $"[{K("view_2d")}/{K("view_3d")}/{K("view_cockpit")}] 2D / 3D / {Locale.Text("view_cockpit")}   [{K("menu")}] {Locale.Text("menu")}";
+    }
+
     private void BuildTopLeft()
     {
         _connectionPanel = CreatePanel();
@@ -232,14 +243,14 @@ public sealed partial class Hud : CanvasLayer
         Place(panel, 0, 1, new Vector2(24, -154), new Vector2(500, 130));
         _root.AddChild(panel);
 
-        var controls = MakeLabel(
+        _controlsLabel = MakeLabel(
             "[W/S] THRUST   [A/D] STRAFE   [ARROWS/MOUSE] TURN\n" +
             "[Q/E] ROLL  [R/C] UP/DOWN  [Z] ASSIST  [SHIFT] BOOST  [SPACE] BRAKE\n" +
             "[TAB] CONTACT  [F] SCAN  [G] APPROACH  [H] DOCK  [X] WARP\n" +
             "[F1] 2D NAV      [F2] EXTERNAL 3D  [F3] COCKPIT  [F4] QUALITY",
             13, Dim);
-        Place(controls, 0, 0, new Vector2(16, 12), new Vector2(468, 106));
-        panel.AddChild(controls);
+        Place(_controlsLabel, 0, 0, new Vector2(16, 12), new Vector2(468, 106));
+        panel.AddChild(_controlsLabel);
     }
 
     private void BuildTelemetry()

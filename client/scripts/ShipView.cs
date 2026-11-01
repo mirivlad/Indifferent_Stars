@@ -17,6 +17,8 @@ public sealed partial class ShipView : Node3D
     private readonly List<OmniLight3D> _engineLights = new();
     private Node3D? _modelRoot;
     private float _glowPhase;
+    private bool _externalVisible = true;
+    private bool _engineEffects = true;
 
     public ShipView(uint id, bool isPlayer, string name, bool highQuality)
     {
@@ -56,12 +58,19 @@ public sealed partial class ShipView : Node3D
 
     public void SetExternalModelVisible(bool visible)
     {
+        _externalVisible = visible;
         if (_modelRoot is not null)
             _modelRoot.Visible = visible;
         foreach (var glow in _engineGlows)
-            glow.Visible = visible;
+            glow.Visible = visible && _engineEffects;
         foreach (var light in _engineLights)
-            light.Visible = visible;
+            light.Visible = visible && _engineEffects;
+    }
+
+    public void SetEngineEffects(bool enabled)
+    {
+        _engineEffects = enabled;
+        SetExternalModelVisible(_externalVisible);
     }
 
     public static Basis BasisFromAngles(float yaw, float pitch)

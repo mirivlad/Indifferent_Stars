@@ -1,0 +1,12 @@
+{
+  "play":"Start flight", "resume":"Resume", "settings":"Settings", "quit":"Quit", "back":"Back",
+  "graphics":"Graphics", "sound":"Sound", "controls":"Controls", "language":"Language", "network":"Game and network",
+  "fullscreen":"Fullscreen", "render_scale":"3D render scale", "glow":"Glow", "antialiasing":"Antialiasing",
+  "resolution":"Resolution", "auto":"System default", "shadows":"Shadows", "engine_effects":"Engine effects", "sky_detail":"Background detail", "auto_capture":"Capture mouse automatically in 3D", "preset":"Preset", "custom":"Custom", "low":"Low", "medium":"Medium", "high":"High", "ultra":"Ultra",
+  "master":"Master volume", "music":"Music", "engines":"Engines", "effects":"Effects", "ui_audio":"Interface", "radio":"Radio", "sensitivity":"Mouse sensitivity", "invert_x":"Invert X", "invert_y":"Invert Y",
+  "server":"Server address", "callsign":"Callsign", "press_key":"Press a key", "duplicate":"Key already assigned",
+  "thrust_hint":"thrust", "strafe_hint":"strafe", "roll_hint":"roll", "vertical_hint":"up/down", "forward":"Forward thrust", "reverse":"Reverse thrust", "left":"Strafe left", "right":"Strafe right", "up":"Thrust up", "down":"Thrust down",
+  "roll_left":"Roll left", "roll_right":"Roll right", "yaw_left":"Yaw left", "yaw_right":"Yaw right", "pitch_up":"Pitch up", "pitch_down":"Pitch down",
+  "boost":"Boost", "brake":"Brake", "assist":"Flight assist", "view_2d":"2D map", "view_3d":"External view", "view_cockpit":"Cockpit",
+  "quality":"Quality", "target":"Select target", "scan":"Scan", "warp":"Warp", "approach":"Approach", "dock":"Dock", "map_system":"System map", "map_ship":"Center ship", "menu":"Menu / cursor"
+}

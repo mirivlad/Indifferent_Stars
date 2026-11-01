@@ -40,6 +40,9 @@ public sealed partial class GameMain : Node3D
     private PopupMenu _contactMenu = null!;
     private CanvasLayer _stationLayer = null!;
     private Button _undockButton = null!;
+    private ClientSettings _settings = null!;
+    private SettingsMenu _settingsMenu = null!;
+    private ShipAudio _audio = null!;
 
     private readonly Dictionary<uint, ShipView> _remoteShips = new();
     private readonly Dictionary<uint, double> _remoteSeen = new();
@@ -73,8 +76,11 @@ public sealed partial class GameMain : Node3D
         System.Globalization.CultureInfo.DefaultThreadCurrentUICulture =
             System.Globalization.CultureInfo.InvariantCulture;
 
+        _settings = ClientSettings.Load();
+        Locale.Load(_settings.Language);
         ParseCommandLine();
-        AddChild(new ShipAudio { Name = "ShipAudio" });
+        _audio = new ShipAudio { Name = "ShipAudio" };
+        AddChild(_audio);
         _catalog = WorldCatalog.Generate(DefaultSeed);
 
         _staticRoot = new Node3D { Name = "StaticWorld" };
@@ -92,6 +98,26 @@ public sealed partial class GameMain : Node3D
         _hud.SetMode("EXTERNAL 3D", "Connecting to the authoritative server");
         _hud.SetTarget(null, "", 0, 0, false, false);
 
+        _settingsMenu = new SettingsMenu(_settings, ApplySettings, StartConnection);
+        AddChild(_settingsMenu);
+        ApplySettings();
+        if (_captureDir is not null)
+        {
+            _settingsMenu.Visible = false;
+            StartConnection();
+        }
+
+        GetWindow().Title = $"Indifferent Stars — Second Flight — {_playerName}";
+        DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Enabled);
+    }
+
+    private void StartConnection()
+    {
+        if (_net is not null) return;
+        var split = _settings.Server.Split(':', 2);
+        _serverHost = split[0];
+        _serverPort = split.Length > 1 && int.TryParse(split[1], out var port) && port is > 0 and <= 65535 ? port : 7777;
+        _playerName = string.IsNullOrWhiteSpace(_settings.Callsign) ? "Captain" : _settings.Callsign.Trim();
         _net = new NetworkClient(_serverHost, _serverPort, _playerName);
         _net.WelcomeReceived += OnWelcome;
         _net.JoinRejected += OnJoinRejected;
@@ -103,9 +129,43 @@ public sealed partial class GameMain : Node3D
         _net.TransportError += OnTransportError;
         _net.Start();
 
-        GetWindow().Title = $"Indifferent Stars — First Flight — {_playerName}";
-        DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Enabled);
         GD.Print($"Indifferent Stars client: {_playerName} -> {_serverHost}:{_serverPort}");
+    }
+
+    private void ApplySettings()
+    {
+        GetViewport().Scaling3DScale = _settings.RenderScale;
+        GetViewport().Msaa3D = _settings.Antialiasing ? Viewport.Msaa.Msaa2X : Viewport.Msaa.Disabled;
+        var windowMode = _settings.Fullscreen ? DisplayServer.WindowMode.Fullscreen : DisplayServer.WindowMode.Windowed;
+        if (DisplayServer.WindowGetMode() != windowMode) DisplayServer.WindowSetMode(windowMode);
+        var dimensions = _settings.Resolution.Split('x');
+        if (!_settings.Fullscreen && dimensions.Length == 2 && int.TryParse(dimensions[0], out var width) && int.TryParse(dimensions[1], out var height) && width >= 640 && height >= 480)
+        {
+            var size = new Vector2I(width, height);
+            if (DisplayServer.WindowGetSize() != size) DisplayServer.WindowSetSize(size);
+        }
+        SetVolume("Master", _settings.MasterVolume);
+        SetVolume("Music", _settings.MusicVolume);
+        SetVolume("Engines", _settings.EngineVolume);
+        SetVolume("Effects", _settings.EffectsVolume);
+        SetVolume("UI", _settings.UiVolume);
+        SetVolume("Radio", _settings.RadioVolume);
+        _highQuality = _settings.Glow;
+        _worldBuilder?.SetGlowEnabled(_settings.Glow && _mode != ViewMode.Tactical);
+        _worldBuilder?.SetVisualQuality(_settings.Shadows, _settings.SkyDetail);
+        _playerShip?.SetEngineEffects(_settings.EngineEffects);
+        foreach (var ship in _remoteShips.Values) ship.SetEngineEffects(_settings.EngineEffects);
+        _hud.SetControls(_settings);
+    }
+
+    private static void SetVolume(string name, float value)
+    {
+        var bus = AudioServer.GetBusIndex(name);
+        if (bus >= 0)
+        {
+            AudioServer.SetBusMute(bus, value <= 0);
+            AudioServer.SetBusVolumeDb(bus, Mathf.LinearToDb(Mathf.Max(0.0001f, value)));
+        }
     }
 
     public override void _Process(double delta)
@@ -116,6 +176,8 @@ public sealed partial class GameMain : Node3D
 
         _input = ReadInput();
         _net?.Update(delta, _input);
+        var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical), Math.Abs(_input.Roll)));
+        _audio.SetFlight(_playerShip?.Track.Throttle ?? 0, maneuver, _input.Boost, _input.Brake);
 
         if (_playerShip is not null)
         {
@@ -155,52 +217,53 @@ public sealed partial class GameMain : Node3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (_settingsMenu.IsOpen) return;
         if (@event is InputEventKey key && key.Pressed && !key.Echo)
         {
-            switch (key.Keycode)
+            var action = _settings.Keys.FirstOrDefault(pair => pair.Value == key.Keycode).Key;
+            switch (action)
             {
-                case Key.F1:
+                case "view_2d":
                     SetMode(ViewMode.Tactical);
                     break;
-                case Key.F2:
+                case "view_3d":
                     SetMode(ViewMode.External);
                     break;
-                case Key.F3:
+                case "view_cockpit":
                     SetMode(ViewMode.Cockpit);
                     break;
-                case Key.F4:
+                case "quality":
                     ToggleQuality();
                     break;
-                case Key.Tab:
+                case "target":
                     CycleTarget();
                     break;
-                case Key.F:
+                case "scan":
                     RequestScan();
                     break;
-                case Key.X:
+                case "warp":
                     RequestWarp();
                     break;
-                case Key.G:
+                case "approach":
                     RequestApproach();
                     break;
-                case Key.H:
+                case "dock":
                     RequestDock();
                     break;
-                case Key.Z when _mode != ViewMode.Tactical:
+                case "assist" when _mode != ViewMode.Tactical:
                     _flightAssist = !_flightAssist;
                     break;
-                case Key.Home when _mode == ViewMode.Tactical:
+                case "map_ship" when _mode == ViewMode.Tactical:
                     _tactical.CenterOnPlayer();
                     break;
-                case Key.M when _mode == ViewMode.Tactical:
+                case "map_system" when _mode == ViewMode.Tactical:
                     _tactical.ShowSystem();
                     break;
-                case Key.Escape:
-                    if (Input.MouseMode == Input.MouseModeEnum.Captured)
-                        Input.MouseMode = Input.MouseModeEnum.Visible;
-                    else
-                        GetTree().Quit();
-                    break;
+            }
+            if (action == "menu")
+            {
+                if (Input.MouseMode == Input.MouseModeEnum.Captured) Input.MouseMode = Input.MouseModeEnum.Visible;
+                else _settingsMenu.ShowMenu(true);
             }
         }
         else if (@event is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured && _mode != ViewMode.Tactical)
@@ -367,6 +430,7 @@ public sealed partial class GameMain : Node3D
 
         _worldBuilder = new WorldBuilder(_staticRoot, _catalog, _highQuality);
         _worldBuilder.Build();
+        _worldBuilder.SetVisualQuality(_settings.Shadows, _settings.SkyDetail);
         _tactical.Catalog = _catalog;
         GD.Print($"World built: {_catalog.SystemName}, seed {seed}, {_catalog.Asteroids.Count} asteroids.");
     }
@@ -376,6 +440,8 @@ public sealed partial class GameMain : Node3D
         _mode = mode;
         if (mode == ViewMode.Tactical)
             Input.MouseMode = Input.MouseModeEnum.Visible;
+        else if (_settings.AutoCapture && !_settingsMenu.IsOpen)
+            Input.MouseMode = Input.MouseModeEnum.Captured;
         _tactical.Visible = mode == ViewMode.Tactical;
         _tacticalLayer.Visible = mode == ViewMode.Tactical;
         _staticRoot.Visible = mode != ViewMode.Tactical;
@@ -405,6 +471,8 @@ public sealed partial class GameMain : Node3D
     private void ToggleQuality()
     {
         _highQuality = !_highQuality;
+        _settings.Glow = _highQuality;
+        _settings.Save();
         _worldBuilder?.SetGlowEnabled(_highQuality && _mode != ViewMode.Tactical);
         _hud.SetQuality(_highQuality);
     }

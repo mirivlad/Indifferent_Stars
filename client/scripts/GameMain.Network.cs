@@ -30,8 +30,8 @@ public sealed partial class GameMain
 
     private void ParseCommandLine()
     {
-        var server = System.Environment.GetEnvironmentVariable("IS_SERVER") ?? "127.0.0.1:7777";
-        var envName = System.Environment.GetEnvironmentVariable("IS_NAME");
+        var server = System.Environment.GetEnvironmentVariable("IS_SERVER") ?? _settings.Server;
+        var envName = System.Environment.GetEnvironmentVariable("IS_NAME") ?? _settings.Callsign;
         var envQuality = System.Environment.GetEnvironmentVariable("IS_QUALITY");
 
         var args = OS.GetCmdlineUserArgs();
@@ -82,10 +82,13 @@ public sealed partial class GameMain
         if (split.Length > 1 && int.TryParse(split[1], out var port))
             _serverPort = port;
 
-        _highQuality = !string.Equals(envQuality, "low", StringComparison.OrdinalIgnoreCase);
+        _highQuality = envQuality is null ? _settings.Glow : !string.Equals(envQuality, "low", StringComparison.OrdinalIgnoreCase);
+        _settings.Glow = _highQuality;
         _playerName = string.IsNullOrWhiteSpace(envName)
             ? $"Captain-{new Random().Next(101, 999)}"
             : envName!.Trim();
+        _settings.Server = server;
+        _settings.Callsign = _playerName;
 
         if (_captureDir is not null)
         {
@@ -96,21 +99,21 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
-        if (_mode == ViewMode.Tactical || _playerShip?.Track.Docked == true)
+        if (_settingsMenu.IsOpen || _mode == ViewMode.Tactical || _playerShip?.Track.Docked == true)
             return InputState.None with { FlightAssist = _flightAssist };
-        var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
-        var steer = (Input.IsKeyPressed(Key.Left) ? 1f : 0f) - (Input.IsKeyPressed(Key.Right) ? 1f : 0f);
-        var pitch = (Input.IsKeyPressed(Key.Up) ? 1f : 0f) - (Input.IsKeyPressed(Key.Down) ? 1f : 0f);
+        var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
+        var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
+        var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
         if (_mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
         {
-            steer = Mathf.Clamp(steer - _mouseTurn.X * 0.025f, -1, 1);
-            pitch = Mathf.Clamp(pitch - _mouseTurn.Y * 0.025f, -1, 1);
+            steer = Mathf.Clamp(steer - _mouseTurn.X * _settings.MouseSensitivity * (_settings.InvertX ? -1 : 1), -1, 1);
+            pitch = Mathf.Clamp(pitch - _mouseTurn.Y * _settings.MouseSensitivity * (_settings.InvertY ? -1 : 1), -1, 1);
         }
-        var vertical = (Input.IsKeyPressed(Key.R) ? 1f : 0f) - (Input.IsKeyPressed(Key.C) ? 1f : 0f);
-        var strafe = (Input.IsKeyPressed(Key.D) ? 1f : 0f) - (Input.IsKeyPressed(Key.A) ? 1f : 0f);
-        var roll = (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
-        var boost = Input.IsKeyPressed(Key.Shift);
-        var brake = Input.IsKeyPressed(Key.Space);
+        var vertical = (_settings.Pressed("up") ? 1f : 0f) - (_settings.Pressed("down") ? 1f : 0f);
+        var strafe = (_settings.Pressed("right") ? 1f : 0f) - (_settings.Pressed("left") ? 1f : 0f);
+        var roll = (_settings.Pressed("roll_left") ? 1f : 0f) - (_settings.Pressed("roll_right") ? 1f : 0f);
+        var boost = _settings.Pressed("boost");
+        var brake = _settings.Pressed("brake");
         return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist);
     }
 
@@ -132,6 +135,7 @@ public sealed partial class GameMain
                 staleView.QueueFree();
 
             _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality);
+            _playerShip.SetEngineEffects(_settings.EngineEffects);
             _dynamicRoot.AddChild(_playerShip);
             _cockpit = new CockpitView { Visible = false };
             _playerShip.AddChild(_cockpit);
@@ -180,6 +184,7 @@ public sealed partial class GameMain
             if (!_remoteShips.TryGetValue(entity.Id, out var view))
             {
                 view = new ShipView(entity.Id, false, entity.Name, _highQuality);
+                view.SetEngineEffects(_settings.EngineEffects);
                 _remoteRoot.AddChild(view);
                 _remoteShips[entity.Id] = view;
                 GD.Print($"Tracked {(entity.Kind == EntityKind.Player ? "player" : "NPC")} {entity.Name} #{entity.Id}.");
@@ -193,6 +198,7 @@ public sealed partial class GameMain
 
     private void OnScanCompleted(ScanResultMessage result)
     {
+        _audio.NavigationCue();
         _hud.ShowScanResult(result.Title, result.Body, result.Success);
         _hud.ShowToast(result.Success ? "SCAN COMPLETE" : "SCAN REJECTED",
             result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 2.6f);
@@ -201,6 +207,7 @@ public sealed partial class GameMain
 
     private void OnWarpCompleted(WarpResultMessage result)
     {
+        _audio.NavigationCue();
         if (result.Success && _playerShip is not null)
         {
             _playerShip.Track.Reset(result.NewPosition, result.Yaw, result.Pitch);
@@ -218,12 +225,14 @@ public sealed partial class GameMain
 
     private void OnApproachCompleted(ApproachResultMessage result)
     {
+        _audio.NavigationCue();
         _hud.ShowToast(result.Accepted ? "AUTOPILOT ENGAGED" : "APPROACH UNAVAILABLE",
             result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
     }
 
     private void OnDockCompleted(DockResultMessage result)
     {
+        _audio.NavigationCue();
         var message = result.Accepted ? (result.Undock ? "UNDOCKING APPROVED" : "DOCKING CLEARANCE GRANTED") : "DOCKING REQUEST REJECTED";
         _hud.ShowToast(message, result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
     }
