@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IndifferentStars.Server/IndifferentStars.Server.csproj" />
+    <Project Path="src/IndifferentStars.Shared/IndifferentStars.Shared.csproj" />
+    <Project Path="src/IndifferentStars.Simulation/IndifferentStars.Simulation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IndifferentStars.Tests/IndifferentStars.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,21 @@
+# .NET build output
+bin/
+obj/
+*.user
+
+# Godot
+.godot/
+.mono/
+client/.godot/
+client/.mono/
+export_presets.cfg.bak
+
+# Local run artifacts
+logs/
+*.log
+
+# OS / editor noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
