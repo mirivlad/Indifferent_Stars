@@ -288,7 +288,7 @@ public sealed partial class GameMain
         _hud.SetScanPending(contact.Name);
     }
 
-    private void RequestWarp()
+    private void RequestWarp(ushort distance = 1000)
     {
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
@@ -302,7 +302,7 @@ public sealed partial class GameMain
             return;
         }
 
-        _net.RequestWarp(_targetId);
+        _net.RequestWarp(_targetId, distance);
         _hud.ShowToast($"WARP DRIVE SPOOLING — {contact.Name}", new Color(1f, 0.78f, 0.4f), 2.2f);
     }
 

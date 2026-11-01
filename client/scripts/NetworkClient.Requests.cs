@@ -7,7 +7,7 @@ namespace IndifferentStars.Client;
 public sealed partial class NetworkClient
 {
     private (uint Id, uint Target, double StartedAt, double LastResendAt)? _pendingScan;
-    private (uint Id, uint Target, double StartedAt, double LastResendAt)? _pendingWarp;
+    private (uint Id, uint Target, ushort Distance, double StartedAt, double LastResendAt)? _pendingWarp;
     private double _lastPingSeconds;
 
     public bool IsScanPending => _pendingScan.HasValue;
@@ -37,15 +37,15 @@ public sealed partial class NetworkClient
         Send(new PingMessage(Time.GetTicksMsec()));
     }
 
-    public void RequestWarp(uint targetId)
+    public void RequestWarp(uint targetId, ushort distance = 1000)
     {
         if (State != ConnectionState.Connected || _pendingWarp.HasValue)
             return;
 
         var now = NowSeconds();
         var id = _requestSequence++;
-        _pendingWarp = (id, targetId, now, now);
-        Send(new WarpRequestMessage(id, targetId));
+        _pendingWarp = (id, targetId, distance, now, now);
+        Send(new WarpRequestMessage(id, targetId, distance));
     }
 
     private void UpdatePendingRequests()
@@ -82,8 +82,8 @@ public sealed partial class NetworkClient
             }
             else if (now - warp.LastResendAt > 0.4)
             {
-                _pendingWarp = (warp.Id, warp.Target, warp.StartedAt, now);
-                Send(new WarpRequestMessage(warp.Id, warp.Target));
+                _pendingWarp = (warp.Id, warp.Target, warp.Distance, warp.StartedAt, now);
+                Send(new WarpRequestMessage(warp.Id, warp.Target, warp.Distance));
             }
         }
     }

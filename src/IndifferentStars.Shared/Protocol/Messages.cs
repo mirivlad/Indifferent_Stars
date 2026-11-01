@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 4;
+    public const byte Version = 5;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -129,7 +129,7 @@ public sealed record ScanResultMessage(
     public MessageType Type => MessageType.ScanResult;
 }
 
-public sealed record WarpRequestMessage(uint RequestId, uint TargetId) : IProtocolMessage
+public sealed record WarpRequestMessage(uint RequestId, uint TargetId, ushort ArrivalDistance = 1000) : IProtocolMessage
 {
     public MessageType Type => MessageType.WarpRequest;
 }

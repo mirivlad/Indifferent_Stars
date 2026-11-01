@@ -25,7 +25,7 @@ public sealed class ProtocolTests
             }),
             new ScanRequestMessage(9, 1001),
             new ScanResultMessage(9, 1001, true, "Asteroid KV-1001", "Composition: silicate 40%"),
-            new WarpRequestMessage(10, 2),
+            new WarpRequestMessage(10, 2, 500),
             new WarpResultMessage(10, 2, true, "Short warp complete", new Vec3d(11000, -1000, -7000), 0.2f, -0.1f),
             new PingMessage(987654321),
             new PongMessage(987654321),

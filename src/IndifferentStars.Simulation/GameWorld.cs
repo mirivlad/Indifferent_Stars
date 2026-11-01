@@ -209,13 +209,15 @@ public sealed class GameWorld
         return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance));
     }
 
-    public WarpOutcome Warp(uint playerId, uint targetId)
+    public WarpOutcome Warp(uint playerId, uint targetId, ushort arrivalDistance = 1000)
     {
         var player = GetPlayer(playerId);
         if (player is null)
             return WarpFail(targetId, "Unknown or unowned ship.");
         if (player.Docked)
             return WarpFail(targetId, "Undock before using warp.");
+        if (arrivalDistance is not (500 or 1000 or 5000))
+            return WarpFail(targetId, "Invalid arrival distance.");
 
         var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
         var body = Catalog.Find((int)targetId);
@@ -240,16 +242,25 @@ public sealed class GameWorld
         if (distance > WorldCatalog.WarpRange)
             return WarpFail(targetId, $"Target beyond warp range ({distance / 1000:F1} km > {WorldCatalog.WarpRange / 1000:F0} km).");
 
-        var arrivalOffset = Math.Max(650, targetRadius + 750);
+        var arrivalOffset = targetRadius + arrivalDistance;
         if (distance <= arrivalOffset + 250)
             return WarpFail(targetId, "Already inside safe arrival distance.");
 
         var direction = (targetPosition - player.Position).Normalized();
         var arrival = targetPosition - direction * arrivalOffset;
+        const double clearance = 20;
+        if (Catalog.LocalBodies.Any(other => Vec3d.Distance(arrival, other.Position) < other.Radius + clearance) ||
+            _npcs.Any(other => Vec3d.Distance(arrival, other.Position) < 20 + clearance) ||
+            _players.Values.Any(other => other.Id != playerId && Vec3d.Distance(arrival, other.Position) < 2 * clearance) ||
+            new[] { Catalog.Star, Catalog.Planet }.Any(other =>
+                Vec3d.Distance(ToSystemPosition(arrival), other.SystemPosition) < other.Radius + clearance))
+            return WarpFail(targetId, "Arrival point obstructed.");
         var toTarget = (targetPosition - arrival).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toTarget);
 
         player.Position = arrival;
+        player.ApproachTargetId = 0;
+        player.DockingGranted = false;
         player.Velocity = toTarget * 60.0;
         player.SetAngles(yaw, pitch);
         player.Throttle = 0.2;
@@ -259,7 +270,7 @@ public sealed class GameWorld
         return new WarpOutcome(
             true,
             targetId,
-            $"Short warp complete — {label} at {(distance - arrivalOffset) / 1000:F0} km.",
+            $"Short warp complete — {label}, {arrivalDistance / 1000.0:F1} km from surface.",
             arrival,
             (float)yaw,
             (float)pitch);

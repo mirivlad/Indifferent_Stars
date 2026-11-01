@@ -288,19 +288,26 @@ public sealed class UdpGameServer : IDisposable
             return;
 
         session.LastSeenSeconds = now;
+        if (session.LastWarpResult is { } previous && previous.RequestId == request.RequestId)
+        {
+            Send(endpoint, previous);
+            return;
+        }
         if (now - session.LastWarpAtSeconds < 0.4)
             return;
         session.LastWarpAtSeconds = now;
 
-        var result = _world.Warp(session.PlayerId, request.TargetId);
-        Send(endpoint, new WarpResultMessage(
+        var result = _world.Warp(session.PlayerId, request.TargetId, request.ArrivalDistance);
+        var response = new WarpResultMessage(
             request.RequestId,
             result.TargetId,
             result.Success,
             result.Message,
             result.NewPosition,
             result.Yaw,
-            result.Pitch));
+            result.Pitch);
+        session.LastWarpResult = response;
+        Send(endpoint, response);
 
         Log($"{session.Name} warp request -> {result.Message}");
     }

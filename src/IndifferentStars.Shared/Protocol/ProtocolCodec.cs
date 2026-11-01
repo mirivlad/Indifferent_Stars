@@ -101,6 +101,7 @@ public static class ProtocolCodec
             case WarpRequestMessage warpRequest:
                 writer.Write(warpRequest.RequestId);
                 writer.Write(warpRequest.TargetId);
+                writer.Write(warpRequest.ArrivalDistance);
                 break;
 
             case WarpResultMessage warpResult:
@@ -240,7 +241,8 @@ public static class ProtocolCodec
 
                 MessageType.WarpRequest => new WarpRequestMessage(
                     reader.ReadUInt32(),
-                    reader.ReadUInt32()),
+                    reader.ReadUInt32(),
+                    reader.ReadUInt16()),
 
                 MessageType.WarpResult => new WarpResultMessage(
                     reader.ReadUInt32(),

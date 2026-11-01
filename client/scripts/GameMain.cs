@@ -313,14 +313,18 @@ public sealed partial class GameMain : Node3D
         _contactMenu = new PopupMenu();
         _contactMenu.AddItem("Approach", 1);
         _contactMenu.AddItem("Scan", 2);
-        _contactMenu.AddItem("Short warp", 3);
+        _contactMenu.AddItem("Warp to 1 km", 3);
         _contactMenu.AddItem("Request docking", 4);
+        _contactMenu.AddItem("Warp to 500 m", 5);
+        _contactMenu.AddItem("Warp to 5 km", 6);
         _contactMenu.IdPressed += id =>
         {
             if (id == 1) RequestApproach();
             else if (id == 2) RequestScan();
             else if (id == 3) RequestWarp();
             else if (id == 4) RequestDock();
+            else if (id == 5) RequestWarp(500);
+            else if (id == 6) RequestWarp(5000);
         };
         AddChild(_contactMenu);
 
