@@ -17,4 +17,5 @@ public sealed class PlayerSession
     public double LastScanAtSeconds { get; set; } = -100;
     public double LastWarpAtSeconds { get; set; } = -100;
     public WarpResultMessage? LastWarpResult { get; set; }
+    public TradeResultMessage? LastTradeResult { get; set; }
 }

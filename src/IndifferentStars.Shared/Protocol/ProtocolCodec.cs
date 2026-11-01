@@ -177,6 +177,30 @@ public static class ProtocolCodec
                 writer.Write(dockResult.Accepted);
                 break;
 
+            case MarketRequestMessage marketRequest:
+                writer.Write(marketRequest.RequestId);
+                break;
+
+            case MarketStateMessage marketState:
+                writer.Write(marketState.RequestId);
+                WriteMarketState(writer, marketState.State);
+                break;
+
+            case TradeRequestMessage tradeRequest:
+                writer.Write(tradeRequest.RequestId);
+                writer.Write(tradeRequest.CommodityId);
+                writer.Write(tradeRequest.Quantity);
+                writer.Write(tradeRequest.Buy);
+                break;
+
+            case TradeResultMessage tradeResult:
+                writer.Write(tradeResult.RequestId);
+                writer.Write(tradeResult.Success);
+                WriteString(writer, tradeResult.Message, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, tradeResult.RussianMessage, ProtocolConstants.MaxStringBytes);
+                WriteMarketState(writer, tradeResult.State);
+                break;
+
             default:
                 throw new ArgumentException($"Unsupported message type {message.GetType().Name}.");
         }
@@ -299,6 +323,20 @@ public static class ProtocolCodec
                 MessageType.DockRequest => new DockRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.DockResult => new DockResultMessage(reader.ReadBoolean(), reader.ReadBoolean()),
 
+                MessageType.MarketRequest => new MarketRequestMessage(reader.ReadUInt32()),
+                MessageType.MarketState => new MarketStateMessage(reader.ReadUInt32(), ReadMarketState(reader)),
+                MessageType.TradeRequest => new TradeRequestMessage(
+                    reader.ReadUInt32(),
+                    reader.ReadUInt16(),
+                    reader.ReadInt32(),
+                    reader.ReadBoolean()),
+                MessageType.TradeResult => new TradeResultMessage(
+                    reader.ReadUInt32(),
+                    reader.ReadBoolean(),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadMarketState(reader)),
+
                 _ => throw new InvalidDataException($"Unknown message type {(byte)type}."),
             };
 
@@ -361,6 +399,47 @@ public static class ProtocolCodec
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
+    }
+
+    private static void WriteMarketState(BinaryWriter writer, MarketState state)
+    {
+        if (state.Entries.Length > ProtocolConstants.MaxMarketEntries)
+            throw new ArgumentException("Too many market entries.");
+        writer.Write(state.Credits);
+        writer.Write(state.CargoUsed);
+        writer.Write(state.CargoCapacity);
+        writer.Write((ushort)state.Entries.Length);
+        foreach (var entry in state.Entries)
+        {
+            writer.Write(entry.CommodityId);
+            writer.Write(entry.StationStock);
+            writer.Write(entry.PlayerQuantity);
+        }
+    }
+
+    private static MarketState ReadMarketState(BinaryReader reader)
+    {
+        var credits = reader.ReadInt32();
+        var cargoUsed = reader.ReadInt32();
+        var capacity = reader.ReadInt32();
+        var count = reader.ReadUInt16();
+        if (count > ProtocolConstants.MaxMarketEntries)
+            throw new InvalidDataException($"Market entry count {count} exceeds limit.");
+        if (credits < 0 || cargoUsed < 0 || capacity < 0 || cargoUsed > capacity)
+            throw new InvalidDataException("Invalid market account values.");
+
+        var entries = new MarketEntry[count];
+        for (var i = 0; i < count; i++)
+        {
+            var id = reader.ReadUInt16();
+            var stock = reader.ReadInt32();
+            var quantity = reader.ReadInt32();
+            if (stock < 0 || quantity < 0)
+                throw new InvalidDataException("Negative market quantity.");
+            entries[i] = new MarketEntry(id, stock, quantity);
+        }
+
+        return new MarketState(credits, cargoUsed, capacity, entries);
     }
 
     private static void WriteGuid(BinaryWriter writer, Guid value) => writer.Write(value.ToByteArray());

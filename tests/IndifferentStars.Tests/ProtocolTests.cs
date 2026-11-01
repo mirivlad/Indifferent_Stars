@@ -34,6 +34,15 @@ public sealed class ProtocolTests
             new ApproachResultMessage(1001, true),
             new DockRequestMessage(3, false),
             new DockResultMessage(false, true),
+            new MarketRequestMessage(11),
+            new MarketStateMessage(11, new MarketState(5000, 2, 40, new[]
+            {
+                new MarketEntry(1, 158, 2),
+                new MarketEntry(2, 120, 0),
+            })),
+            new TradeRequestMessage(12, 1, 2, true),
+            new TradeResultMessage(12, true, "Purchased water ×2 for 24 credits.", "Куплено: вода ×2 за 24 кредитов.",
+                new MarketState(4976, 2, 40, new[] { new MarketEntry(1, 158, 2) })),
         };
         return data;
     }
@@ -54,10 +63,31 @@ public sealed class ProtocolTests
             Assert.Equal(snapshot.ServerTimeMs, decodedSnapshot.ServerTimeMs);
             Assert.Equal(snapshot.Entities, decodedSnapshot.Entities);
         }
+        else if (original is MarketStateMessage market && decoded is MarketStateMessage decodedMarket)
+        {
+            Assert.Equal(market.RequestId, decodedMarket.RequestId);
+            AssertMarketState(market.State, decodedMarket.State);
+        }
+        else if (original is TradeResultMessage trade && decoded is TradeResultMessage decodedTrade)
+        {
+            Assert.Equal(trade.RequestId, decodedTrade.RequestId);
+            Assert.Equal(trade.Success, decodedTrade.Success);
+            Assert.Equal(trade.Message, decodedTrade.Message);
+            Assert.Equal(trade.RussianMessage, decodedTrade.RussianMessage);
+            AssertMarketState(trade.State, decodedTrade.State);
+        }
         else
         {
             Assert.Equal(original, decoded);
         }
+    }
+
+    private static void AssertMarketState(MarketState expected, MarketState actual)
+    {
+        Assert.Equal(expected.Credits, actual.Credits);
+        Assert.Equal(expected.CargoUsed, actual.CargoUsed);
+        Assert.Equal(expected.CargoCapacity, actual.CargoCapacity);
+        Assert.Equal(expected.Entries, actual.Entries);
     }
 
     [Fact]

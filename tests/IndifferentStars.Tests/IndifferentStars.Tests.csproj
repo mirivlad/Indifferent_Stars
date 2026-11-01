@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\IndifferentStars.Shared\IndifferentStars.Shared.csproj" />
     <ProjectReference Include="..\..\src\IndifferentStars.Simulation\IndifferentStars.Simulation.csproj" />
+    <ProjectReference Include="..\..\src\IndifferentStars.Server\IndifferentStars.Server.csproj" />
   </ItemGroup>
 
 </Project>

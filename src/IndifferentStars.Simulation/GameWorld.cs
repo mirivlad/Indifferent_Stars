@@ -18,6 +18,12 @@ public sealed record WarpOutcome(
     float Pitch,
     string RussianMessage = "");
 
+public sealed record TradeOutcome(
+    bool Success,
+    string Message,
+    string RussianMessage,
+    MarketState? State);
+
 /// <summary>
 /// Authoritative, engine-independent world state. Fixed-step and free of Godot types.
 /// </summary>
@@ -29,14 +35,24 @@ public sealed class GameWorld
         public double AgeSeconds = 999;
     }
 
+    private sealed class PlayerAccount
+    {
+        public int Credits = CommodityCatalog.StartingCredits;
+        public readonly Dictionary<ushort, int> Cargo = new();
+    }
+
     private readonly Dictionary<uint, ShipState> _players = new();
     private readonly Dictionary<uint, PlayerInputSlot> _inputs = new();
+    private readonly Dictionary<uint, PlayerAccount> _accounts = new();
+    private readonly Dictionary<ushort, int> _stationStock = new();
     private readonly List<ShipState> _npcs = new();
     private uint _nextPlayerId = 10000;
 
     public GameWorld(WorldCatalog catalog)
     {
         Catalog = catalog;
+        foreach (var commodity in CommodityCatalog.All)
+            _stationStock[commodity.Id] = commodity.InitialStock;
         SpawnNpcs();
     }
 
@@ -71,12 +87,14 @@ public sealed class GameWorld
 
         _players.Add(ship.Id, ship);
         _inputs[ship.Id] = new PlayerInputSlot();
+        _accounts[ship.Id] = new PlayerAccount();
         return ship;
     }
 
     public bool RemovePlayer(uint playerId)
     {
         _inputs.Remove(playerId);
+        _accounts.Remove(playerId);
         return _players.Remove(playerId);
     }
 
@@ -140,6 +158,111 @@ public sealed class GameWorld
         return true;
     }
 
+    /// <summary>Current station market and account snapshot for one player.</summary>
+    public MarketState? GetMarket(uint playerId) =>
+        _accounts.TryGetValue(playerId, out var account) ? BuildMarket(account) : null;
+
+    /// <summary>
+    /// Executes a buy or sell order against the station's in-memory stock.
+    /// The server owns credits, cargo and stock; clients only send intents.
+    /// </summary>
+    public TradeOutcome Trade(uint playerId, ushort commodityId, int quantity, bool buy)
+    {
+        var player = GetPlayer(playerId);
+        if (player is null || !_accounts.TryGetValue(playerId, out var account))
+            return TradeFail(null, "trade_invalid");
+        if (!player.Docked)
+            return TradeFail(account, "trade_not_docked");
+        if (quantity <= 0 || quantity > CommodityCatalog.MaxTradeQuantity)
+            return TradeFail(account, "trade_invalid");
+
+        var commodity = CommodityCatalog.Find(commodityId);
+        if (commodity is null)
+            return TradeFail(account, "trade_unknown");
+
+        var stock = _stationStock.GetValueOrDefault(commodityId);
+        var held = account.Cargo.GetValueOrDefault(commodityId);
+        var cargoUsed = CargoUsed(account);
+        var name = commodity.Key;
+
+        if (buy)
+        {
+            var total = commodity.BuyPrice * quantity;
+            if (total > account.Credits)
+                return TradeFail(account, "trade_no_credits", name);
+            if (stock < quantity)
+                return TradeFail(account, "trade_no_stock", name);
+            if (cargoUsed + quantity > CommodityCatalog.CargoCapacity)
+                return TradeFail(account, "trade_no_space", name);
+
+            account.Credits -= total;
+            account.Cargo[commodityId] = held + quantity;
+            _stationStock[commodityId] = stock - quantity;
+            return TradeSuccess(account, "trade_bought", name, quantity, total);
+        }
+
+        if (held < quantity)
+            return TradeFail(account, "trade_no_cargo", name);
+        var revenue = commodity.SellPrice * quantity;
+        account.Credits += revenue;
+        account.Cargo[commodityId] = held - quantity;
+        _stationStock[commodityId] = stock + quantity;
+        return TradeSuccess(account, "trade_sold", name, quantity, revenue);
+    }
+
+    private MarketState BuildMarket(PlayerAccount account)
+    {
+        var entries = new MarketEntry[CommodityCatalog.All.Count];
+        for (var i = 0; i < entries.Length; i++)
+        {
+            var commodity = CommodityCatalog.All[i];
+            entries[i] = new MarketEntry(
+                commodity.Id,
+                _stationStock.GetValueOrDefault(commodity.Id),
+                account.Cargo.GetValueOrDefault(commodity.Id));
+        }
+
+        return new MarketState(account.Credits, CargoUsed(account), CommodityCatalog.CargoCapacity, entries);
+    }
+
+    private static int CargoUsed(PlayerAccount account)
+    {
+        var used = 0;
+        foreach (var quantity in account.Cargo.Values)
+            used += quantity;
+        return used;
+    }
+
+    private TradeOutcome TradeSuccess(PlayerAccount account, string key, string commodityKey, int quantity, int total)
+    {
+        var enArgs = new object[] { ServerText.Get("en", "commodity_" + commodityKey), quantity, total };
+        var ruArgs = new object[] { ServerText.Get("ru", "commodity_" + commodityKey), quantity, total };
+        return new TradeOutcome(
+            true,
+            ServerText.Get("en", key, enArgs),
+            ServerText.Get("ru", key, ruArgs),
+            BuildMarket(account));
+    }
+
+    private TradeOutcome TradeFail(PlayerAccount? account, string key, string? commodityKey = null, params object[] args)
+    {
+        var enArgs = new List<object>(args.Length + 1);
+        var ruArgs = new List<object>(args.Length + 1);
+        if (commodityKey is not null)
+        {
+            enArgs.Add(ServerText.Get("en", "commodity_" + commodityKey));
+            ruArgs.Add(ServerText.Get("ru", "commodity_" + commodityKey));
+        }
+        enArgs.AddRange(args);
+        ruArgs.AddRange(args);
+
+        return new TradeOutcome(
+            false,
+            ServerText.Get("en", key, enArgs.ToArray()),
+            ServerText.Get("ru", key, ruArgs.ToArray()),
+            account is null ? null : BuildMarket(account));
+    }
+
     public void Tick(double dt)
     {
         foreach (var (id, ship) in _players)
@@ -195,6 +318,39 @@ public sealed class GameWorld
         var entities = new List<EntitySnapshot>(_players.Count + _npcs.Count);
         entities.AddRange(_players.Values.Select(ToSnapshot));
         entities.AddRange(_npcs.Select(ToSnapshot));
+        entities.Sort((a, b) => a.Id.CompareTo(b.Id));
+        return entities.ToArray();
+    }
+
+    /// <summary>
+    /// Snapshot for one viewer. The viewer always sees its own ship; other
+    /// entities are included only inside <see cref="WorldCatalog.RelevanceRange"/>.
+    /// This is the first, deliberately simple interest-management slice.
+    /// </summary>
+    public EntitySnapshot[] BuildSnapshot(uint viewerId)
+    {
+        var viewer = GetPlayer(viewerId);
+        if (viewer is null)
+            return Array.Empty<EntitySnapshot>();
+
+        var entities = new List<EntitySnapshot>(_players.Count + _npcs.Count)
+        {
+            ToSnapshot(viewer),
+        };
+
+        foreach (var player in _players.Values)
+        {
+            if (player.Id != viewerId &&
+                Vec3d.Distance(viewer.Position, player.Position) <= WorldCatalog.RelevanceRange)
+                entities.Add(ToSnapshot(player));
+        }
+
+        foreach (var npc in _npcs)
+        {
+            if (Vec3d.Distance(viewer.Position, npc.Position) <= WorldCatalog.RelevanceRange)
+                entities.Add(ToSnapshot(npc));
+        }
+
         entities.Sort((a, b) => a.Id.CompareTo(b.Id));
         return entities.ToArray();
     }
@@ -406,6 +562,13 @@ public sealed class GameWorld
             },
             84,
             2));
+
+        if (Catalog.Sectors.Count > 1)
+        {
+            var belt = Catalog.Sectors[1].Center;
+            AddOrbitNpc("Belt Runner", "Prospector", belt, 1500, 180, 1.3, 74, 0.4);
+            AddOrbitNpc("Iron Vigil", "Patrol", belt, 2300, 220, 3.9, 92, 0.8);
+        }
     }
 
     private void AddOrbitNpc(string name, string role, Vec3d center, double radius, double height, double phase, double speed, double startPhase)

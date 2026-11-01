@@ -17,6 +17,7 @@ public sealed class WarpSafetyTests
             SectorKind = generated.SectorKind, LocalFrameOrigin = generated.LocalFrameOrigin,
             Star = generated.Star, Planet = generated.Planet, Station = generated.Station,
             Asteroids = obstructed ? new[] { target, blocker } : new[] { target },
+            Sectors = generated.Sectors,
         };
         var world = new GameWorld(catalog);
         var ship = world.AddPlayer("Warp test");

@@ -14,6 +14,7 @@ public static class ProtocolConstants
     public const int MaxEntitiesPerSnapshot = 64;
     public const int MaxStringBytes = 256;
     public const int MaxTextBytes = 4000;
+    public const int MaxMarketEntries = 16;
 
     public static readonly TimeSpan SessionTimeout = TimeSpan.FromSeconds(10);
 }
@@ -36,6 +37,10 @@ public enum MessageType : byte
     ApproachResult = 14,
     DockRequest = 15,
     DockResult = 16,
+    MarketRequest = 17,
+    MarketState = 18,
+    TradeRequest = 19,
+    TradeResult = 20,
 }
 
 public enum EntityKind : byte
@@ -185,4 +190,39 @@ public sealed record DockRequestMessage(uint TargetId, bool Undock) : IProtocolM
 public sealed record DockResultMessage(bool Undock, bool Accepted) : IProtocolMessage
 {
     public MessageType Type => MessageType.DockResult;
+}
+
+/// <summary>One row of the station market as seen by a specific player.</summary>
+public sealed record MarketEntry(ushort CommodityId, int StationStock, int PlayerQuantity)
+{
+}
+
+/// <summary>Player account and the station stock snapshot. Server-authoritative.</summary>
+public sealed record MarketState(int Credits, int CargoUsed, int CargoCapacity, MarketEntry[] Entries)
+{
+}
+
+public sealed record MarketRequestMessage(uint RequestId) : IProtocolMessage
+{
+    public MessageType Type => MessageType.MarketRequest;
+}
+
+public sealed record MarketStateMessage(uint RequestId, MarketState State) : IProtocolMessage
+{
+    public MessageType Type => MessageType.MarketState;
+}
+
+public sealed record TradeRequestMessage(uint RequestId, ushort CommodityId, int Quantity, bool Buy) : IProtocolMessage
+{
+    public MessageType Type => MessageType.TradeRequest;
+}
+
+public sealed record TradeResultMessage(
+    uint RequestId,
+    bool Success,
+    string Message,
+    string RussianMessage,
+    MarketState State) : IProtocolMessage
+{
+    public MessageType Type => MessageType.TradeResult;
 }
