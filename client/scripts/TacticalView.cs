@@ -36,6 +36,7 @@ public sealed partial class TacticalView : Control
     public uint PlayerId { get; set; }
     public uint TargetId { get; set; }
     public bool HasTarget { get; set; }
+    public uint ApproachTargetId { get; set; }
     public float ZoomRange { get; set; } = 8500f;
     public List<TacticalContact> Contacts { get; } = new();
 
@@ -66,9 +67,10 @@ public sealed partial class TacticalView : Control
         DrawGrid(center, scale, size);
         DrawRangeRings(center, scale, size);
         DrawAsteroids(center, scale, size);
+        if (ApproachTargetId != 0 && Catalog?.Find((int)ApproachTargetId) is { } destination)
+            DrawLine(center, Project(center, scale, ToVector3(destination.Position)), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
         DrawContactLabels(center, scale, size);
         DrawPlayer(center, scale);
-        DrawAltitudeGauge(size);
         FlushLabels();
     }
 
@@ -264,37 +266,6 @@ public sealed partial class TacticalView : Control
 
         DrawLabel("YOU", center + new Vector2(0, 26), PlayerColor, 12);
         DrawLabel($"ALT {(PlayerAltitude >= 0 ? "+" : "")}{PlayerAltitude:F0} m", center + new Vector2(0, 40), TextDim, 11);
-    }
-
-    private void DrawAltitudeGauge(Vector2 size)
-    {
-        var x = size.X - 46;
-        var centerY = size.Y * 0.47f;
-        var half = 95f;
-        DrawLine(new Vector2(x, centerY - half), new Vector2(x, centerY + half), new Color(0.4f, 0.65f, 0.8f, 0.4f), 1.0f);
-        for (var i = -2; i <= 2; i++)
-            DrawLine(new Vector2(x - 5, centerY + i * half / 2), new Vector2(x + 5, centerY + i * half / 2), TextDim, 1.0f);
-
-        var normalized = Mathf.Clamp(PlayerAltitude / 4000f, -1f, 1f);
-        var markerY = centerY - normalized * half;
-        DrawColoredPolygon(new[]
-        {
-            new Vector2(x - 10, markerY),
-            new Vector2(x - 3, markerY - 5),
-            new Vector2(x - 3, markerY + 5),
-        }, PlayerColor);
-        DrawLabel("ALT", new Vector2(x - 14, centerY - half - 18), TextDim, 11);
-
-        if (HasTarget)
-        {
-            var target = Contacts.Find(c => c.Id == TargetId);
-            if (target is not null)
-            {
-                var targetAlt = target.Position.Y - PlayerPosition.Y;
-                var targetMarker = centerY - Mathf.Clamp(targetAlt / 4000f, -1f, 1f) * half;
-                DrawLine(new Vector2(x + 5, targetMarker), new Vector2(x + 12, targetMarker), new Color(0.45f, 1f, 0.65f), 2.0f);
-            }
-        }
     }
 
     private void DrawAltitudeTick(Vector2 screen, float relativeAltitude, Color color)

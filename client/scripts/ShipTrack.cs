@@ -33,6 +33,7 @@ public sealed class ShipTrack
     public bool HasData => _points.Count > 0;
     public string Name { get; private set; } = string.Empty;
     public EntityKind Kind { get; private set; }
+    public uint ApproachTargetId { get; private set; }
 
     public static Vector3 ToVector3(Vec3d value) => new((float)value.X, (float)value.Y, (float)value.Z);
 
@@ -40,6 +41,7 @@ public sealed class ShipTrack
     {
         Name = snapshot.Name;
         Kind = snapshot.Kind;
+        ApproachTargetId = snapshot.ApproachTargetId;
         var position = ToVector3(snapshot.Position);
 
         if (_points.Count > 0)

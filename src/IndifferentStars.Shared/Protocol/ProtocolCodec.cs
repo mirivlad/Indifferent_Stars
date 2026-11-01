@@ -79,6 +79,7 @@ public static class ProtocolCodec
                     writer.Write(entity.Orientation.Y);
                     writer.Write(entity.Orientation.Z);
                     writer.Write(entity.Orientation.W);
+                    writer.Write(entity.ApproachTargetId);
                 }
                 break;
 
@@ -120,6 +121,15 @@ public static class ProtocolCodec
 
             case DisconnectMessage disconnect:
                 WriteString(writer, disconnect.Reason, ProtocolConstants.MaxStringBytes);
+                break;
+
+            case ApproachRequestMessage approach:
+                writer.Write(approach.TargetId);
+                break;
+
+            case ApproachResultMessage approachResult:
+                writer.Write(approachResult.TargetId);
+                writer.Write(approachResult.Accepted);
                 break;
 
             default:
@@ -234,6 +244,9 @@ public static class ProtocolCodec
                 MessageType.Disconnect => new DisconnectMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
+                MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32()),
+                MessageType.ApproachResult => new ApproachResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+
                 _ => throw new InvalidDataException($"Unknown message type {(byte)type}."),
             };
 
@@ -287,7 +300,8 @@ public static class ProtocolCodec
                 reader.ReadSingle(),
                 ReadVec3(reader),
                 reader.ReadSByte(),
-                new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()));
+                new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()),
+                reader.ReadUInt32());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

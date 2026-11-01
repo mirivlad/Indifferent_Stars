@@ -86,7 +86,24 @@ public sealed class GameWorld
         if (!_inputs.TryGetValue(playerId, out var slot))
             return;
         slot.Input = input.Clamped();
+        if (_players.TryGetValue(playerId, out var ship) &&
+            (input.Throttle != 0 || input.Steer != 0 || input.Pitch != 0 || input.Vertical != 0 || input.Strafe != 0 || input.Roll != 0 || input.Brake))
+            ship.ApproachTargetId = 0;
         slot.AgeSeconds = 0;
+    }
+
+    public bool StartApproach(uint playerId, uint targetId)
+    {
+        var player = GetPlayer(playerId);
+        var body = Catalog.Find((int)targetId);
+        if (player is null || body is null)
+            return false;
+        var away = (player.Position - body.Position).Normalized();
+        if (away.LengthSquared < 0.5)
+            return false;
+        player.ApproachTargetId = targetId;
+        player.ApproachDestination = body.Position + away * (body.Radius + 500);
+        return true;
     }
 
     public void Tick(double dt)
@@ -96,6 +113,13 @@ public sealed class GameWorld
             var slot = _inputs[id];
             slot.AgeSeconds += dt;
             var input = slot.AgeSeconds <= InputTimeoutSeconds ? slot.Input : InputState.None;
+            if (ship.ApproachTargetId != 0)
+            {
+                if (ApproachPilot.Arrived(ship, ship.ApproachDestination))
+                    ship.ApproachTargetId = 0;
+                else
+                    input = ApproachPilot.Steer(ship, ship.ApproachDestination);
+            }
             FlightModel.StepPlayer(ship, input, dt);
         }
 
@@ -223,7 +247,8 @@ public sealed class GameWorld
         (float)ship.Pitch,
         ship.Velocity,
         (sbyte)Math.Clamp(Math.Round(ship.Throttle * 127), -127, 127),
-        ship.Orientation);
+        ship.Orientation,
+        ship.ApproachTargetId);
 
     private static string DescribeVessel(ShipState npc)
     {

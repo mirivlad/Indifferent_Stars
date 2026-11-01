@@ -30,6 +30,8 @@ public sealed class ProtocolTests
             new PingMessage(987654321),
             new PongMessage(987654321),
             new DisconnectMessage("leaving"),
+            new ApproachRequestMessage(1001),
+            new ApproachResultMessage(1001, true),
         };
         return data;
     }

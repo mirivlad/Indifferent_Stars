@@ -96,6 +96,8 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
+        if (_mode == ViewMode.Tactical)
+            return InputState.None;
         var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
         var steer = (Input.IsKeyPressed(Key.Left) ? 1f : 0f) - (Input.IsKeyPressed(Key.Right) ? 1f : 0f);
         var pitch = (Input.IsKeyPressed(Key.Up) ? 1f : 0f) - (Input.IsKeyPressed(Key.Down) ? 1f : 0f);
@@ -211,6 +213,18 @@ public sealed partial class GameMain
         }
 
         GD.Print($"Warp result: {result.Message}");
+    }
+
+    private void OnApproachCompleted(ApproachResultMessage result)
+    {
+        _hud.ShowToast(result.Accepted ? "AUTOPILOT ENGAGED" : "APPROACH UNAVAILABLE",
+            result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+    }
+
+    private void RequestApproach()
+    {
+        if (_hasTarget)
+            _net?.RequestApproach(_targetId);
     }
 
     private void UpdateTargeting()

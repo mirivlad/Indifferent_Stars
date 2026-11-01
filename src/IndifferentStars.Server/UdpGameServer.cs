@@ -168,6 +168,14 @@ public sealed class UdpGameServer : IDisposable
                 HandleScan(scanRequest, endpoint, now);
                 break;
 
+            case ApproachRequestMessage approach:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var pilot))
+                {
+                    pilot.LastSeenSeconds = now;
+                    Send(endpoint, new ApproachResultMessage(approach.TargetId, _world.StartApproach(pilot.PlayerId, approach.TargetId)));
+                }
+                break;
+
             case WarpRequestMessage warpRequest:
                 HandleWarp(warpRequest, endpoint, now);
                 break;

@@ -58,6 +58,7 @@ public sealed partial class NetworkClient : IDisposable
     public event Action<SnapshotMessage>? SnapshotReceived;
     public event Action<ScanResultMessage>? ScanCompleted;
     public event Action<WarpResultMessage>? WarpCompleted;
+    public event Action<ApproachResultMessage>? ApproachCompleted;
     public event Action<string>? TransportError;
 
     public void Start()
@@ -161,6 +162,10 @@ public sealed partial class NetworkClient : IDisposable
                     if (_pendingWarp is { } pendingWarp && pendingWarp.Id == warp.RequestId)
                         _pendingWarp = null;
                     WarpCompleted?.Invoke(warp);
+                    break;
+
+                case ApproachResultMessage approach:
+                    ApproachCompleted?.Invoke(approach);
                     break;
 
                 case PongMessage pong:

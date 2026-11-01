@@ -35,6 +35,8 @@ public sealed class ShipState
     public double Throttle { get; set; }
     public bool Boosting { get; set; }
     public bool Braking { get; set; }
+    public uint ApproachTargetId { get; set; }
+    public Vec3d ApproachDestination { get; set; }
     public double LastWarpAtSeconds { get; set; } = -1000;
     public NpcRoute? Route { get; set; }
 

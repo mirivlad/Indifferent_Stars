@@ -37,6 +37,7 @@ public sealed partial class GameMain : Node3D
     private Hud _hud = null!;
     private TacticalView _tactical = null!;
     private CanvasLayer _tacticalLayer = null!;
+    private PopupMenu _contactMenu = null!;
 
     private readonly Dictionary<uint, ShipView> _remoteShips = new();
     private readonly Dictionary<uint, double> _remoteSeen = new();
@@ -92,6 +93,7 @@ public sealed partial class GameMain : Node3D
         _net.SnapshotReceived += OnSnapshot;
         _net.ScanCompleted += OnScanCompleted;
         _net.WarpCompleted += OnWarpCompleted;
+        _net.ApproachCompleted += OnApproachCompleted;
         _net.TransportError += OnTransportError;
         _net.Start();
 
@@ -161,6 +163,9 @@ public sealed partial class GameMain : Node3D
                 case Key.X:
                     RequestWarp();
                     break;
+                case Key.G:
+                    RequestApproach();
+                    break;
                 case Key.Escape:
                     if (Input.MouseMode == Input.MouseModeEnum.Captured)
                         Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -184,6 +189,25 @@ public sealed partial class GameMain : Node3D
                 _tactical.ZoomRange = Mathf.Clamp(_tactical.ZoomRange * 0.82f, 2400f, 26000f);
             else if (mouse.ButtonIndex == MouseButton.WheelDown)
                 _tactical.ZoomRange = Mathf.Clamp(_tactical.ZoomRange / 0.82f, 2400f, 26000f);
+            else if (mouse.ButtonIndex is MouseButton.Left or MouseButton.Right)
+            {
+                var scale = Mathf.Min(_tactical.Size.X, _tactical.Size.Y) * 0.43f / _tactical.ZoomRange;
+                var center = _tactical.Size * 0.5f;
+                var player = PlayerPosition();
+                var contact = BuildContacts().Where(c => c.Id != _playerId)
+                    .Select(c => (Contact: c, Distance: (center + new Vector2(c.Position.X - player.X, c.Position.Z - player.Z) * scale).DistanceTo(mouse.Position)))
+                    .Where(c => c.Distance < 20).OrderBy(c => c.Distance).FirstOrDefault();
+                if (contact.Contact.Id != 0)
+                {
+                    _targetId = contact.Contact.Id;
+                    _hasTarget = true;
+                    if (mouse.ButtonIndex == MouseButton.Right)
+                    {
+                        _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
+                        _contactMenu.Popup();
+                    }
+                }
+            }
         }
     }
 
@@ -247,6 +271,17 @@ public sealed partial class GameMain : Node3D
         AddChild(_tacticalLayer);
         _tactical = new TacticalView { Name = "TacticalView", Catalog = _catalog };
         _tacticalLayer.AddChild(_tactical);
+        _contactMenu = new PopupMenu();
+        _contactMenu.AddItem("Approach", 1);
+        _contactMenu.AddItem("Scan", 2);
+        _contactMenu.AddItem("Short warp", 3);
+        _contactMenu.IdPressed += id =>
+        {
+            if (id == 1) RequestApproach();
+            else if (id == 2) RequestScan();
+            else if (id == 3) RequestWarp();
+        };
+        AddChild(_contactMenu);
     }
 
     private void RebuildStaticWorld(int seed)
@@ -342,6 +377,7 @@ public sealed partial class GameMain : Node3D
         _tactical.PlayerId = _playerId;
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
+        _tactical.ApproachTargetId = _playerShip?.Track.ApproachTargetId ?? 0;
 
         _tactical.Contacts.Clear();
         foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))
@@ -411,7 +447,7 @@ public sealed partial class GameMain : Node3D
         {
             var track = _playerShip.Track;
             var speed = track.Velocity.Length();
-            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f);
+            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f, track.ApproachTargetId != 0);
         }
 
         if (!_hasTarget)

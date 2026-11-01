@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 2;
+    public const byte Version = 3;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -32,6 +32,8 @@ public enum MessageType : byte
     Ping = 10,
     Pong = 11,
     Disconnect = 12,
+    ApproachRequest = 13,
+    ApproachResult = 14,
 }
 
 public enum EntityKind : byte
@@ -98,7 +100,8 @@ public sealed record EntitySnapshot(
     float Pitch,
     Vec3d Velocity,
     sbyte Throttle,
-    Quaternion Orientation = default)
+    Quaternion Orientation = default,
+    uint ApproachTargetId = 0)
 {
 }
 
@@ -152,4 +155,14 @@ public sealed record PongMessage(ulong ClientTimeMs) : IProtocolMessage
 public sealed record DisconnectMessage(string Reason) : IProtocolMessage
 {
     public MessageType Type => MessageType.Disconnect;
+}
+
+public sealed record ApproachRequestMessage(uint TargetId) : IProtocolMessage
+{
+    public MessageType Type => MessageType.ApproachRequest;
+}
+
+public sealed record ApproachResultMessage(uint TargetId, bool Accepted) : IProtocolMessage
+{
+    public MessageType Type => MessageType.ApproachResult;
 }
