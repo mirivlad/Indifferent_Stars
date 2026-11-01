@@ -51,7 +51,7 @@ public sealed class UdpGameServer : IDisposable
     {
         _clock.Start();
         _lastStatsSeconds = _clock.Elapsed.TotalSeconds;
-        Log($"Listening on udp {_config.BindAddress}:{_config.Port}");
+        Log($"Listening on udp {LocalEndpoint}");
         Log($"System '{_catalog.SystemName}' seed={_catalog.Seed}, {_catalog.Asteroids.Count} asteroids, {_world.Npcs.Count} NPC ships.");
         Log($"Tick {_config.TickRate} Hz, snapshots {_config.SnapshotRate} Hz, protocol v{ProtocolConstants.Version}. Ctrl+C to stop.");
 
@@ -98,6 +98,9 @@ public sealed class UdpGameServer : IDisposable
     }
 
     public void Stop() => _running = false;
+
+    /// <summary>Bound UDP endpoint; useful when the server is started on port 0.</summary>
+    public IPEndPoint LocalEndpoint => (IPEndPoint)_socket.LocalEndPoint!;
 
     private void ReceivePending(double now)
     {
@@ -159,13 +162,45 @@ public sealed class UdpGameServer : IDisposable
                     {
                         session.LastInputSequence = input.Sequence;
                         _world.ApplyInput(session.PlayerId, InputState.FromWire(
-                            input.Throttle, input.Steer, input.Pitch, input.Vertical, input.Boost, input.Brake));
+                            input.Throttle, input.Steer, input.Pitch, input.Vertical, input.Boost, input.Brake, input.Strafe, input.Roll, input.FlightAssist));
                     }
                 }
                 break;
 
             case ScanRequestMessage scanRequest:
                 HandleScan(scanRequest, endpoint, now);
+                break;
+
+            case ApproachRequestMessage approach:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var pilot))
+                {
+                    pilot.LastSeenSeconds = now;
+                    Send(endpoint, new ApproachResultMessage(approach.TargetId, _world.StartApproach(pilot.PlayerId, approach.TargetId, approach.Follow)));
+                }
+                break;
+
+            case DockRequestMessage dock:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var dockSession))
+                {
+                    dockSession.LastSeenSeconds = now;
+                    var accepted = dock.Undock ? _world.Undock(dockSession.PlayerId) : _world.RequestDocking(dockSession.PlayerId, dock.TargetId);
+                    Send(endpoint, new DockResultMessage(dock.Undock, accepted));
+                    if (accepted && !dock.Undock && _world.GetMarket(dockSession.PlayerId) is { } market)
+                        Send(endpoint, new MarketStateMessage(0, market));
+                }
+                break;
+
+            case MarketRequestMessage marketRequest:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var marketSession) &&
+                    _world.GetMarket(marketSession.PlayerId) is { } marketState)
+                {
+                    marketSession.LastSeenSeconds = now;
+                    Send(endpoint, new MarketStateMessage(marketRequest.RequestId, marketState));
+                }
+                break;
+
+            case TradeRequestMessage tradeRequest:
+                HandleTrade(tradeRequest, endpoint, now);
                 break;
 
             case WarpRequestMessage warpRequest:
@@ -254,12 +289,15 @@ public sealed class UdpGameServer : IDisposable
         session.LastScanAtSeconds = now;
 
         var result = _world.Scan(session.PlayerId, request.TargetId);
+        var russian = _world.Scan(session.PlayerId, request.TargetId, "ru");
         Send(endpoint, new ScanResultMessage(
             request.RequestId,
             result.TargetId,
             result.Success,
             result.Title,
-            result.Body));
+            result.Body,
+            russian.Title,
+            russian.Body));
 
         if (result.Success)
             Log($"{session.Name} scanned {result.Title}.");
@@ -271,21 +309,54 @@ public sealed class UdpGameServer : IDisposable
             return;
 
         session.LastSeenSeconds = now;
+        if (session.LastWarpResult is { } previous && previous.RequestId == request.RequestId)
+        {
+            Send(endpoint, previous);
+            return;
+        }
         if (now - session.LastWarpAtSeconds < 0.4)
             return;
         session.LastWarpAtSeconds = now;
 
-        var result = _world.Warp(session.PlayerId, request.TargetId);
-        Send(endpoint, new WarpResultMessage(
+        var result = _world.Warp(session.PlayerId, request.TargetId, request.ArrivalDistance);
+        var response = new WarpResultMessage(
             request.RequestId,
             result.TargetId,
             result.Success,
             result.Message,
             result.NewPosition,
             result.Yaw,
-            result.Pitch));
+            result.Pitch,
+            result.RussianMessage);
+        session.LastWarpResult = response;
+        Send(endpoint, response);
 
         Log($"{session.Name} warp request -> {result.Message}");
+    }
+
+    private void HandleTrade(TradeRequestMessage request, IPEndPoint endpoint, double now)
+    {
+        if (!_sessionsByEndpoint.TryGetValue(endpoint, out var session))
+            return;
+
+        session.LastSeenSeconds = now;
+        if (session.LastTradeResult is { } previous && previous.RequestId == request.RequestId)
+        {
+            Send(endpoint, previous);
+            return;
+        }
+
+        var outcome = _world.Trade(session.PlayerId, request.CommodityId, request.Quantity, request.Buy);
+        var state = outcome.State ?? new MarketState(0, 0, 0, Array.Empty<MarketEntry>());
+        var response = new TradeResultMessage(
+            request.RequestId,
+            outcome.Success,
+            outcome.Message,
+            outcome.RussianMessage,
+            state);
+        session.LastTradeResult = response;
+        Send(endpoint, response);
+        Log($"{session.Name} trade {(request.Buy ? "buy" : "sell")} #{request.CommodityId} ×{request.Quantity}: {outcome.Message}");
     }
 
     private void BroadcastSnapshot(double now)
@@ -293,31 +364,21 @@ public sealed class UdpGameServer : IDisposable
         if (_sessions.Count == 0)
             return;
 
-        var snapshot = new SnapshotMessage(
-            _world.TickCount,
-            (ulong)(_clock.Elapsed.TotalMilliseconds),
-            _world.BuildSnapshot());
-
-        byte[] encoded;
-        try
-        {
-            encoded = ProtocolCodec.Encode(snapshot);
-        }
-        catch (Exception ex)
-        {
-            Log($"Failed to encode snapshot: {ex.Message}");
-            return;
-        }
-
+        var serverTimeMs = (ulong)_clock.Elapsed.TotalMilliseconds;
         foreach (var session in _sessions.Values)
         {
             try
             {
-                _socket.SendTo(encoded, session.Endpoint);
+                var snapshot = new SnapshotMessage(
+                    _world.TickCount,
+                    serverTimeMs,
+                    _world.BuildSnapshot(session.PlayerId));
+                foreach (var packet in ProtocolCodec.EncodeSnapshotPackets(snapshot))
+                    _socket.SendTo(packet, session.Endpoint);
             }
-            catch (SocketException ex)
+            catch (Exception ex) when (ex is SocketException or ArgumentException)
             {
-                Log($"Snapshot to {session.Name} failed: {ex.SocketErrorCode}");
+                Log($"Snapshot to {session.Name} failed: {ex.Message}");
             }
         }
     }

@@ -58,6 +58,10 @@ public sealed partial class NetworkClient : IDisposable
     public event Action<SnapshotMessage>? SnapshotReceived;
     public event Action<ScanResultMessage>? ScanCompleted;
     public event Action<WarpResultMessage>? WarpCompleted;
+    public event Action<ApproachResultMessage>? ApproachCompleted;
+    public event Action<DockResultMessage>? DockCompleted;
+    public event Action<MarketStateMessage>? MarketReceived;
+    public event Action<TradeResultMessage>? TradeCompleted;
     public event Action<string>? TransportError;
 
     public void Start()
@@ -163,6 +167,24 @@ public sealed partial class NetworkClient : IDisposable
                     WarpCompleted?.Invoke(warp);
                     break;
 
+                case ApproachResultMessage approach:
+                    ApproachCompleted?.Invoke(approach);
+                    break;
+
+                case DockResultMessage dock:
+                    DockCompleted?.Invoke(dock);
+                    break;
+
+                case MarketStateMessage market:
+                    MarketReceived?.Invoke(market);
+                    break;
+
+                case TradeResultMessage trade:
+                    if (_pendingTrade is { } pendingTrade && pendingTrade.Id == trade.RequestId)
+                        _pendingTrade = null;
+                    TradeCompleted?.Invoke(trade);
+                    break;
+
                 case PongMessage pong:
                     var sentMs = (long)pong.ClientTimeMs;
                     var nowMs = (long)Time.GetTicksMsec();
@@ -232,7 +254,10 @@ public sealed partial class NetworkClient : IDisposable
             ToSByte(input.Pitch),
             ToSByte(input.Vertical),
             input.Boost,
-            input.Brake);
+            input.Brake,
+            ToSByte(input.Strafe),
+            ToSByte(input.Roll),
+            input.FlightAssist);
         Send(message);
     }
 

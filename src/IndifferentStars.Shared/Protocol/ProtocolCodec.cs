@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Numerics;
 using System.Text;
 
 namespace IndifferentStars.Shared.Protocol;
@@ -11,6 +13,30 @@ namespace IndifferentStars.Shared.Protocol;
 public static class ProtocolCodec
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
+
+    public static IReadOnlyList<byte[]> EncodeSnapshotPackets(SnapshotMessage snapshot)
+    {
+        var packets = new List<byte[]>();
+        var entities = new List<EntitySnapshot>();
+        foreach (var entity in snapshot.Entities)
+        {
+            entities.Add(entity);
+            try
+            {
+                Encode(new SnapshotMessage(snapshot.Tick, snapshot.ServerTimeMs, entities.ToArray()));
+            }
+            catch (ArgumentException) when (entities.Count > 1)
+            {
+                entities.RemoveAt(entities.Count - 1);
+                packets.Add(Encode(new SnapshotMessage(snapshot.Tick, snapshot.ServerTimeMs, entities.ToArray())));
+                entities.Clear();
+                entities.Add(entity);
+            }
+        }
+        if (entities.Count > 0 || packets.Count == 0)
+            packets.Add(Encode(new SnapshotMessage(snapshot.Tick, snapshot.ServerTimeMs, entities.ToArray())));
+        return packets;
+    }
 
     public static byte[] Encode(IProtocolMessage message)
     {
@@ -54,6 +80,9 @@ public static class ProtocolCodec
                 writer.Write(input.Vertical);
                 writer.Write(input.Boost);
                 writer.Write(input.Brake);
+                writer.Write(input.Strafe);
+                writer.Write(input.Roll);
+                writer.Write(input.FlightAssist);
                 break;
 
             case SnapshotMessage snapshot:
@@ -72,6 +101,15 @@ public static class ProtocolCodec
                     writer.Write(entity.Pitch);
                     WriteVec3(writer, entity.Velocity);
                     writer.Write(entity.Throttle);
+                    writer.Write(entity.Orientation.X);
+                    writer.Write(entity.Orientation.Y);
+                    writer.Write(entity.Orientation.Z);
+                    writer.Write(entity.Orientation.W);
+                    writer.Write(entity.ApproachTargetId);
+                    writer.Write(entity.Docked);
+                    writer.Write(entity.DockingGranted);
+                    writer.Write(entity.FlightAssist);
+                    writer.Write(entity.ApproachFollowing);
                 }
                 break;
 
@@ -86,11 +124,14 @@ public static class ProtocolCodec
                 writer.Write(scanResult.Success);
                 WriteString(writer, scanResult.Title, ProtocolConstants.MaxStringBytes);
                 WriteString(writer, scanResult.Body, ProtocolConstants.MaxTextBytes);
+                WriteString(writer, scanResult.RussianTitle, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, scanResult.RussianBody, ProtocolConstants.MaxTextBytes);
                 break;
 
             case WarpRequestMessage warpRequest:
                 writer.Write(warpRequest.RequestId);
                 writer.Write(warpRequest.TargetId);
+                writer.Write(warpRequest.ArrivalDistance);
                 break;
 
             case WarpResultMessage warpResult:
@@ -101,6 +142,7 @@ public static class ProtocolCodec
                 WriteVec3(writer, warpResult.NewPosition);
                 writer.Write(warpResult.Yaw);
                 writer.Write(warpResult.Pitch);
+                WriteString(writer, warpResult.RussianMessage, ProtocolConstants.MaxStringBytes);
                 break;
 
             case PingMessage ping:
@@ -113,6 +155,50 @@ public static class ProtocolCodec
 
             case DisconnectMessage disconnect:
                 WriteString(writer, disconnect.Reason, ProtocolConstants.MaxStringBytes);
+                break;
+
+            case ApproachRequestMessage approach:
+                writer.Write(approach.TargetId);
+                writer.Write(approach.Follow);
+                break;
+
+            case ApproachResultMessage approachResult:
+                writer.Write(approachResult.TargetId);
+                writer.Write(approachResult.Accepted);
+                break;
+
+            case DockRequestMessage dock:
+                writer.Write(dock.TargetId);
+                writer.Write(dock.Undock);
+                break;
+
+            case DockResultMessage dockResult:
+                writer.Write(dockResult.Undock);
+                writer.Write(dockResult.Accepted);
+                break;
+
+            case MarketRequestMessage marketRequest:
+                writer.Write(marketRequest.RequestId);
+                break;
+
+            case MarketStateMessage marketState:
+                writer.Write(marketState.RequestId);
+                WriteMarketState(writer, marketState.State);
+                break;
+
+            case TradeRequestMessage tradeRequest:
+                writer.Write(tradeRequest.RequestId);
+                writer.Write(tradeRequest.CommodityId);
+                writer.Write(tradeRequest.Quantity);
+                writer.Write(tradeRequest.Buy);
+                break;
+
+            case TradeResultMessage tradeResult:
+                writer.Write(tradeResult.RequestId);
+                writer.Write(tradeResult.Success);
+                WriteString(writer, tradeResult.Message, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, tradeResult.RussianMessage, ProtocolConstants.MaxStringBytes);
+                WriteMarketState(writer, tradeResult.State);
                 break;
 
             default:
@@ -192,6 +278,9 @@ public static class ProtocolCodec
                     reader.ReadSByte(),
                     reader.ReadSByte(),
                     reader.ReadBoolean(),
+                    reader.ReadBoolean(),
+                    reader.ReadSByte(),
+                    reader.ReadSByte(),
                     reader.ReadBoolean()),
 
                 MessageType.Snapshot => ReadSnapshot(reader),
@@ -205,11 +294,14 @@ public static class ProtocolCodec
                     reader.ReadUInt32(),
                     reader.ReadBoolean(),
                     ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadString(reader, ProtocolConstants.MaxTextBytes),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
                     ReadString(reader, ProtocolConstants.MaxTextBytes)),
 
                 MessageType.WarpRequest => new WarpRequestMessage(
                     reader.ReadUInt32(),
-                    reader.ReadUInt32()),
+                    reader.ReadUInt32(),
+                    reader.ReadUInt16()),
 
                 MessageType.WarpResult => new WarpResultMessage(
                     reader.ReadUInt32(),
@@ -218,12 +310,32 @@ public static class ProtocolCodec
                     ReadString(reader, ProtocolConstants.MaxStringBytes),
                     ReadVec3(reader),
                     reader.ReadSingle(),
-                    reader.ReadSingle()),
+                    reader.ReadSingle(),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
                 MessageType.Ping => new PingMessage(reader.ReadUInt64()),
                 MessageType.Pong => new PongMessage(reader.ReadUInt64()),
                 MessageType.Disconnect => new DisconnectMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
+
+                MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+                MessageType.ApproachResult => new ApproachResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+                MessageType.DockRequest => new DockRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+                MessageType.DockResult => new DockResultMessage(reader.ReadBoolean(), reader.ReadBoolean()),
+
+                MessageType.MarketRequest => new MarketRequestMessage(reader.ReadUInt32()),
+                MessageType.MarketState => new MarketStateMessage(reader.ReadUInt32(), ReadMarketState(reader)),
+                MessageType.TradeRequest => new TradeRequestMessage(
+                    reader.ReadUInt32(),
+                    reader.ReadUInt16(),
+                    reader.ReadInt32(),
+                    reader.ReadBoolean()),
+                MessageType.TradeResult => new TradeResultMessage(
+                    reader.ReadUInt32(),
+                    reader.ReadBoolean(),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadMarketState(reader)),
 
                 _ => throw new InvalidDataException($"Unknown message type {(byte)type}."),
             };
@@ -277,10 +389,57 @@ public static class ProtocolCodec
                 reader.ReadSingle(),
                 reader.ReadSingle(),
                 ReadVec3(reader),
-                reader.ReadSByte());
+                reader.ReadSByte(),
+                new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()),
+                reader.ReadUInt32(),
+                reader.ReadBoolean(),
+                reader.ReadBoolean(),
+                reader.ReadBoolean(),
+                reader.ReadBoolean());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
+    }
+
+    private static void WriteMarketState(BinaryWriter writer, MarketState state)
+    {
+        if (state.Entries.Length > ProtocolConstants.MaxMarketEntries)
+            throw new ArgumentException("Too many market entries.");
+        writer.Write(state.Credits);
+        writer.Write(state.CargoUsed);
+        writer.Write(state.CargoCapacity);
+        writer.Write((ushort)state.Entries.Length);
+        foreach (var entry in state.Entries)
+        {
+            writer.Write(entry.CommodityId);
+            writer.Write(entry.StationStock);
+            writer.Write(entry.PlayerQuantity);
+        }
+    }
+
+    private static MarketState ReadMarketState(BinaryReader reader)
+    {
+        var credits = reader.ReadInt32();
+        var cargoUsed = reader.ReadInt32();
+        var capacity = reader.ReadInt32();
+        var count = reader.ReadUInt16();
+        if (count > ProtocolConstants.MaxMarketEntries)
+            throw new InvalidDataException($"Market entry count {count} exceeds limit.");
+        if (credits < 0 || cargoUsed < 0 || capacity < 0 || cargoUsed > capacity)
+            throw new InvalidDataException("Invalid market account values.");
+
+        var entries = new MarketEntry[count];
+        for (var i = 0; i < count; i++)
+        {
+            var id = reader.ReadUInt16();
+            var stock = reader.ReadInt32();
+            var quantity = reader.ReadInt32();
+            if (stock < 0 || quantity < 0)
+                throw new InvalidDataException("Negative market quantity.");
+            entries[i] = new MarketEntry(id, stock, quantity);
+        }
+
+        return new MarketState(credits, cargoUsed, capacity, entries);
     }
 
     private static void WriteGuid(BinaryWriter writer, Guid value) => writer.Write(value.ToByteArray());

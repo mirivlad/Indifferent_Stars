@@ -47,7 +47,6 @@ public sealed class FlightModelTests
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Racer");
-        // Start from the centre of the play space so the boundary cannot cap the run.
         ship.Position = Vec3d.Zero;
         ship.Yaw = Math.PI / 2;
         ship.Pitch = 0;
@@ -65,7 +64,7 @@ public sealed class FlightModelTests
     }
 
     [Fact]
-    public void InputExpiresAndShipCoastsToRest()
+    public void InputExpiresAndShipCoastsWithoutLosingVelocity()
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Drifter");
@@ -77,29 +76,108 @@ public sealed class FlightModelTests
         }
 
         Assert.True(ship.Velocity.Length > 50);
+        var velocity = ship.Velocity;
 
         for (var i = 0; i < 400; i++)
             world.Tick(0.05);
 
-        Assert.True(ship.Velocity.Length < 1.0, $"Ship did not coast down, speed={ship.Velocity.Length:F2}");
+        Assert.Equal(velocity.X, ship.Velocity.X, 8);
+        Assert.Equal(velocity.Y, ship.Velocity.Y, 8);
+        Assert.Equal(velocity.Z, ship.Velocity.Z, 8);
     }
 
     [Fact]
-    public void PlayerCannotExceedPlaySpaceBoundary()
+    public void RotationDoesNotTurnVelocityAndBrakeAppliesLimitedCounterThrust()
+    {
+        var ship = NewWorld().AddPlayer("Drifter");
+        ship.Velocity = new Vec3d(300, 40, -20);
+        var original = ship.Velocity;
+        var initialYaw = ship.Yaw;
+        FlightModel.StepPlayer(ship, new InputState(0, 1, 0, 0, false, false), 1.0);
+        Assert.Equal(original, ship.Velocity);
+        Assert.NotEqual(initialYaw, ship.Yaw);
+
+        FlightModel.StepPlayer(ship, new InputState(0, 0, 0, 0, false, true), 0.5);
+        Assert.Equal(original.Length - FlightModel.BrakeAcceleration * 0.5, ship.Velocity.Length, 8);
+        Assert.True(Vec3d.Dot(original.Normalized(), ship.Velocity.Normalized()) > 0.999999);
+        FlightModel.StepPlayer(ship, new InputState(0, 0, 0, 0, false, true), 2.0);
+        Assert.Equal(Vec3d.Zero, ship.Velocity);
+    }
+
+    [Fact]
+    public void ReleasingBoostDoesNotClampExistingSpeed()
+    {
+        var ship = NewWorld().AddPlayer("Racer");
+        ship.Velocity = new Vec3d(0, 0, -600);
+        FlightModel.StepPlayer(ship, InputState.None, 0.05);
+        Assert.Equal(600, ship.Velocity.Length, 8);
+    }
+
+    [Fact]
+    public void StrafeChangesSidewaysVelocityWithoutCancellingForwardVelocity()
+    {
+        var ship = NewWorld().AddPlayer("Strafe");
+        ship.SetAngles(0, 0);
+        ship.Velocity = new Vec3d(0, 0, -100);
+        FlightModel.StepPlayer(ship, new InputState(0, 0, 0, 0, false, false, 1, 0), 1);
+        Assert.Equal(FlightModel.VerticalAcceleration, ship.Velocity.X, 5);
+        Assert.Equal(-100, ship.Velocity.Z, 5);
+    }
+
+    [Fact]
+    public void FullRollPreservesForwardAndVelocity()
+    {
+        var ship = NewWorld().AddPlayer("Roll");
+        ship.SetAngles(0, 0);
+        ship.Velocity = new Vec3d(20, 30, -100);
+        var velocity = ship.Velocity;
+        for (var i = 0; i < 360; i++)
+            FlightModel.StepPlayer(ship, new InputState(0, 0, 0, 0, false, false, 0, 1), 2 * Math.PI / FlightModel.RollRate / 360);
+        Assert.Equal(velocity, ship.Velocity);
+        Assert.True(Vec3d.Dot(ship.Forward, new Vec3d(0, 0, -1)) > 0.99999);
+        Assert.True(Math.Abs(ship.Orientation.W) > 0.99999);
+    }
+
+    [Fact]
+    public void FlightAssistUsesLimitedLateralThrustAndCanBeDisabled()
+    {
+        var world = NewWorld();
+        var ship = world.AddPlayer("Assist");
+        ship.SetAngles(0, 0);
+        ship.Velocity = new Vec3d(100, 0, -120);
+        var assisted = InputState.None with { FlightAssist = true };
+        world.ApplyInput(ship.Id, assisted);
+        world.Tick(0.5);
+        Assert.True(ship.FlightAssist);
+        Assert.Equal(100 - FlightModel.VerticalAcceleration * 0.5, ship.Velocity.X, 5);
+        Assert.Equal(-120, ship.Velocity.Z, 5);
+        world.ApplyInput(ship.Id, InputState.None);
+        var velocity = ship.Velocity;
+        world.Tick(0.5);
+        Assert.False(ship.FlightAssist);
+        Assert.Equal(velocity, ship.Velocity);
+    }
+
+    [Theory]
+    [InlineData(8500)]
+    [InlineData(10000)]
+    [InlineData(50000)]
+    [InlineData(100000)]
+    public void PlayerContinuesOutwardPastFormerBoundary(double boundary)
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Voyager");
-        ship.Position = new Vec3d(WorldCatalog.PlayRadius - 100, 0, 0);
+        ship.Position = new Vec3d(boundary - 100, 0, 0);
         ship.Yaw = -Math.PI / 2; // forward = +X, away from origin
 
-        for (var i = 0; i < 300; i++)
+        for (var i = 0; i < 100; i++)
         {
             world.ApplyInput(ship.Id, new InputState(1f, 0, 0, 0, true, false));
             world.Tick(0.05);
         }
 
-        Assert.True(ship.Position.Length <= WorldCatalog.PlayRadius + 1.0,
-            $"Position escaped play space: {ship.Position.Length:F1}");
+        Assert.True(ship.Position.X > boundary, $"Ship did not pass {boundary:F0} m: {ship.Position.X:F1}");
+        Assert.True(ship.Velocity.X > 0, "Outward velocity was removed.");
     }
 
     [Fact]

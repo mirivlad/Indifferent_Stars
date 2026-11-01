@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using IndifferentStars.Shared;
 
 namespace IndifferentStars.Simulation;
@@ -20,11 +21,27 @@ public sealed class ShipState
 
     public Vec3d Position { get; set; }
     public Vec3d Velocity { get; set; }
-    public double Yaw { get; set; }
-    public double Pitch { get; set; }
+    public Quaternion Orientation { get; set; } = Quaternion.Identity;
+    public double Yaw
+    {
+        get => FlightModel.AnglesForDirection(Forward).Yaw;
+        set => SetAngles(value, Pitch);
+    }
+    public double Pitch
+    {
+        get => FlightModel.AnglesForDirection(Forward).Pitch;
+        set => SetAngles(Yaw, value);
+    }
     public double Throttle { get; set; }
     public bool Boosting { get; set; }
     public bool Braking { get; set; }
+    public bool FlightAssist { get; set; }
+    public uint ApproachTargetId { get; set; }
+    public bool ApproachFollowing { get; set; }
+    public Vec3d ApproachDestination { get; set; }
+    public bool DockingGranted { get; set; }
+    public bool Docked { get; set; }
+    public Vec3d DockingPoint { get; set; }
     public double LastWarpAtSeconds { get; set; } = -1000;
     public NpcRoute? Route { get; set; }
 
@@ -32,8 +49,11 @@ public sealed class ShipState
     {
         get
         {
-            var (forward, _, _) = FlightModel.Basis(Yaw, Pitch);
-            return forward;
+            var forward = Vector3.Transform(-Vector3.UnitZ, Orientation);
+            return new Vec3d(forward.X, forward.Y, forward.Z);
         }
     }
+
+    public void SetAngles(double yaw, double pitch) =>
+        Orientation = Quaternion.CreateFromYawPitchRoll((float)yaw, (float)pitch, 0);
 }

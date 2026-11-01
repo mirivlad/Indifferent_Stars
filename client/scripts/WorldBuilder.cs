@@ -22,6 +22,7 @@ public sealed partial class WorldBuilder
     private StandardMaterial3D? _beaconMaterial;
     private WorldEnvironment? _worldEnvironment;
     private CelestialRenderer? _celestial;
+    private ShaderMaterial? _skyMaterial;
 
     public WorldBuilder(Node3D root, WorldCatalog catalog, bool highQuality)
     {
@@ -43,10 +44,10 @@ public sealed partial class WorldBuilder
         BuildLights();
     }
 
-    public void Process(double delta, Vector3 observerLocal)
+    public void Process(double delta, Vec3d observerLocal, Vec3d renderOrigin)
     {
         _elapsed += (float)delta;
-        _celestial?.Update(observerLocal, (float)delta);
+        _celestial?.Update(observerLocal, renderOrigin, (float)delta);
 
         if (_stationNode is not null)
             _stationNode.RotateY((float)delta * 0.012f);
@@ -61,6 +62,12 @@ public sealed partial class WorldBuilder
     {
         if (_worldEnvironment?.Environment is { } environment)
             environment.GlowEnabled = enabled;
+    }
+
+    public void SetVisualQuality(bool shadows, int skyDetail)
+    {
+        if (_celestial is not null) _celestial.ShadowsEnabled = shadows;
+        _skyMaterial?.SetShaderParameter("detail", skyDetail);
     }
 
     private void BuildEnvironment()
@@ -85,6 +92,7 @@ public sealed partial class WorldBuilder
             Shader = GD.Load<Shader>("res://assets/shaders/sky.gdshader"),
         };
         skyMaterial.SetShaderParameter("star_gain", 1.0f);
+        _skyMaterial = skyMaterial;
         environment.Sky = new Sky { SkyMaterial = skyMaterial };
 
         _worldEnvironment = new WorldEnvironment { Environment = environment };

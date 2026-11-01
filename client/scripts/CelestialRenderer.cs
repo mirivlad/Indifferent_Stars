@@ -52,7 +52,7 @@ public sealed class CelestialRenderer
         _catalog = catalog;
         _highQuality = highQuality;
 
-        _celestialRoot = new Node3D { Name = "CelestialBodies" };
+        _celestialRoot = new Node3D { Name = "CelestialBodies", TopLevel = true };
         _root.AddChild(_celestialRoot);
 
         _sunLight = new DirectionalLight3D
@@ -68,7 +68,7 @@ public sealed class CelestialRenderer
         BuildPlanet(catalog.Planet);
         BuildStar(catalog.Star);
 
-        Update(Vector3.Zero, 0f);
+        Update(Vec3d.Zero, Vec3d.Zero, 0f);
     }
 
     /// <summary>Far plane needed by the camera to include every projected body.</summary>
@@ -76,13 +76,14 @@ public sealed class CelestialRenderer
 
     public Node3D PlanetHolder => _visuals.Count > 0 ? _visuals[0].Holder : _celestialRoot;
     public float SunEnergy { get => _sunLight.LightEnergy; set => _sunLight.LightEnergy = value; }
+    public bool ShadowsEnabled { get => _sunLight.ShadowEnabled; set => _sunLight.ShadowEnabled = value; }
 
-    public void Update(Vector3 observerLocal, float delta)
+    public void Update(Vec3d observerLocal, Vec3d renderOrigin, float delta)
     {
         _elapsed += delta;
 
-        var observerSystem = _catalog.LocalFrameOrigin + new Vec3d(observerLocal.X, observerLocal.Y, observerLocal.Z);
-        var observer = new Vec3d(observerLocal.X, observerLocal.Y, observerLocal.Z);
+        var observerSystem = _catalog.LocalFrameOrigin + observerLocal;
+        var observer = observerLocal - renderOrigin;
         var far = 0f;
 
         foreach (var visual in _visuals)
@@ -104,22 +105,22 @@ public sealed class CelestialRenderer
 
             if (visual.TrueScale)
             {
-                position = ToVector3(body.SystemPosition - _catalog.LocalFrameOrigin);
+                position = ToVector3(body.SystemPosition - _catalog.LocalFrameOrigin - renderOrigin);
                 displayRadius = body.Radius;
                 displayDistance = distance;
             }
             else if (visual.FixedDisplayDistance > 0)
             {
-                var angular = Math.Min(1.45, _catalog.AngularRadius(body) * visual.AngularGain);
+                var angular = Math.Min(1.45, Math.Asin(Math.Clamp(body.Radius / distance, 0, 1)) * visual.AngularGain);
                 displayDistance = visual.FixedDisplayDistance;
                 displayRadius = Math.Sin(angular) * displayDistance;
                 position = ToVector3(observer) + ToVector3(direction) * (float)displayDistance;
             }
             else
             {
-                var angular = Math.Min(1.45, _catalog.AngularRadius(body) * visual.AngularGain);
+                var angular = Math.Min(1.45, Math.Asin(Math.Clamp(body.Radius / distance, 0, 1)) * visual.AngularGain);
                 var sin = Math.Sin(angular);
-                var clearance = Math.Max(MinimumSurfaceClearance, (float)WorldCatalog.PlayRadius * 2.1f);
+                var clearance = Math.Max(MinimumSurfaceClearance, 17_850f);
                 displayRadius = clearance * sin / Math.Max(0.0001, 1.0 - sin);
                 displayDistance = displayRadius + clearance;
                 position = ToVector3(observer) + ToVector3(direction) * (float)displayDistance;

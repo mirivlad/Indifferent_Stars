@@ -17,19 +17,32 @@ public sealed class ProtocolTests
                 7, "Captain Vega", new Vec3d(10, 20, -30), 1.2f, 20261101,
                 "Vesper — Kestrel Reach", 4200, 21000, 720, 42, 20),
             new HelloRejectedMessage("Protocol mismatch: client v0, server v1."),
-            new InputMessage(1234, 127, -127, 64, -32, true, false),
+            new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true),
             new SnapshotMessage(100, 5000, new[]
             {
-                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127),
+                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true),
                 new EntitySnapshot(5000, EntityKind.Npc, "Dawn Trader", new Vec3d(-400, 80, 1200), 3.1f, 0.1f, new Vec3d(-40, 0, -70), 90),
             }),
             new ScanRequestMessage(9, 1001),
-            new ScanResultMessage(9, 1001, true, "Asteroid KV-1001", "Composition: silicate 40%"),
-            new WarpRequestMessage(10, 2),
-            new WarpResultMessage(10, 2, true, "Short warp complete", new Vec3d(11000, -1000, -7000), 0.2f, -0.1f),
+            new ScanResultMessage(9, 1001, true, "Asteroid KV-1001", "Composition: silicate 40%", "Астероид", "Состав: силикаты 40%"),
+            new WarpRequestMessage(10, 2, 500),
+            new WarpResultMessage(10, 2, true, "Short warp complete", new Vec3d(11000, -1000, -7000), 0.2f, -0.1f, "Варп завершён"),
             new PingMessage(987654321),
             new PongMessage(987654321),
             new DisconnectMessage("leaving"),
+            new ApproachRequestMessage(1001, true),
+            new ApproachResultMessage(1001, true),
+            new DockRequestMessage(3, false),
+            new DockResultMessage(false, true),
+            new MarketRequestMessage(11),
+            new MarketStateMessage(11, new MarketState(5000, 2, 40, new[]
+            {
+                new MarketEntry(1, 158, 2),
+                new MarketEntry(2, 120, 0),
+            })),
+            new TradeRequestMessage(12, 1, 2, true),
+            new TradeResultMessage(12, true, "Purchased water ×2 for 24 credits.", "Куплено: вода ×2 за 24 кредитов.",
+                new MarketState(4976, 2, 40, new[] { new MarketEntry(1, 158, 2) })),
         };
         return data;
     }
@@ -50,10 +63,31 @@ public sealed class ProtocolTests
             Assert.Equal(snapshot.ServerTimeMs, decodedSnapshot.ServerTimeMs);
             Assert.Equal(snapshot.Entities, decodedSnapshot.Entities);
         }
+        else if (original is MarketStateMessage market && decoded is MarketStateMessage decodedMarket)
+        {
+            Assert.Equal(market.RequestId, decodedMarket.RequestId);
+            AssertMarketState(market.State, decodedMarket.State);
+        }
+        else if (original is TradeResultMessage trade && decoded is TradeResultMessage decodedTrade)
+        {
+            Assert.Equal(trade.RequestId, decodedTrade.RequestId);
+            Assert.Equal(trade.Success, decodedTrade.Success);
+            Assert.Equal(trade.Message, decodedTrade.Message);
+            Assert.Equal(trade.RussianMessage, decodedTrade.RussianMessage);
+            AssertMarketState(trade.State, decodedTrade.State);
+        }
         else
         {
             Assert.Equal(original, decoded);
         }
+    }
+
+    private static void AssertMarketState(MarketState expected, MarketState actual)
+    {
+        Assert.Equal(expected.Credits, actual.Credits);
+        Assert.Equal(expected.CargoUsed, actual.CargoUsed);
+        Assert.Equal(expected.CargoCapacity, actual.CargoCapacity);
+        Assert.Equal(expected.Entries, actual.Entries);
     }
 
     [Fact]
@@ -98,6 +132,25 @@ public sealed class ProtocolTests
             .Select(i => new EntitySnapshot((uint)i, EntityKind.Npc, "n", Vec3d.Zero, 0, 0, Vec3d.Zero, 0))
             .ToArray();
         Assert.Throws<ArgumentException>(() => ProtocolCodec.Encode(new SnapshotMessage(1, 1, entities)));
+    }
+
+    [Fact]
+    public void LargeSnapshotSplitsWithoutDroppingEntities()
+    {
+        var entities = Enumerable.Range(0, 70)
+            .Select(i => new EntitySnapshot((uint)i, EntityKind.Npc, new string('n', 48), Vec3d.Zero, 0, 0, Vec3d.Zero, 0))
+            .ToArray();
+        var packets = ProtocolCodec.EncodeSnapshotPackets(new SnapshotMessage(12, 34, entities));
+        Assert.True(packets.Count > 1);
+        var decoded = packets.Select(packet =>
+        {
+            Assert.True(packet.Length <= ProtocolConstants.MaxPacketSize);
+            Assert.True(ProtocolCodec.TryDecode(packet, out var message, out var error), error);
+            var snapshot = Assert.IsType<SnapshotMessage>(message);
+            Assert.Equal(12ul, snapshot.Tick);
+            return snapshot.Entities;
+        }).SelectMany(items => items).ToArray();
+        Assert.Equal(entities, decoded);
     }
 
     [Fact]

@@ -4,6 +4,7 @@ uniform vec3 deep_space : source_color = vec3(0.003, 0.005, 0.012);
 uniform vec3 nebula_a : source_color = vec3(0.05, 0.10, 0.20);
 uniform vec3 nebula_b : source_color = vec3(0.16, 0.06, 0.20);
 uniform float star_gain = 1.0;
+uniform int detail = 2;
 
 float hash13(vec3 p) {
     p = fract(p * 0.1031);
@@ -67,11 +68,11 @@ void sky() {
 
     float stars = 0.0;
     stars += star_layer(dir, 92.0, 0.972, 0.075);
-    stars += star_layer(dir, 190.0, 0.984, 0.055) * 0.9;
-    stars += star_layer(dir, 360.0, 0.991, 0.040) * 0.7;
+    if (detail >= 1) stars += star_layer(dir, 190.0, 0.984, 0.055) * 0.9;
+    if (detail >= 2) stars += star_layer(dir, 360.0, 0.991, 0.040) * 0.7;
     color += vec3(0.85, 0.90, 1.0) * stars * star_gain;
-    color += vec3(1.0, 0.75, 0.5) * star_layer(dir, 150.0, 0.994, 0.05) * 0.8 * star_gain;
-    color += vec3(0.6, 0.8, 1.0) * star_layer(dir, 250.0, 0.995, 0.04) * 0.6 * star_gain;
+    if (detail >= 1) color += vec3(1.0, 0.75, 0.5) * star_layer(dir, 150.0, 0.994, 0.05) * 0.8 * star_gain;
+    if (detail >= 2) color += vec3(0.6, 0.8, 1.0) * star_layer(dir, 250.0, 0.995, 0.04) * 0.6 * star_gain;
 
     COLOR = color;
 }

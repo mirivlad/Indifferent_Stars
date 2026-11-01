@@ -30,8 +30,8 @@ public sealed partial class GameMain
 
     private void ParseCommandLine()
     {
-        var server = System.Environment.GetEnvironmentVariable("IS_SERVER") ?? "127.0.0.1:7777";
-        var envName = System.Environment.GetEnvironmentVariable("IS_NAME");
+        var server = System.Environment.GetEnvironmentVariable("IS_SERVER") ?? _settings.Server;
+        var envName = System.Environment.GetEnvironmentVariable("IS_NAME") ?? _settings.Callsign;
         var envQuality = System.Environment.GetEnvironmentVariable("IS_QUALITY");
 
         var args = OS.GetCmdlineUserArgs();
@@ -82,10 +82,13 @@ public sealed partial class GameMain
         if (split.Length > 1 && int.TryParse(split[1], out var port))
             _serverPort = port;
 
-        _highQuality = !string.Equals(envQuality, "low", StringComparison.OrdinalIgnoreCase);
+        _highQuality = envQuality is null ? _settings.Glow : !string.Equals(envQuality, "low", StringComparison.OrdinalIgnoreCase);
+        _settings.Glow = _highQuality;
         _playerName = string.IsNullOrWhiteSpace(envName)
             ? $"Captain-{new Random().Next(101, 999)}"
             : envName!.Trim();
+        _settings.Server = server;
+        _settings.Callsign = _playerName;
 
         if (_captureDir is not null)
         {
@@ -96,13 +99,22 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
-        var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
-        var steer = (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
-        var pitch = (Input.IsKeyPressed(Key.Up) ? 1f : 0f) - (Input.IsKeyPressed(Key.Down) ? 1f : 0f);
-        var vertical = (Input.IsKeyPressed(Key.E) ? 1f : 0f) - (Input.IsKeyPressed(Key.Q) ? 1f : 0f);
-        var boost = Input.IsKeyPressed(Key.Shift);
-        var brake = Input.IsKeyPressed(Key.Space);
-        return new InputState(throttle, steer, pitch, vertical, boost, brake);
+        if (_settingsMenu.IsOpen || _mode == ViewMode.Tactical || _playerShip?.Track.Docked == true)
+            return InputState.None with { FlightAssist = _flightAssist };
+        var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
+        var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
+        var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
+        if (_mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
+        {
+            steer = Mathf.Clamp(steer - _mouseTurn.X * _settings.MouseSensitivity * (_settings.InvertX ? -1 : 1), -1, 1);
+            pitch = Mathf.Clamp(pitch - _mouseTurn.Y * _settings.MouseSensitivity * (_settings.InvertY ? -1 : 1), -1, 1);
+        }
+        var vertical = (_settings.Pressed("up") ? 1f : 0f) - (_settings.Pressed("down") ? 1f : 0f);
+        var strafe = (_settings.Pressed("right") ? 1f : 0f) - (_settings.Pressed("left") ? 1f : 0f);
+        var roll = (_settings.Pressed("roll_left") ? 1f : 0f) - (_settings.Pressed("roll_right") ? 1f : 0f);
+        var boost = _settings.Pressed("boost");
+        var brake = _settings.Pressed("brake");
+        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)
@@ -123,6 +135,7 @@ public sealed partial class GameMain
                 staleView.QueueFree();
 
             _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality);
+            _playerShip.SetEngineEffects(_settings.EngineEffects);
             _dynamicRoot.AddChild(_playerShip);
             _cockpit = new CockpitView { Visible = false };
             _playerShip.AddChild(_cockpit);
@@ -133,11 +146,15 @@ public sealed partial class GameMain
 
         _playerShip!.DisplayName = welcome.PlayerName;
         _playerShip.Track.Reset(welcome.Spawn, welcome.SpawnYaw, 0);
+        _tactical.CenterOnPlayer();
         _targetId = (uint)_catalog.Station.Id;
         _hasTarget = true;
 
         _hud.SetSystem(welcome.SystemName, welcome.WorldSeed, welcome.PlayerId);
-        _hud.ShowToast($"LINK ESTABLISHED — WELCOME TO {_catalog.SystemName.ToUpperInvariant()}", new Color(0.45f, 0.95f, 0.65f), 4f);
+        var spawnSector = _catalog.SectorAt(welcome.Spawn);
+        _sectorId = spawnSector.Id;
+        _hud.SetSector(spawnSector.Name);
+        _hud.ShowToast(Locale.Format("connected_welcome", _catalog.SystemName.ToUpperInvariant()), new Color(0.45f, 0.95f, 0.65f), 4f);
         GD.Print($"Connected as ship #{welcome.PlayerId} '{welcome.PlayerName}'.");
 
         SetMode(_mode);
@@ -147,7 +164,7 @@ public sealed partial class GameMain
 
     private void OnJoinRejected(HelloRejectedMessage rejected)
     {
-        _hud.ShowToast($"JOIN REJECTED: {rejected.Reason}", new Color(1f, 0.45f, 0.4f), 8f);
+        _hud.ShowToast($"{Locale.Text("join_rejected")}: {rejected.Reason}", new Color(1f, 0.45f, 0.4f), 8f);
         GD.PrintErr($"Join rejected: {rejected.Reason}");
     }
 
@@ -170,6 +187,7 @@ public sealed partial class GameMain
             if (!_remoteShips.TryGetValue(entity.Id, out var view))
             {
                 view = new ShipView(entity.Id, false, entity.Name, _highQuality);
+                view.SetEngineEffects(_settings.EngineEffects);
                 _remoteRoot.AddChild(view);
                 _remoteShips[entity.Id] = view;
                 GD.Print($"Tracked {(entity.Kind == EntityKind.Player ? "player" : "NPC")} {entity.Name} #{entity.Id}.");
@@ -183,27 +201,78 @@ public sealed partial class GameMain
 
     private void OnScanCompleted(ScanResultMessage result)
     {
-        _hud.ShowScanResult(result.Title, result.Body, result.Success);
-        _hud.ShowToast(result.Success ? "SCAN COMPLETE" : "SCAN REJECTED",
+        _audio.NavigationCue();
+        _hud.ShowScanResult(_settings.Language == "ru" ? result.RussianTitle : result.Title,
+            _settings.Language == "ru" ? result.RussianBody : result.Body, result.Success);
+        _hud.ShowToast(Locale.Text(result.Success ? "scan_complete" : "scan_rejected"),
             result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 2.6f);
         GD.Print($"Scan #{result.TargetId}: {result.Title}");
     }
 
     private void OnWarpCompleted(WarpResultMessage result)
     {
+        _audio.NavigationCue();
+        var text = _settings.Language == "ru" ? result.RussianMessage : result.Message;
         if (result.Success && _playerShip is not null)
         {
             _playerShip.Track.Reset(result.NewPosition, result.Yaw, result.Pitch);
             _cameraSnap = true;
             _warpCooldown = 8f;
-            _hud.ShowToast(result.Message, new Color(1f, 0.78f, 0.4f), 5f);
+            _hud.ShowToast(text, new Color(1f, 0.78f, 0.4f), 5f);
         }
         else
         {
-            _hud.ShowToast(result.Message, new Color(1f, 0.5f, 0.4f), 4.5f);
+            _hud.ShowToast(text, new Color(1f, 0.5f, 0.4f), 4.5f);
         }
 
         GD.Print($"Warp result: {result.Message}");
+    }
+
+    private void OnApproachCompleted(ApproachResultMessage result)
+    {
+        _audio.NavigationCue();
+        _hud.ShowToast(Locale.Text(result.Accepted ? "autopilot_on" : "approach_unavailable"),
+            result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+    }
+
+    private void OnDockCompleted(DockResultMessage result)
+    {
+        _audio.NavigationCue();
+        var message = result.Accepted
+            ? Locale.Text(result.Undock ? "undock_approved" : "dock_approved")
+            : Locale.Text("dock_rejected");
+        _hud.ShowToast(message, result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+        if (result.Accepted && !result.Undock)
+        {
+            _marketRetry = 0;
+            _net?.RequestMarket();
+        }
+    }
+
+    private void OnMarketReceived(MarketStateMessage market)
+    {
+        _stationView.UpdateMarket(market.State);
+    }
+
+    private void OnTradeCompleted(TradeResultMessage result)
+    {
+        var text = _settings.Language == "ru" ? result.RussianMessage : result.Message;
+        _stationView.UpdateMarket(result.State);
+        _stationView.ShowStatus(text, result.Success);
+        _hud.ShowToast(result.Success ? Locale.Text("trade_complete") : Locale.Text("trade_failed"),
+            result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+    }
+
+    private void RequestDock()
+    {
+        if (_hasTarget)
+            _net?.RequestDock(_targetId, false);
+    }
+
+    private void RequestApproach(bool follow = false)
+    {
+        if (_hasTarget)
+            _net?.RequestApproach(_targetId, follow);
     }
 
     private void UpdateTargeting()
@@ -222,7 +291,7 @@ public sealed partial class GameMain
 
         if (contacts.Count == 0)
         {
-            _hud.ShowToast("NO CONTACTS IN SENSOR RANGE", new Color(1f, 0.7f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("no_contacts"), new Color(1f, 0.7f, 0.4f), 2.5f);
             _hasTarget = false;
             return;
         }
@@ -239,13 +308,13 @@ public sealed partial class GameMain
             return;
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
-            _hud.ShowToast("SELECT A CONTACT WITH TAB FIRST", new Color(1f, 0.75f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("choose_contact"), new Color(1f, 0.75f, 0.4f), 2.5f);
             return;
         }
 
         if (_net?.State != ConnectionState.Connected)
         {
-            _hud.ShowToast("NO SERVER CONNECTION", new Color(1f, 0.5f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("no_connection"), new Color(1f, 0.5f, 0.4f), 2.5f);
             return;
         }
 
@@ -254,22 +323,22 @@ public sealed partial class GameMain
         _hud.SetScanPending(contact.Name);
     }
 
-    private void RequestWarp()
+    private void RequestWarp(ushort distance = 1000)
     {
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
-            _hud.ShowToast("SELECT A WARP TARGET WITH TAB FIRST", new Color(1f, 0.75f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("choose_contact"), new Color(1f, 0.75f, 0.4f), 2.5f);
             return;
         }
 
         if (_net?.State != ConnectionState.Connected)
         {
-            _hud.ShowToast("NO SERVER CONNECTION", new Color(1f, 0.5f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("no_connection"), new Color(1f, 0.5f, 0.4f), 2.5f);
             return;
         }
 
-        _net.RequestWarp(_targetId);
-        _hud.ShowToast($"WARP DRIVE SPOOLING — {contact.Name}", new Color(1f, 0.78f, 0.4f), 2.2f);
+        _net.RequestWarp(_targetId, distance);
+        _hud.ShowToast(Locale.Format("warp_spooling", contact.Name), new Color(1f, 0.78f, 0.4f), 2.2f);
     }
 
     private ContactRef? FindContact(uint id)
@@ -278,6 +347,15 @@ public sealed partial class GameMain
 
         if (_catalog.Find((int)id) is { } body)
             return MakeContact(body, player);
+
+        if (_catalog.FindCelestial((int)id) is { } celestial)
+        {
+            var local = celestial.SystemPosition - _catalog.LocalFrameOrigin;
+            var observer = _playerShip?.Track.WorldPosition ?? Vec3d.Zero;
+            return new ContactRef(id, celestial.Name, celestial.Kind.ToString(), ShipTrack.ToVector3(local),
+                (float)celestial.Radius, false, (float)Math.Max(0, Vec3d.Distance(observer, local) - celestial.Radius),
+                (float)(local.Y - observer.Y));
+        }
 
         if (_remoteShips.TryGetValue(id, out var ship) && ship.Track.HasData)
         {

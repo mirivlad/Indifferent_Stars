@@ -15,7 +15,14 @@ public sealed record WarpOutcome(
     string Message,
     Vec3d NewPosition,
     float Yaw,
-    float Pitch);
+    float Pitch,
+    string RussianMessage = "");
+
+public sealed record TradeOutcome(
+    bool Success,
+    string Message,
+    string RussianMessage,
+    MarketState? State);
 
 /// <summary>
 /// Authoritative, engine-independent world state. Fixed-step and free of Godot types.
@@ -28,14 +35,24 @@ public sealed class GameWorld
         public double AgeSeconds = 999;
     }
 
+    private sealed class PlayerAccount
+    {
+        public int Credits = CommodityCatalog.StartingCredits;
+        public readonly Dictionary<ushort, int> Cargo = new();
+    }
+
     private readonly Dictionary<uint, ShipState> _players = new();
     private readonly Dictionary<uint, PlayerInputSlot> _inputs = new();
+    private readonly Dictionary<uint, PlayerAccount> _accounts = new();
+    private readonly Dictionary<ushort, int> _stationStock = new();
     private readonly List<ShipState> _npcs = new();
-    private uint _nextPlayerId = 1;
+    private uint _nextPlayerId = 10000;
 
     public GameWorld(WorldCatalog catalog)
     {
         Catalog = catalog;
+        foreach (var commodity in CommodityCatalog.All)
+            _stationStock[commodity.Id] = commodity.InitialStock;
         SpawnNpcs();
     }
 
@@ -70,12 +87,14 @@ public sealed class GameWorld
 
         _players.Add(ship.Id, ship);
         _inputs[ship.Id] = new PlayerInputSlot();
+        _accounts[ship.Id] = new PlayerAccount();
         return ship;
     }
 
     public bool RemovePlayer(uint playerId)
     {
         _inputs.Remove(playerId);
+        _accounts.Remove(playerId);
         return _players.Remove(playerId);
     }
 
@@ -86,7 +105,162 @@ public sealed class GameWorld
         if (!_inputs.TryGetValue(playerId, out var slot))
             return;
         slot.Input = input.Clamped();
+        if (_players.TryGetValue(playerId, out var assistedShip))
+            assistedShip.FlightAssist = input.FlightAssist;
+        if (_players.TryGetValue(playerId, out var ship) &&
+            (input.Throttle != 0 || input.Steer != 0 || input.Pitch != 0 || input.Vertical != 0 || input.Strafe != 0 || input.Roll != 0 || input.Brake))
+            ship.ApproachTargetId = 0;
         slot.AgeSeconds = 0;
+    }
+
+    public bool StartApproach(uint playerId, uint targetId, bool follow = false)
+    {
+        var player = GetPlayer(playerId);
+        var body = Catalog.Find((int)targetId);
+        var targetShip = _players.GetValueOrDefault(targetId) ?? _npcs.FirstOrDefault(n => n.Id == targetId);
+        if (player is null || player.Docked || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null))
+            return false;
+        var targetPosition = targetShip?.Position ?? body!.Position;
+        var targetRadius = targetShip is null ? body!.Radius : 20;
+        var away = (player.Position - targetPosition).Normalized();
+        if (away.LengthSquared < 0.5)
+            return false;
+        player.ApproachTargetId = targetId;
+        player.ApproachFollowing = follow;
+        player.ApproachDestination = targetPosition + away * (targetRadius + 500);
+        return true;
+    }
+
+    public bool RequestDocking(uint playerId, uint targetId)
+    {
+        var player = GetPlayer(playerId);
+        var station = Catalog.Station;
+        if (player is null || player.Docked || targetId != (uint)station.Id)
+            return false;
+        var away = (player.Position - station.Position).Normalized();
+        if (away.LengthSquared < 0.5)
+            return false;
+        player.DockingGranted = true;
+        player.ApproachFollowing = false;
+        player.DockingPoint = station.Position + away * (station.Radius + 100);
+        player.ApproachDestination = player.DockingPoint;
+        player.ApproachTargetId = targetId;
+        return true;
+    }
+
+    public bool Undock(uint playerId)
+    {
+        var player = GetPlayer(playerId);
+        if (player is null || !player.Docked)
+            return false;
+        player.Docked = false;
+        player.DockingGranted = false;
+        return true;
+    }
+
+    /// <summary>Current station market and account snapshot for one player.</summary>
+    public MarketState? GetMarket(uint playerId) =>
+        _accounts.TryGetValue(playerId, out var account) ? BuildMarket(account) : null;
+
+    /// <summary>
+    /// Executes a buy or sell order against the station's in-memory stock.
+    /// The server owns credits, cargo and stock; clients only send intents.
+    /// </summary>
+    public TradeOutcome Trade(uint playerId, ushort commodityId, int quantity, bool buy)
+    {
+        var player = GetPlayer(playerId);
+        if (player is null || !_accounts.TryGetValue(playerId, out var account))
+            return TradeFail(null, "trade_invalid");
+        if (!player.Docked)
+            return TradeFail(account, "trade_not_docked");
+        if (quantity <= 0 || quantity > CommodityCatalog.MaxTradeQuantity)
+            return TradeFail(account, "trade_invalid");
+
+        var commodity = CommodityCatalog.Find(commodityId);
+        if (commodity is null)
+            return TradeFail(account, "trade_unknown");
+
+        var stock = _stationStock.GetValueOrDefault(commodityId);
+        var held = account.Cargo.GetValueOrDefault(commodityId);
+        var cargoUsed = CargoUsed(account);
+        var name = commodity.Key;
+
+        if (buy)
+        {
+            var total = commodity.BuyPrice * quantity;
+            if (total > account.Credits)
+                return TradeFail(account, "trade_no_credits", name);
+            if (stock < quantity)
+                return TradeFail(account, "trade_no_stock", name);
+            if (cargoUsed + quantity > CommodityCatalog.CargoCapacity)
+                return TradeFail(account, "trade_no_space", name);
+
+            account.Credits -= total;
+            account.Cargo[commodityId] = held + quantity;
+            _stationStock[commodityId] = stock - quantity;
+            return TradeSuccess(account, "trade_bought", name, quantity, total);
+        }
+
+        if (held < quantity)
+            return TradeFail(account, "trade_no_cargo", name);
+        var revenue = commodity.SellPrice * quantity;
+        account.Credits += revenue;
+        account.Cargo[commodityId] = held - quantity;
+        _stationStock[commodityId] = stock + quantity;
+        return TradeSuccess(account, "trade_sold", name, quantity, revenue);
+    }
+
+    private MarketState BuildMarket(PlayerAccount account)
+    {
+        var entries = new MarketEntry[CommodityCatalog.All.Count];
+        for (var i = 0; i < entries.Length; i++)
+        {
+            var commodity = CommodityCatalog.All[i];
+            entries[i] = new MarketEntry(
+                commodity.Id,
+                _stationStock.GetValueOrDefault(commodity.Id),
+                account.Cargo.GetValueOrDefault(commodity.Id));
+        }
+
+        return new MarketState(account.Credits, CargoUsed(account), CommodityCatalog.CargoCapacity, entries);
+    }
+
+    private static int CargoUsed(PlayerAccount account)
+    {
+        var used = 0;
+        foreach (var quantity in account.Cargo.Values)
+            used += quantity;
+        return used;
+    }
+
+    private TradeOutcome TradeSuccess(PlayerAccount account, string key, string commodityKey, int quantity, int total)
+    {
+        var enArgs = new object[] { ServerText.Get("en", "commodity_" + commodityKey), quantity, total };
+        var ruArgs = new object[] { ServerText.Get("ru", "commodity_" + commodityKey), quantity, total };
+        return new TradeOutcome(
+            true,
+            ServerText.Get("en", key, enArgs),
+            ServerText.Get("ru", key, ruArgs),
+            BuildMarket(account));
+    }
+
+    private TradeOutcome TradeFail(PlayerAccount? account, string key, string? commodityKey = null, params object[] args)
+    {
+        var enArgs = new List<object>(args.Length + 1);
+        var ruArgs = new List<object>(args.Length + 1);
+        if (commodityKey is not null)
+        {
+            enArgs.Add(ServerText.Get("en", "commodity_" + commodityKey));
+            ruArgs.Add(ServerText.Get("ru", "commodity_" + commodityKey));
+        }
+        enArgs.AddRange(args);
+        ruArgs.AddRange(args);
+
+        return new TradeOutcome(
+            false,
+            ServerText.Get("en", key, enArgs.ToArray()),
+            ServerText.Get("ru", key, ruArgs.ToArray()),
+            account is null ? null : BuildMarket(account));
     }
 
     public void Tick(double dt)
@@ -95,7 +269,40 @@ public sealed class GameWorld
         {
             var slot = _inputs[id];
             slot.AgeSeconds += dt;
+            if (ship.Docked)
+                continue;
+            if (ship.DockingGranted && ApproachPilot.Arrived(ship, ship.DockingPoint))
+            {
+                ship.Docked = true;
+                ship.DockingGranted = false;
+                ship.ApproachTargetId = 0;
+                ship.Velocity = Vec3d.Zero;
+                ship.Throttle = 0;
+                continue;
+            }
             var input = slot.AgeSeconds <= InputTimeoutSeconds ? slot.Input : InputState.None;
+            if (ship.ApproachTargetId != 0)
+            {
+                var targetShip = ship.ApproachFollowing
+                    ? _players.GetValueOrDefault(ship.ApproachTargetId) ?? _npcs.FirstOrDefault(n => n.Id == ship.ApproachTargetId)
+                    : null;
+                if (ship.ApproachFollowing && targetShip is null)
+                {
+                    ship.ApproachTargetId = 0;
+                    ship.ApproachFollowing = false;
+                }
+                else if (targetShip is not null)
+                {
+                    var away = (ship.Position - targetShip.Position).Normalized();
+                    if (away.LengthSquared < 0.5) away = -ship.Forward;
+                    ship.ApproachDestination = targetShip.Position + away * 520;
+                    input = ApproachPilot.Steer(ship, ship.ApproachDestination, targetShip.Velocity);
+                }
+                else if (ApproachPilot.Arrived(ship, ship.ApproachDestination))
+                    ship.ApproachTargetId = 0;
+                else
+                    input = ApproachPilot.Steer(ship, ship.ApproachDestination);
+            }
             FlightModel.StepPlayer(ship, input, dt);
         }
 
@@ -115,81 +322,127 @@ public sealed class GameWorld
         return entities.ToArray();
     }
 
-    public ScanOutcome Scan(uint playerId, uint targetId)
+    /// <summary>
+    /// Snapshot for one viewer. The viewer always sees its own ship; other
+    /// entities are included only inside <see cref="WorldCatalog.RelevanceRange"/>.
+    /// This is the first, deliberately simple interest-management slice.
+    /// </summary>
+    public EntitySnapshot[] BuildSnapshot(uint viewerId)
+    {
+        var viewer = GetPlayer(viewerId);
+        if (viewer is null)
+            return Array.Empty<EntitySnapshot>();
+
+        var entities = new List<EntitySnapshot>(_players.Count + _npcs.Count)
+        {
+            ToSnapshot(viewer),
+        };
+
+        foreach (var player in _players.Values)
+        {
+            if (player.Id != viewerId &&
+                Vec3d.Distance(viewer.Position, player.Position) <= WorldCatalog.RelevanceRange)
+                entities.Add(ToSnapshot(player));
+        }
+
+        foreach (var npc in _npcs)
+        {
+            if (Vec3d.Distance(viewer.Position, npc.Position) <= WorldCatalog.RelevanceRange)
+                entities.Add(ToSnapshot(npc));
+        }
+
+        entities.Sort((a, b) => a.Id.CompareTo(b.Id));
+        return entities.ToArray();
+    }
+
+    public ScanOutcome Scan(uint playerId, uint targetId, string language = "en")
     {
         var player = GetPlayer(playerId);
         if (player is null)
-            return new ScanOutcome(false, targetId, "Scan failed", "Unknown or unowned ship.");
+            return new ScanOutcome(false, targetId, ServerText.Get(language, "scan_failed"), ServerText.Get(language, "unknown_ship"));
 
-        var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
-        if (npc is not null)
+        var contactShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
+        if (contactShip is not null && contactShip.Id != playerId)
         {
-            var shipDistance = Vec3d.Distance(player.Position, npc.Position);
+            var shipDistance = Vec3d.Distance(player.Position, contactShip.Position);
             if (shipDistance > WorldCatalog.ScanRange)
-                return OutOfRange(targetId, shipDistance);
-            return new ScanOutcome(true, targetId, $"{npc.Role}: {npc.Name}", DescribeVessel(npc));
+                return OutOfRange(targetId, shipDistance, language);
+            return new ScanOutcome(true, targetId, ServerText.Get(language, "vessel_title", contactShip.Role, contactShip.Name), DescribeVessel(contactShip, language));
         }
 
         if (Catalog.FindCelestial((int)targetId) is { } celestial)
         {
             var realDistance = (celestial.SystemPosition - ToSystemPosition(player.Position)).Length - celestial.Radius;
             if (realDistance > WorldCatalog.ScanRange)
-                return OutOfRange(targetId, realDistance);
-            return new ScanOutcome(true, targetId, celestial.Name, DescribeCelestial(celestial, realDistance));
+                return OutOfRange(targetId, realDistance, language);
+            return new ScanOutcome(true, targetId, celestial.Name, DescribeCelestial(celestial, realDistance, language));
         }
 
         if (Catalog.Find((int)targetId) is not { } body)
-            return new ScanOutcome(false, targetId, "No contact", "The selected object is not in the scanner database.");
+            return new ScanOutcome(false, targetId, ServerText.Get(language, "no_contact"), ServerText.Get(language, "unknown_contact"));
 
         var distance = Math.Max(0, Vec3d.Distance(player.Position, body.Position) - body.Radius);
         if (distance > WorldCatalog.ScanRange)
-            return OutOfRange(targetId, distance);
+            return OutOfRange(targetId, distance, language);
 
-        return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance));
+        return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance, language));
     }
 
-    public WarpOutcome Warp(uint playerId, uint targetId)
+    public WarpOutcome Warp(uint playerId, uint targetId, ushort arrivalDistance = 1000)
     {
         var player = GetPlayer(playerId);
         if (player is null)
-            return WarpFail(targetId, "Unknown or unowned ship.");
+            return WarpFail(targetId, "unknown_ship");
+        if (player.Docked)
+            return WarpFail(targetId, "warp_undock");
+        if (arrivalDistance is not (500 or 1000 or 5000))
+            return WarpFail(targetId, "warp_invalid");
 
-        var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
+        var npc = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
+        if (npc?.Id == playerId)
+            return WarpFail(targetId, "warp_self");
         var body = Catalog.Find((int)targetId);
         if (npc is null && body is null)
         {
             if (Catalog.FindCelestial((int)targetId) is not null)
             {
                 var realDistance = (Catalog.FindCelestial((int)targetId)!.SystemPosition - ToSystemPosition(player.Position)).Length;
-                return WarpFail(targetId,
-                    $"In-system warp has no solution for a target {realDistance / 1_000_000:F1} Mm away. Interplanetary travel arrives in a later milestone.");
+                return WarpFail(targetId, "warp_celestial", realDistance / 1_000_000);
             }
 
-            return WarpFail(targetId, "Warp target is not a known contact.");
+            return WarpFail(targetId, "warp_unknown");
         }
 
         if (TimeSeconds - player.LastWarpAtSeconds < 8.0)
-            return WarpFail(targetId, $"Warp drive is recharging ({8.0 - (TimeSeconds - player.LastWarpAtSeconds):F1} s).");
+            return WarpFail(targetId, "warp_cooldown", 8.0 - (TimeSeconds - player.LastWarpAtSeconds));
 
         var targetPosition = npc?.Position ?? body!.Position;
         var targetRadius = npc is not null ? 20.0 : body!.Radius;
         var distance = Vec3d.Distance(player.Position, targetPosition);
         if (distance > WorldCatalog.WarpRange)
-            return WarpFail(targetId, $"Target beyond warp range ({distance / 1000:F1} km > {WorldCatalog.WarpRange / 1000:F0} km).");
+            return WarpFail(targetId, "warp_range", distance / 1000, WorldCatalog.WarpRange / 1000);
 
-        var arrivalOffset = Math.Max(650, targetRadius + 750);
+        var arrivalOffset = targetRadius + arrivalDistance;
         if (distance <= arrivalOffset + 250)
-            return WarpFail(targetId, "Already inside safe arrival distance.");
+            return WarpFail(targetId, "warp_close");
 
         var direction = (targetPosition - player.Position).Normalized();
         var arrival = targetPosition - direction * arrivalOffset;
+        const double clearance = 20;
+        if (Catalog.LocalBodies.Any(other => Vec3d.Distance(arrival, other.Position) < other.Radius + clearance) ||
+            _npcs.Any(other => Vec3d.Distance(arrival, other.Position) < 20 + clearance) ||
+            _players.Values.Any(other => other.Id != playerId && Vec3d.Distance(arrival, other.Position) < 2 * clearance) ||
+            new[] { Catalog.Star, Catalog.Planet }.Any(other =>
+                Vec3d.Distance(ToSystemPosition(arrival), other.SystemPosition) < other.Radius + clearance))
+            return WarpFail(targetId, "warp_blocked");
         var toTarget = (targetPosition - arrival).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toTarget);
 
         player.Position = arrival;
+        player.ApproachTargetId = 0;
+        player.DockingGranted = false;
         player.Velocity = toTarget * 60.0;
-        player.Yaw = yaw;
-        player.Pitch = pitch;
+        player.SetAngles(yaw, pitch);
         player.Throttle = 0.2;
         player.LastWarpAtSeconds = TimeSeconds;
 
@@ -197,20 +450,21 @@ public sealed class GameWorld
         return new WarpOutcome(
             true,
             targetId,
-            $"Short warp complete — {label} at {(distance - arrivalOffset) / 1000:F0} km.",
+            ServerText.Get("en", "warp_success", label, arrivalDistance / 1000.0),
             arrival,
             (float)yaw,
-            (float)pitch);
+            (float)pitch,
+            ServerText.Get("ru", "warp_success", label, arrivalDistance / 1000.0));
     }
 
-    private static WarpOutcome WarpFail(uint targetId, string message) =>
-        new(false, targetId, message, Vec3d.Zero, 0, 0);
+    private static WarpOutcome WarpFail(uint targetId, string key, params object[] args) =>
+        new(false, targetId, ServerText.Get("en", key, args), Vec3d.Zero, 0, 0, ServerText.Get("ru", key, args));
 
-    private static ScanOutcome OutOfRange(uint targetId, double distance) =>
+    private static ScanOutcome OutOfRange(uint targetId, double distance, string language) =>
         new(false,
             targetId,
-            "Out of range",
-            $"Scanner range is {WorldCatalog.ScanRange / 1000:F1} km, contact is {distance / 1000:F1} km away.");
+            ServerText.Get(language, "out_of_range"),
+            ServerText.Get(language, "scanner_range", WorldCatalog.ScanRange / 1000, distance / 1000));
 
     /// <summary>Promotes a sector-local position into real system coordinates (double precision).</summary>
     private Vec3d ToSystemPosition(Vec3d local) => Catalog.LocalFrameOrigin + local;
@@ -223,51 +477,43 @@ public sealed class GameWorld
         (float)ship.Yaw,
         (float)ship.Pitch,
         ship.Velocity,
-        (sbyte)Math.Clamp(Math.Round(ship.Throttle * 127), -127, 127));
+        (sbyte)Math.Clamp(Math.Round(ship.Throttle * 127), -127, 127),
+        ship.Orientation,
+        ship.ApproachTargetId,
+        ship.Docked,
+        ship.DockingGranted,
+        ship.FlightAssist,
+        ship.ApproachTargetId != 0 && ship.ApproachFollowing);
 
-    private static string DescribeVessel(ShipState npc)
+    private static string DescribeVessel(ShipState npc, string language)
     {
         var speed = npc.Velocity.Length;
         var heading = (npc.Yaw * 180.0 / Math.PI + 360) % 360;
-        return
-            $"Transponder: civilian\n" +
-            $"Role: {npc.Role}\n" +
-            $"Speed: {speed:F0} m/s\n" +
-            $"Heading: {heading:F0}°  Altitude: {npc.Position.Y:F0} m\n" +
-            "No hostile intent detected. Traffic lanes are nominal.";
+        return ServerText.Get(language, "vessel", npc.Role, speed, heading, npc.Position.Y);
     }
 
-    private string DescribeBody(StaticBody body, double distance)
+    private string DescribeBody(StaticBody body, double distance, string language)
     {
         return body.Kind switch
         {
-            BodyKind.Asteroid => DescribeAsteroid(body, distance),
-            BodyKind.Station =>
-                "Orbital station — Kestrel Reach\n" +
-                "Traffic control online. Reactor signature stable.\n" +
-                $"Range: {distance / 1000:F2} km\n" +
-                "Docking interface is not part of First Flight; station services are telemetry only.",
-            _ => "Unclassified object.",
+            BodyKind.Asteroid => DescribeAsteroid(body, distance, language),
+            BodyKind.Station => ServerText.Get(language, "station", distance / 1000),
+            _ => ServerText.Get(language, "unclassified"),
         };
     }
 
-    private string DescribeCelestial(CelestialBody body, double distance) => body.Kind switch
+    private string DescribeCelestial(CelestialBody body, double distance, string language) => body.Kind switch
     {
         CelestialKind.Planet =>
-            "Terrestrial world — class M\n" +
-            $"Radius: {body.Radius / 1000:F0} km\n" +
-            (body.RingOuterRadii > 0 ? "Ring system detected: two broad ice bands.\n" : "") +
-            (body.AtmosphereHeight > 0 ? $"Atmosphere: {body.AtmosphereHeight / 1000:F0} km shell, breathable proxy.\n" : "") +
-            $"Range to surface: {distance / 1000:F0} km",
+            ServerText.Get(language, "planet", body.Radius / 1000,
+                body.RingOuterRadii > 0 ? ServerText.Get(language, "rings") : "",
+                body.AtmosphereHeight > 0 ? ServerText.Get(language, "atmosphere", body.AtmosphereHeight / 1000) : "", distance / 1000),
         CelestialKind.Star =>
-            "G-type main-sequence star\n" +
-            $"Photosphere radius: {body.Radius / 1000:F0} km\n" +
-            "Coronal activity: low. No flare risk in the next cycle.\n" +
-            $"Distance: {distance / 1_000_000:F1} Mm",
-        _ => "Unclassified object.",
+            ServerText.Get(language, "star", body.Radius / 1000, distance / 1_000_000),
+        _ => ServerText.Get(language, "unclassified"),
     };
 
-    private string DescribeAsteroid(StaticBody body, double distance)
+    private string DescribeAsteroid(StaticBody body, double distance, string language)
     {
         var random = new Random(unchecked(Catalog.Seed * 73856093 ^ body.Id * 19349663));
         var silicate = 25 + random.Next(0, 30);
@@ -280,14 +526,8 @@ public sealed class GameWorld
         ice = ice * 100 / total;
         iron = Math.Max(0, 100 - silicate - carbon - ice);
         var quality = 70 + random.Next(0, 31);
-        var className = ice > 16 ? "C-type carbonaceous" : silicate > 34 ? "S-type silicaceous" : "M-type metallic";
-
-        return
-            $"Asteroid — {className}\n" +
-            $"Radius: {body.Radius:F1} m\n" +
-            $"Composition: silicate {silicate}%, carbon {carbon}%, water ice {ice}%, nickel-iron {iron}%\n" +
-            $"Scan quality: {quality}%   Range: {distance / 1000:F2} km\n" +
-            "No active emissions. Prospecting yield estimate is available in a later milestone.";
+        var className = ServerText.Get(language, ice > 16 ? "class_c" : silicate > 34 ? "class_s" : "class_m");
+        return ServerText.Get(language, "asteroid", className, body.Radius, silicate, carbon, ice, iron, quality, distance / 1000);
     }
 
     private void SpawnNpcs()
@@ -322,6 +562,13 @@ public sealed class GameWorld
             },
             84,
             2));
+
+        if (Catalog.Sectors.Count > 1)
+        {
+            var belt = Catalog.Sectors[1].Center;
+            AddOrbitNpc("Belt Runner", "Prospector", belt, 1500, 180, 1.3, 74, 0.4);
+            AddOrbitNpc("Iron Vigil", "Patrol", belt, 2300, 220, 3.9, 92, 0.8);
+        }
     }
 
     private void AddOrbitNpc(string name, string role, Vec3d center, double radius, double height, double phase, double speed, double startPhase)

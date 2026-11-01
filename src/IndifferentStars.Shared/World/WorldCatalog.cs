@@ -50,13 +50,28 @@ public enum SectorKind : byte
     Unknown = 5,
 }
 
+/// <summary>
+/// A named area of interest inside one local frame. Sectors are contiguous:
+/// crossing a boundary is a change of active area, not a scene load. The server
+/// uses distance-based interest management; the client uses the same boundaries
+/// for the current-sector readout.
+/// </summary>
+public sealed class SectorDefinition
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required SectorKind Kind { get; init; }
+    public required Vec3d Center { get; init; }
+    public required double Radius { get; init; }
+    public required IReadOnlyList<StaticBody> Bodies { get; init; }
+}
+
 public sealed class WorldCatalog
 {
-    // Local sector gameplay limits (metres). The sector is intentionally small enough
-    // for a readable arcade dogfight; interplanetary travel is a later milestone.
-    public const double PlayRadius = 8500.0;
     public const double WarpRange = 21000.0;
     public const double ScanRange = 4200.0;
+    /// <summary>Dynamic entities farther than this are not sent to a client.</summary>
+    public const double RelevanceRange = 15000.0;
     public const double MaxSpeed = 260.0;
     public const double MaxBoostSpeed = 720.0;
     public const float StartFuel = 100f;
@@ -84,6 +99,41 @@ public sealed class WorldCatalog
     public required StaticBody Station { get; init; }
 
     public required IReadOnlyList<StaticBody> Asteroids { get; init; }
+
+    /// <summary>Named areas of interest within the local frame.</summary>
+    public required IReadOnlyList<SectorDefinition> Sectors { get; init; }
+
+    /// <summary>Returns the sector containing the position, or the nearest one.</summary>
+    public SectorDefinition SectorAt(Vec3d local)
+    {
+        var best = Sectors[0];
+        var bestDistance = double.MaxValue;
+        foreach (var sector in Sectors)
+        {
+            var distance = Vec3d.Distance(local, sector.Center);
+            if (distance <= sector.Radius)
+                return sector;
+            var outside = distance - sector.Radius;
+            if (outside < bestDistance)
+            {
+                bestDistance = outside;
+                best = sector;
+            }
+        }
+
+        return best;
+    }
+
+    public SectorDefinition? FindSector(string id)
+    {
+        foreach (var sector in Sectors)
+        {
+            if (string.Equals(sector.Id, id, StringComparison.Ordinal))
+                return sector;
+        }
+
+        return null;
+    }
 
     /// <summary>Nearby contacts that the authoritative simulation can target.</summary>
     public IReadOnlyList<StaticBody> LocalBodies
@@ -171,7 +221,7 @@ public sealed class WorldCatalog
         };
 
         // A local debris belt around the station, a few kilometres across.
-        var asteroids = new List<StaticBody>(280);
+        var asteroids = new List<StaticBody>(400);
         const int asteroidCount = 260;
         for (var i = 0; i < asteroidCount; i++)
         {
@@ -191,17 +241,69 @@ public sealed class WorldCatalog
             });
         }
 
+        var primaryAsteroids = new ReadOnlyCollection<StaticBody>(asteroids.ToArray());
+
+        // A second, contiguous area of interest: a denser outer belt 18 km from
+        // the station. It is reachable by short warp or by flying, and is used to
+        // demonstrate streaming without loading a separate scene.
+        var beltCenter = new Vec3d(0, 0, 18_000);
+        var beltAsteroids = new List<StaticBody>(140);
+        const int beltCount = 120;
+        for (var i = 0; i < beltCount; i++)
+        {
+            var angle = random.NextDouble() * Math.PI * 2;
+            var radius = 3000 + random.NextDouble() * 1200;
+            var y = (random.NextDouble() - 0.5) * 900;
+            var size = 8 + Math.Pow(random.NextDouble(), 2.0) * 55;
+            beltAsteroids.Add(new StaticBody
+            {
+                Id = 2000 + i,
+                Kind = BodyKind.Asteroid,
+                Name = $"Asteroid KB-{2000 + i}",
+                Position = beltCenter + new Vec3d(Math.Cos(angle) * radius, y, Math.Sin(angle) * radius),
+                Radius = size,
+                Rotation = (float)(random.NextDouble() * Math.PI * 2),
+                Variant = random.Next(0, 3),
+            });
+        }
+
+        var beltBodies = new ReadOnlyCollection<StaticBody>(beltAsteroids);
+        var allAsteroids = new ReadOnlyCollection<StaticBody>(
+            primaryAsteroids.Concat(beltBodies).ToArray());
+
+        var orbitSector = new SectorDefinition
+        {
+            Id = "kestrel-reach-orbit",
+            Name = "Kestrel Reach Orbit",
+            Kind = SectorKind.Planetary,
+            Center = Vec3d.Zero,
+            Radius = 9000,
+            Bodies = new ReadOnlyCollection<StaticBody>(
+                new[] { station }.Concat(primaryAsteroids).ToArray()),
+        };
+
+        var beltSector = new SectorDefinition
+        {
+            Id = "kestrel-reach-belt",
+            Name = "Kestrel Reach Belt",
+            Kind = SectorKind.Asteroid,
+            Center = beltCenter,
+            Radius = 4500,
+            Bodies = beltBodies,
+        };
+
         return new WorldCatalog
         {
             Seed = seed,
             SystemName = "Vesper — Kestrel Reach",
-            SectorId = "kestrel-reach-orbit",
-            SectorKind = SectorKind.Planetary,
+            SectorId = orbitSector.Id,
+            SectorKind = orbitSector.Kind,
             LocalFrameOrigin = localFrameOrigin,
             Star = star,
             Planet = planet,
             Station = station,
-            Asteroids = new ReadOnlyCollection<StaticBody>(asteroids),
+            Asteroids = allAsteroids,
+            Sectors = new ReadOnlyCollection<SectorDefinition>(new[] { orbitSector, beltSector }),
         };
     }
 }

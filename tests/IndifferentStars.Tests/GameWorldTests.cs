@@ -10,6 +10,19 @@ namespace IndifferentStars.Tests;
 
 public sealed class GameWorldTests
 {
+    [Fact]
+    public void ScanResultsAreAvailableInRussianAndEnglish()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(12345));
+        var ship = world.AddPlayer("Translator");
+        var english = world.Scan(ship.Id, (uint)world.Catalog.Station.Id, "en");
+        var russian = world.Scan(ship.Id, (uint)world.Catalog.Station.Id, "ru");
+        Assert.True(english.Success);
+        Assert.True(russian.Success);
+        Assert.Equal(english.TargetId, russian.TargetId);
+        Assert.Contains("Orbital station", english.Body);
+        Assert.Contains("Орбитальная станция", russian.Body);
+    }
     private static (GameWorld World, ShipState Ship) NewWorldWithPlayer()
     {
         var world = new GameWorld(WorldCatalog.Generate(777));
@@ -66,7 +79,7 @@ public sealed class GameWorldTests
     {
         var (world, ship) = NewWorldWithPlayer();
         var stationId = (uint)world.Catalog.Asteroids
-            .OrderByDescending(a => Vec3d.Distance(a.Position, ship.Position))
+            .OrderBy(a => Vec3d.Distance(a.Position, ship.Position))
             .First().Id;
 
         var first = world.Warp(ship.Id, stationId);
@@ -154,6 +167,52 @@ public sealed class GameWorldTests
             Assert.Equal(a.Npcs[i].Position.Y, b.Npcs[i].Position.Y, 8);
             Assert.Equal(a.Npcs[i].Position.Z, b.Npcs[i].Position.Z, 8);
         }
+    }
+
+    [Fact]
+    public void TradeRequiresDockingAndValidatesAccountAndStock()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(4242));
+        var ship = world.AddPlayer("Trader");
+        var initial = world.GetMarket(ship.Id);
+        Assert.NotNull(initial);
+        Assert.Equal(CommodityCatalog.StartingCredits, initial!.Credits);
+        Assert.Equal(CommodityCatalog.CargoCapacity, initial.CargoCapacity);
+
+        Assert.False(world.Trade(ship.Id, 1, 1, true).Success);
+
+        Assert.True(world.RequestDocking(ship.Id, (uint)world.Catalog.Station.Id));
+        ship.Position = ship.DockingPoint;
+        ship.Velocity = Vec3d.Zero;
+        world.Tick(0.05);
+        Assert.True(ship.Docked);
+
+        Assert.False(world.Trade(ship.Id, 99, 1, true).Success);
+        Assert.False(world.Trade(ship.Id, 1, 0, true).Success);
+
+        var bought = world.Trade(ship.Id, 1, 2, true);
+        Assert.True(bought.Success, bought.Message);
+        var afterBuy = Assert.IsType<MarketState>(bought.State);
+        Assert.Equal(CommodityCatalog.StartingCredits - 24, afterBuy.Credits);
+        Assert.Equal(2, afterBuy.Entries.First(e => e.CommodityId == 1).PlayerQuantity);
+
+        var sold = world.Trade(ship.Id, 1, 1, false);
+        Assert.True(sold.Success, sold.Message);
+        var afterSell = Assert.IsType<MarketState>(sold.State);
+        Assert.Equal(CommodityCatalog.StartingCredits - 24 + 8, afterSell.Credits);
+        Assert.Equal(1, afterSell.Entries.First(e => e.CommodityId == 1).PlayerQuantity);
+
+        var stock = afterSell.Entries.First(e => e.CommodityId == 1).StationStock;
+        var exhausted = world.Trade(ship.Id, 1, stock + 1, true);
+        Assert.False(exhausted.Success);
+        Assert.Contains("stock", exhausted.Message, StringComparison.OrdinalIgnoreCase);
+
+        var room = CommodityCatalog.CargoCapacity - afterSell.CargoUsed;
+        var fill = world.Trade(ship.Id, 1, room, true);
+        Assert.True(fill.Success, fill.Message);
+        var overflow = world.Trade(ship.Id, 1, 1, true);
+        Assert.False(overflow.Success);
+        Assert.Contains("full", overflow.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

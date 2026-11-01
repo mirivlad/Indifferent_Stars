@@ -37,6 +37,11 @@ public sealed partial class GameMain : Node3D
     private Hud _hud = null!;
     private TacticalView _tactical = null!;
     private CanvasLayer _tacticalLayer = null!;
+    private PopupMenu _contactMenu = null!;
+    private StationView _stationView = null!;
+    private ClientSettings _settings = null!;
+    private SettingsMenu _settingsMenu = null!;
+    private ShipAudio _audio = null!;
 
     private readonly Dictionary<uint, ShipView> _remoteShips = new();
     private readonly Dictionary<uint, double> _remoteSeen = new();
@@ -48,9 +53,15 @@ public sealed partial class GameMain : Node3D
     private bool _hasTarget;
     private float _warpCooldown;
     private float _scanCooldown;
+    private float _marketRetry;
     private float _lastHudUpdate;
     private ulong _serverTick;
+    private string _sectorId = "";
     private InputState _input = InputState.None;
+    private bool _flightAssist;
+    private Vec3d _renderOrigin = Vec3d.Zero;
+    private Vector2 _mouseTurn;
+    private ulong _mouseTurnAt;
 
     private string _playerName = "Captain";
     private string _serverHost = "127.0.0.1";
@@ -66,7 +77,11 @@ public sealed partial class GameMain : Node3D
         System.Globalization.CultureInfo.DefaultThreadCurrentUICulture =
             System.Globalization.CultureInfo.InvariantCulture;
 
+        _settings = ClientSettings.Load();
+        Locale.Load(_settings.Language);
         ParseCommandLine();
+        _audio = new ShipAudio { Name = "ShipAudio" };
+        AddChild(_audio);
         _catalog = WorldCatalog.Generate(DefaultSeed);
 
         _staticRoot = new Node3D { Name = "StaticWorld" };
@@ -81,42 +96,126 @@ public sealed partial class GameMain : Node3D
         RebuildStaticWorld(DefaultSeed);
 
         _hud.SetSystem(_catalog.SystemName, _catalog.Seed, 0);
-        _hud.SetMode("EXTERNAL 3D", "Connecting to the authoritative server");
+        _hud.SetMode("external", Locale.Text("link_connecting_short"));
         _hud.SetTarget(null, "", 0, 0, false, false);
 
+        _settingsMenu = new SettingsMenu(_settings, ApplySettings, StartConnection);
+        AddChild(_settingsMenu);
+        ApplySettings();
+        if (_captureDir is not null)
+        {
+            _settingsMenu.Visible = false;
+            StartConnection();
+        }
+
+        GetWindow().Title = $"Indifferent Stars — Second Flight — {_playerName}";
+        DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Enabled);
+    }
+
+    private void StartConnection()
+    {
+        if (_net is not null) return;
+        var split = _settings.Server.Split(':', 2);
+        _serverHost = split[0];
+        _serverPort = split.Length > 1 && int.TryParse(split[1], out var port) && port is > 0 and <= 65535 ? port : 7777;
+        _playerName = string.IsNullOrWhiteSpace(_settings.Callsign) ? "Captain" : _settings.Callsign.Trim();
         _net = new NetworkClient(_serverHost, _serverPort, _playerName);
         _net.WelcomeReceived += OnWelcome;
         _net.JoinRejected += OnJoinRejected;
         _net.SnapshotReceived += OnSnapshot;
         _net.ScanCompleted += OnScanCompleted;
         _net.WarpCompleted += OnWarpCompleted;
+        _net.ApproachCompleted += OnApproachCompleted;
+        _net.DockCompleted += OnDockCompleted;
+        _net.MarketReceived += OnMarketReceived;
+        _net.TradeCompleted += OnTradeCompleted;
         _net.TransportError += OnTransportError;
         _net.Start();
 
-        GetWindow().Title = $"Indifferent Stars — First Flight — {_playerName}";
-        DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Enabled);
         GD.Print($"Indifferent Stars client: {_playerName} -> {_serverHost}:{_serverPort}");
+    }
+
+    private void ApplySettings()
+    {
+        GetViewport().Scaling3DScale = _settings.RenderScale;
+        GetViewport().Msaa3D = _settings.Antialiasing ? Viewport.Msaa.Msaa2X : Viewport.Msaa.Disabled;
+        var windowMode = _settings.Fullscreen ? DisplayServer.WindowMode.Fullscreen : DisplayServer.WindowMode.Windowed;
+        if (DisplayServer.WindowGetMode() != windowMode) DisplayServer.WindowSetMode(windowMode);
+        var dimensions = _settings.Resolution.Split('x');
+        if (!_settings.Fullscreen && dimensions.Length == 2 && int.TryParse(dimensions[0], out var width) && int.TryParse(dimensions[1], out var height) && width >= 640 && height >= 480)
+        {
+            var size = new Vector2I(width, height);
+            if (DisplayServer.WindowGetSize() != size) DisplayServer.WindowSetSize(size);
+        }
+        SetVolume("Master", _settings.MasterVolume);
+        SetVolume("Music", _settings.MusicVolume);
+        SetVolume("Engines", _settings.EngineVolume);
+        SetVolume("Effects", _settings.EffectsVolume);
+        SetVolume("UI", _settings.UiVolume);
+        SetVolume("Radio", _settings.RadioVolume);
+        _highQuality = _settings.Glow;
+        _worldBuilder?.SetGlowEnabled(_settings.Glow && _mode != ViewMode.Tactical);
+        _worldBuilder?.SetVisualQuality(_settings.Shadows, _settings.SkyDetail);
+        _playerShip?.SetEngineEffects(_settings.EngineEffects);
+        foreach (var ship in _remoteShips.Values) ship.SetEngineEffects(_settings.EngineEffects);
+        _hud.SetControls(_settings);
+        _hud.RefreshLanguage();
+        _stationView?.RefreshLanguage();
+        BuildContactMenu();
+        if (_playerShip is not null)
+            SetMode(_mode);
+    }
+
+    private static void SetVolume(string name, float value)
+    {
+        var bus = AudioServer.GetBusIndex(name);
+        if (bus >= 0)
+        {
+            AudioServer.SetBusMute(bus, value <= 0);
+            AudioServer.SetBusVolumeDb(bus, Mathf.LinearToDb(Mathf.Max(0.0001f, value)));
+        }
     }
 
     public override void _Process(double delta)
     {
         var dt = (float)delta;
         _net?.Poll();
+        UpdateRenderOrigin();
 
         _input = ReadInput();
         _net?.Update(delta, _input);
+        var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical), Math.Abs(_input.Roll)));
+        _audio.SetFlight(_playerShip?.Track.Throttle ?? 0, maneuver, _input.Boost, _input.Brake);
 
         if (_playerShip is not null)
         {
             _playerShip.Boosting = _input.Boost;
-            _playerShip.UpdateVisual();
+            _playerShip.UpdateVisual(_renderOrigin);
+            var docked = _playerShip.Track.Docked;
+            if (_stationView.Visible != docked)
+            {
+                _stationView.SetDocked(docked, _catalog.Station.Name);
+                _marketRetry = 0;
+                if (docked)
+                    Input.MouseMode = Input.MouseModeEnum.Visible;
+            }
+            if (docked && !_stationView.HasMarket && _net is not null)
+            {
+                _marketRetry -= dt;
+                if (_marketRetry <= 0)
+                {
+                    _net.RequestMarket();
+                    _marketRetry = 0.8f;
+                }
+            }
         }
 
         UpdateRemoteShips();
         UpdateTargeting();
+        UpdateSector();
         UpdateTactical();
         UpdateCamera(dt);
-        _worldBuilder?.Process(delta, PlayerPosition());
+        _worldBuilder?.Process(delta, _playerShip?.Track.WorldPosition ?? Vec3d.Zero, _renderOrigin);
         _camera.Far = _worldBuilder?.RequiredFarPlane ?? 900_000f;
 
         _warpCooldown = Mathf.Max(0f, _warpCooldown - dt);
@@ -134,42 +233,104 @@ public sealed partial class GameMain : Node3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (_settingsMenu.IsOpen) return;
         if (@event is InputEventKey key && key.Pressed && !key.Echo)
         {
-            switch (key.Keycode)
+            var action = _settings.Keys.FirstOrDefault(pair => pair.Value == key.Keycode).Key;
+            switch (action)
             {
-                case Key.F1:
+                case "view_2d":
                     SetMode(ViewMode.Tactical);
                     break;
-                case Key.F2:
+                case "view_3d":
                     SetMode(ViewMode.External);
                     break;
-                case Key.F3:
+                case "view_cockpit":
                     SetMode(ViewMode.Cockpit);
                     break;
-                case Key.F4:
+                case "quality":
                     ToggleQuality();
                     break;
-                case Key.Tab:
+                case "target":
                     CycleTarget();
                     break;
-                case Key.F:
+                case "scan":
                     RequestScan();
                     break;
-                case Key.X:
+                case "warp":
                     RequestWarp();
                     break;
-                case Key.Escape:
-                    GetTree().Quit();
+                case "approach":
+                    RequestApproach();
+                    break;
+                case "dock":
+                    RequestDock();
+                    break;
+                case "assist" when _mode != ViewMode.Tactical:
+                    _flightAssist = !_flightAssist;
+                    break;
+                case "map_ship" when _mode == ViewMode.Tactical:
+                    _tactical.CenterOnPlayer();
+                    break;
+                case "map_system" when _mode == ViewMode.Tactical:
+                    _tactical.ShowSystem();
                     break;
             }
+            if (action == "menu")
+            {
+                if (Input.MouseMode == Input.MouseModeEnum.Captured) Input.MouseMode = Input.MouseModeEnum.Visible;
+                else _settingsMenu.ShowMenu(true);
+            }
+        }
+        else if (@event is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured && _mode != ViewMode.Tactical)
+        {
+            _mouseTurn = motion.Relative;
+            _mouseTurnAt = Time.GetTicksMsec();
+        }
+        else if (@event is InputEventMouseMotion pan && _mode == ViewMode.Tactical && (pan.ButtonMask & MouseButtonMask.Middle) != 0)
+        {
+            _tactical.Pan(pan.Relative);
+        }
+        else if (@event is InputEventMouseButton capture && capture.Pressed && capture.ButtonIndex == MouseButton.Left && _mode != ViewMode.Tactical)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Captured;
         }
         else if (@event is InputEventMouseButton mouse && mouse.Pressed && _mode == ViewMode.Tactical)
         {
             if (mouse.ButtonIndex == MouseButton.WheelUp)
-                _tactical.ZoomRange = Mathf.Clamp(_tactical.ZoomRange * 0.82f, 2400f, 26000f);
+                _tactical.ZoomAt(mouse.Position, 0.65);
             else if (mouse.ButtonIndex == MouseButton.WheelDown)
-                _tactical.ZoomRange = Mathf.Clamp(_tactical.ZoomRange / 0.82f, 2400f, 26000f);
+                _tactical.ZoomAt(mouse.Position, 1 / 0.65);
+            else if (mouse.ButtonIndex is MouseButton.Left or MouseButton.Right)
+            {
+                var contact = BuildContacts().Where(c => c.Id != _playerId && _tactical.ZoomRange < 100_000_000)
+                    .Select(c => (Contact: c, Distance: _tactical.ScreenPosition(new Vec3d(c.Position.X, c.Position.Y, c.Position.Z)).DistanceTo(mouse.Position)))
+                    .Where(c => c.Distance < 20).OrderBy(c => c.Distance).FirstOrDefault();
+                var selectedId = contact.Contact.Id;
+                var selectedDistance = selectedId == 0 ? float.MaxValue : contact.Distance;
+                if (_tactical.ZoomRange >= 100_000_000)
+                {
+                    foreach (var celestial in new[] { _catalog.Star, _catalog.Planet })
+                    {
+                        var distance = _tactical.ScreenPosition(celestial.SystemPosition - _catalog.LocalFrameOrigin).DistanceTo(mouse.Position);
+                        if (distance < 20 && distance < selectedDistance)
+                        {
+                            selectedId = (uint)celestial.Id;
+                            selectedDistance = distance;
+                        }
+                    }
+                }
+                if (selectedId != 0)
+                {
+                    _targetId = selectedId;
+                    _hasTarget = true;
+                    if (mouse.ButtonIndex == MouseButton.Right)
+                    {
+                        _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
+                        _contactMenu.Popup();
+                    }
+                }
+            }
         }
     }
 
@@ -233,7 +394,39 @@ public sealed partial class GameMain : Node3D
         AddChild(_tacticalLayer);
         _tactical = new TacticalView { Name = "TacticalView", Catalog = _catalog };
         _tacticalLayer.AddChild(_tactical);
+        _contactMenu = new PopupMenu();
+        _contactMenu.IdPressed += id =>
+        {
+            if (id == 1) RequestApproach();
+            else if (id == 2) RequestScan();
+            else if (id == 3) RequestWarp();
+            else if (id == 4) RequestDock();
+            else if (id == 5) RequestWarp(500);
+            else if (id == 6) RequestWarp(5000);
+            else if (id == 7) RequestApproach(true);
+        };
+        AddChild(_contactMenu);
+        BuildContactMenu();
+
+        _stationView = new StationView();
+        AddChild(_stationView);
+        _stationView.UndockRequested += RequestUndock;
+        _stationView.TradeRequested += (commodity, quantity, buy) => _net?.RequestTrade(commodity, quantity, buy);
     }
+
+    private void BuildContactMenu()
+    {
+        _contactMenu.Clear();
+        _contactMenu.AddItem(Locale.Text("context_approach"), 1);
+        _contactMenu.AddItem(Locale.Text("context_scan"), 2);
+        _contactMenu.AddItem(Locale.Text("context_warp_1"), 3);
+        _contactMenu.AddItem(Locale.Text("context_dock"), 4);
+        _contactMenu.AddItem(Locale.Text("context_warp_500"), 5);
+        _contactMenu.AddItem(Locale.Text("context_warp_5"), 6);
+        _contactMenu.AddItem(Locale.Text("context_follow"), 7);
+    }
+
+    private void RequestUndock() => _net?.RequestDock((uint)_catalog.Station.Id, true);
 
     private void RebuildStaticWorld(int seed)
     {
@@ -248,6 +441,7 @@ public sealed partial class GameMain : Node3D
 
         _worldBuilder = new WorldBuilder(_staticRoot, _catalog, _highQuality);
         _worldBuilder.Build();
+        _worldBuilder.SetVisualQuality(_settings.Shadows, _settings.SkyDetail);
         _tactical.Catalog = _catalog;
         GD.Print($"World built: {_catalog.SystemName}, seed {seed}, {_catalog.Asteroids.Count} asteroids.");
     }
@@ -255,6 +449,10 @@ public sealed partial class GameMain : Node3D
     private void SetMode(ViewMode mode)
     {
         _mode = mode;
+        if (mode == ViewMode.Tactical)
+            Input.MouseMode = Input.MouseModeEnum.Visible;
+        else if (_settings.AutoCapture && !_settingsMenu.IsOpen)
+            Input.MouseMode = Input.MouseModeEnum.Captured;
         _tactical.Visible = mode == ViewMode.Tactical;
         _tacticalLayer.Visible = mode == ViewMode.Tactical;
         _staticRoot.Visible = mode != ViewMode.Tactical;
@@ -272,9 +470,9 @@ public sealed partial class GameMain : Node3D
 
         var (title, subtitle) = mode switch
         {
-            ViewMode.Tactical => ("2D NAVIGATION", "Top-down tactical plot — Q/E controls relative altitude"),
-            ViewMode.Cockpit => ("COCKPIT", "Inside the ship — same hull, same authoritative state"),
-            _ => ("EXTERNAL 3D", "Chase camera — same hull, same authoritative state"),
+            ViewMode.Tactical => ("tactical", Locale.Text("mode_tactical_subtitle")),
+            ViewMode.Cockpit => ("cockpit", Locale.Text("mode_cockpit_subtitle")),
+            _ => ("external", Locale.Text("mode_external_subtitle")),
         };
         _hud.SetMode(title, subtitle);
         if (_playerShip is not null)
@@ -284,6 +482,8 @@ public sealed partial class GameMain : Node3D
     private void ToggleQuality()
     {
         _highQuality = !_highQuality;
+        _settings.Glow = _highQuality;
+        _settings.Save();
         _worldBuilder?.SetGlowEnabled(_highQuality && _mode != ViewMode.Tactical);
         _hud.SetQuality(_highQuality);
     }
@@ -292,7 +492,7 @@ public sealed partial class GameMain : Node3D
     {
         var now = Time.GetTicksMsec() / 1000.0;
         foreach (var ship in _remoteShips.Values)
-            ship.UpdateVisual();
+            ship.UpdateVisual(_renderOrigin);
 
         List<uint>? stale = null;
         foreach (var (id, seenAt) in _remoteSeen)
@@ -314,18 +514,35 @@ public sealed partial class GameMain : Node3D
         }
     }
 
+    private void UpdateSector()
+    {
+        if (_playerShip is null || !_playerShip.Track.HasData)
+            return;
+
+        var sector = _catalog.SectorAt(_playerShip.Track.WorldPosition);
+        if (sector.Id == _sectorId)
+            return;
+
+        _sectorId = sector.Id;
+        _hud.SetSector(sector.Name);
+        if (_net?.State == ConnectionState.Connected)
+            _hud.ShowToast(Locale.Format("sector_entered", sector.Name.ToUpperInvariant()),
+                new Color(0.55f, 0.85f, 1.0f), 3.5f);
+    }
+
     private void UpdateTactical()
     {
         if (!_tactical.Visible)
             return;
 
-        var playerPosition = PlayerPosition();
+        var playerPosition = _playerShip?.Track.WorldPosition ?? Vec3d.Zero;
         _tactical.PlayerPosition = playerPosition;
         _tactical.PlayerYaw = _playerShip?.Track.Yaw ?? 0;
-        _tactical.PlayerAltitude = playerPosition.Y;
+        _tactical.PlayerAltitude = (float)playerPosition.Y;
         _tactical.PlayerId = _playerId;
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
+        _tactical.ApproachTargetId = _playerShip?.Track.ApproachTargetId ?? 0;
 
         _tactical.Contacts.Clear();
         foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))
@@ -335,7 +552,7 @@ public sealed partial class GameMain : Node3D
                 Id = ship.Id,
                 Name = ship.DisplayName,
                 Kind = ship.Kind == EntityKind.Player ? "PLAYER" : "NPC",
-                Position = ship.Track.Position,
+                Position = ship.Track.WorldPosition,
                 Color = ship.Kind == EntityKind.Player ? new Color(0.55f, 0.95f, 0.7f) : new Color(1.0f, 0.66f, 0.3f),
                 IsPlayer = ship.Kind == EntityKind.Player,
             });
@@ -391,33 +608,70 @@ public sealed partial class GameMain : Node3D
 
     private void UpdateHud(float dt)
     {
+        var speed = 0f;
+        var throttle = 0f;
+        var altitude = 0f;
+        var docked = false;
+        var assist = false;
+        var autopilot = false;
+        var following = false;
+
         if (_playerShip is not null && _playerShip.Track.HasData)
         {
             var track = _playerShip.Track;
-            var speed = track.Velocity.Length();
-            _hud.SetTelemetry(speed, track.Throttle, track.Position.Y, _input.Boost, _warpCooldown, _scanRange / 1000f);
+            speed = track.Velocity.Length();
+            throttle = track.Throttle;
+            altitude = track.Position.Y;
+            docked = track.Docked;
+            assist = track.FlightAssist;
+            autopilot = track.ApproachTargetId != 0;
+            following = track.ApproachFollowing;
+            _hud.SetTelemetry(speed, throttle, altitude, _input.Boost, _warpCooldown, _scanRange / 1000f,
+                autopilot, assist, following);
         }
 
-        if (!_hasTarget)
+        ContactRef? contact = null;
+        if (_hasTarget)
+        {
+            contact = FindContact(_targetId);
+            if (contact is null)
+                _hasTarget = false;
+        }
+
+        if (contact is { } selected)
+        {
+            _hud.SetTarget(selected.Name, selected.Type, selected.Distance, selected.RelativeAltitude,
+                selected.Distance <= _scanRange, true);
+        }
+        else
         {
             _hud.SetTarget(null, "", 0, 0, false, false);
-            return;
         }
 
-        var contact = FindContact(_targetId);
-        if (contact is null)
+        if (_cockpit is not null && _mode == ViewMode.Cockpit)
         {
-            _hasTarget = false;
-            _hud.SetTarget(null, "", 0, 0, false, false);
-            return;
+            _cockpit.UpdateInstruments(speed, throttle, docked,
+                contact?.Name, contact?.Distance ?? 0, contact?.RelativeAltitude ?? 0,
+                contact is not null, assist, autopilot, following);
         }
-
-        _hud.SetTarget(contact.Value.Name, contact.Value.Type, contact.Value.Distance, contact.Value.RelativeAltitude,
-            contact.Value.Distance <= _scanRange, true);
     }
 
     private Vector3 PlayerPosition() =>
         _playerShip is not null && _playerShip.Track.HasData ? _playerShip.Track.Position : Vector3.Zero;
+
+    private void UpdateRenderOrigin()
+    {
+        if (_playerShip is null || !_playerShip.Track.HasData)
+            return;
+        var position = _playerShip.Track.LatestPosition;
+        var next = RenderFrame.ChooseOrigin(position, _renderOrigin);
+        if (next.Equals(_renderOrigin))
+            return;
+        var shift = ShipTrack.ToVector3(next - _renderOrigin);
+        _camera.GlobalPosition -= shift;
+        _renderOrigin = next;
+        _staticRoot.Position = -ShipTrack.ToVector3(_renderOrigin);
+    }
 
     private void OnTransportError(string message) => _hud.ShowToast(message, new Color(1f, 0.45f, 0.4f), 6f);
 }
