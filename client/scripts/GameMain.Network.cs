@@ -1,0 +1,401 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Godot;
+using IndifferentStars.Shared;
+using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared.World;
+using IndifferentStars.Simulation;
+
+namespace IndifferentStars.Client;
+
+public sealed partial class GameMain
+{
+    private readonly record struct ContactRef(
+        uint Id,
+        string Name,
+        string Type,
+        Vector3 Position,
+        float Radius,
+        bool IsShip,
+        float Distance,
+        float RelativeAltitude);
+
+    private ViewMode _requestedInitialView = ViewMode.External;
+    private bool _hasRequestedInitialView;
+    private string? _captureDir;
+    private int _captureStep;
+    private float _captureTimer;
+
+    private void ParseCommandLine()
+    {
+        var server = System.Environment.GetEnvironmentVariable("IS_SERVER") ?? "127.0.0.1:7777";
+        var envName = System.Environment.GetEnvironmentVariable("IS_NAME");
+        var envQuality = System.Environment.GetEnvironmentVariable("IS_QUALITY");
+
+        var args = OS.GetCmdlineUserArgs();
+        for (var i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--server" when i + 1 < args.Length:
+                    server = args[++i];
+                    break;
+                case "--name" when i + 1 < args.Length:
+                    envName = args[++i];
+                    break;
+                case "--quality" when i + 1 < args.Length:
+                    envQuality = args[++i];
+                    break;
+                case "--capture" when i + 1 < args.Length:
+                    _captureDir = Path.GetFullPath(args[++i]);
+                    break;
+                case "--view" when i + 1 < args.Length:
+                    switch (args[++i].ToLowerInvariant())
+                    {
+                        case "2d" or "tactical":
+                            _requestedInitialView = ViewMode.Tactical;
+                            break;
+                        case "cockpit":
+                            _requestedInitialView = ViewMode.Cockpit;
+                            break;
+                        default:
+                            _requestedInitialView = ViewMode.External;
+                            break;
+                    }
+                    _hasRequestedInitialView = true;
+                    break;
+                case "--help" or "-h":
+                    GD.Print("Indifferent Stars client options (after --):\n" +
+                             "  --server host:port   default 127.0.0.1:7777\n" +
+                             "  --name <name>        callsign shown to other clients\n" +
+                             "  --view 2d|3d|cockpit initial representation\n" +
+                             "  --quality high|low   bloom/effects preset\n" +
+                             "  --capture <dir>      save three screenshots and quit");
+                    break;
+            }
+        }
+
+        var split = server.Split(':', 2);
+        _serverHost = split[0];
+        if (split.Length > 1 && int.TryParse(split[1], out var port))
+            _serverPort = port;
+
+        _highQuality = !string.Equals(envQuality, "low", StringComparison.OrdinalIgnoreCase);
+        _playerName = string.IsNullOrWhiteSpace(envName)
+            ? $"Captain-{new Random().Next(101, 999)}"
+            : envName!.Trim();
+
+        if (_captureDir is not null)
+        {
+            DirAccess.MakeDirRecursiveAbsolute(_captureDir);
+            GD.Print($"Capture mode: {_captureDir}");
+        }
+    }
+
+    private InputState ReadInput()
+    {
+        var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
+        var steer = (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
+        var pitch = (Input.IsKeyPressed(Key.Up) ? 1f : 0f) - (Input.IsKeyPressed(Key.Down) ? 1f : 0f);
+        var vertical = (Input.IsKeyPressed(Key.E) ? 1f : 0f) - (Input.IsKeyPressed(Key.Q) ? 1f : 0f);
+        var boost = Input.IsKeyPressed(Key.Shift);
+        var brake = Input.IsKeyPressed(Key.Space);
+        return new InputState(throttle, steer, pitch, vertical, boost, brake);
+    }
+
+    private void OnWelcome(HelloAcceptedMessage welcome)
+    {
+        _playerId = welcome.PlayerId;
+        _scanRange = welcome.ScanRange;
+
+        if (_catalog.Seed != welcome.WorldSeed)
+            RebuildStaticWorld(welcome.WorldSeed);
+
+        var createShip = _playerShip is null || _playerShip.Id != welcome.PlayerId;
+        if (createShip)
+        {
+            if (_playerShip is not null)
+                _playerShip.QueueFree();
+
+            if (_remoteShips.Remove(welcome.PlayerId, out var staleView))
+                staleView.QueueFree();
+
+            _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality);
+            _dynamicRoot.AddChild(_playerShip);
+            _cockpit = new CockpitView { Visible = false };
+            _playerShip.AddChild(_cockpit);
+            _cockpit.Visible = _mode == ViewMode.Cockpit;
+            _playerShip.SetExternalModelVisible(_mode != ViewMode.Cockpit);
+            _cameraSnap = true;
+        }
+
+        _playerShip!.DisplayName = welcome.PlayerName;
+        _playerShip.Track.Reset(welcome.Spawn, welcome.SpawnYaw, 0);
+        _targetId = (uint)_catalog.Station.Id;
+        _hasTarget = true;
+
+        _hud.SetSystem(welcome.SystemName, welcome.WorldSeed, welcome.PlayerId);
+        _hud.ShowToast($"LINK ESTABLISHED — WELCOME TO {_catalog.SystemName.ToUpperInvariant()}", new Color(0.45f, 0.95f, 0.65f), 4f);
+        GD.Print($"Connected as ship #{welcome.PlayerId} '{welcome.PlayerName}'.");
+
+        SetMode(_mode);
+        if (_hasRequestedInitialView)
+            SetMode(_requestedInitialView);
+    }
+
+    private void OnJoinRejected(HelloRejectedMessage rejected)
+    {
+        _hud.ShowToast($"JOIN REJECTED: {rejected.Reason}", new Color(1f, 0.45f, 0.4f), 8f);
+        GD.PrintErr($"Join rejected: {rejected.Reason}");
+    }
+
+    private void OnSnapshot(SnapshotMessage snapshot)
+    {
+        if (_playerShip is null)
+            return;
+
+        _serverTick = snapshot.Tick;
+        var now = Time.GetTicksMsec() / 1000.0;
+
+        foreach (var entity in snapshot.Entities)
+        {
+            if (entity.Id == _playerId)
+            {
+                _playerShip.Track.Push(entity, now);
+                continue;
+            }
+
+            if (!_remoteShips.TryGetValue(entity.Id, out var view))
+            {
+                view = new ShipView(entity.Id, false, entity.Name, _highQuality);
+                _remoteRoot.AddChild(view);
+                _remoteShips[entity.Id] = view;
+                GD.Print($"Tracked {(entity.Kind == EntityKind.Player ? "player" : "NPC")} {entity.Name} #{entity.Id}.");
+            }
+
+            view.DisplayName = entity.Name;
+            view.Track.Push(entity, now);
+            _remoteSeen[entity.Id] = now;
+        }
+    }
+
+    private void OnScanCompleted(ScanResultMessage result)
+    {
+        _hud.ShowScanResult(result.Title, result.Body, result.Success);
+        _hud.ShowToast(result.Success ? "SCAN COMPLETE" : "SCAN REJECTED",
+            result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 2.6f);
+        GD.Print($"Scan #{result.TargetId}: {result.Title}");
+    }
+
+    private void OnWarpCompleted(WarpResultMessage result)
+    {
+        if (result.Success && _playerShip is not null)
+        {
+            _playerShip.Track.Reset(result.NewPosition, result.Yaw, result.Pitch);
+            _cameraSnap = true;
+            _warpCooldown = 8f;
+            _hud.ShowToast(result.Message, new Color(1f, 0.78f, 0.4f), 5f);
+        }
+        else
+        {
+            _hud.ShowToast(result.Message, new Color(1f, 0.5f, 0.4f), 4.5f);
+        }
+
+        GD.Print($"Warp result: {result.Message}");
+    }
+
+    private void UpdateTargeting()
+    {
+        if (_hasTarget && FindContact(_targetId) is null)
+            _hasTarget = false;
+    }
+
+    private void CycleTarget()
+    {
+        var contacts = BuildContacts()
+            .Where(c => c.Id != _playerId)
+            .OrderBy(c => c.Distance)
+            .Take(48)
+            .ToList();
+
+        if (contacts.Count == 0)
+        {
+            _hud.ShowToast("NO CONTACTS IN SENSOR RANGE", new Color(1f, 0.7f, 0.4f), 2.5f);
+            _hasTarget = false;
+            return;
+        }
+
+        var index = contacts.FindIndex(c => c.Id == _targetId);
+        var next = index >= 0 ? contacts[(index + 1) % contacts.Count] : contacts[0];
+        _targetId = next.Id;
+        _hasTarget = true;
+    }
+
+    private void RequestScan()
+    {
+        if (_scanCooldown > 0)
+            return;
+        if (!_hasTarget || FindContact(_targetId) is not { } contact)
+        {
+            _hud.ShowToast("SELECT A CONTACT WITH TAB FIRST", new Color(1f, 0.75f, 0.4f), 2.5f);
+            return;
+        }
+
+        if (_net?.State != ConnectionState.Connected)
+        {
+            _hud.ShowToast("NO SERVER CONNECTION", new Color(1f, 0.5f, 0.4f), 2.5f);
+            return;
+        }
+
+        _scanCooldown = 0.35f;
+        _net.RequestScan(_targetId);
+        _hud.SetScanPending(contact.Name);
+    }
+
+    private void RequestWarp()
+    {
+        if (!_hasTarget || FindContact(_targetId) is not { } contact)
+        {
+            _hud.ShowToast("SELECT A WARP TARGET WITH TAB FIRST", new Color(1f, 0.75f, 0.4f), 2.5f);
+            return;
+        }
+
+        if (_net?.State != ConnectionState.Connected)
+        {
+            _hud.ShowToast("NO SERVER CONNECTION", new Color(1f, 0.5f, 0.4f), 2.5f);
+            return;
+        }
+
+        _net.RequestWarp(_targetId);
+        _hud.ShowToast($"WARP DRIVE SPOOLING — {contact.Name}", new Color(1f, 0.78f, 0.4f), 2.2f);
+    }
+
+    private ContactRef? FindContact(uint id)
+    {
+        var player = PlayerPosition();
+
+        if (_catalog.Find((int)id) is { } body)
+            return MakeContact(body, player);
+
+        if (_remoteShips.TryGetValue(id, out var ship) && ship.Track.HasData)
+        {
+            var distance = player.DistanceTo(ship.Track.Position);
+            return new ContactRef(
+                id,
+                ship.DisplayName,
+                ship.Track.Kind == EntityKind.Player ? "PLAYER" : "NPC",
+                ship.Track.Position,
+                8,
+                true,
+                distance,
+                ship.Track.Position.Y - player.Y);
+        }
+
+        return null;
+    }
+
+    private List<ContactRef> BuildContacts()
+    {
+        var player = PlayerPosition();
+        var contacts = new List<ContactRef>(_catalog.LocalBodies.Count + _remoteShips.Count);
+        foreach (var body in _catalog.LocalBodies)
+            contacts.Add(MakeContact(body, player));
+
+        foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))
+        {
+            contacts.Add(new ContactRef(
+                ship.Id,
+                ship.DisplayName,
+                ship.Track.Kind == EntityKind.Player ? "PLAYER" : "NPC",
+                ship.Track.Position,
+                8,
+                true,
+                player.DistanceTo(ship.Track.Position),
+                ship.Track.Position.Y - player.Y));
+        }
+
+        return contacts;
+    }
+
+    private static ContactRef MakeContact(StaticBody body, Vector3 player)
+    {
+        var position = new Vector3((float)body.Position.X, (float)body.Position.Y, (float)body.Position.Z);
+        var centerDistance = player.DistanceTo(position);
+        var surfaceDistance = Mathf.Max(0f, centerDistance - (float)body.Radius);
+        var type = body.Kind switch
+        {
+            BodyKind.Star => "STAR",
+            BodyKind.Planet => "PLANET",
+            BodyKind.Station => "STATION",
+            _ => "ASTEROID",
+        };
+        return new ContactRef(
+            (uint)body.Id,
+            body.Name,
+            type,
+            position,
+            (float)body.Radius,
+            false,
+            surfaceDistance,
+            position.Y - player.Y);
+    }
+
+    private void UpdateCapture(float dt)
+    {
+        if (_captureDir is null)
+            return;
+
+        if (_captureStep == 0)
+        {
+            _captureTimer += dt;
+            if (_playerShip is not null && _net?.State == ConnectionState.Connected && _captureTimer > 2.0)
+            {
+                SetMode(ViewMode.External);
+                _captureStep = 1;
+                _captureTimer = 0;
+            }
+            else if (_captureTimer > 15.0)
+            {
+                GD.PrintErr("Capture aborted: no server connection.");
+                GetTree().Quit(1);
+            }
+            return;
+        }
+
+        _captureTimer += dt;
+        switch (_captureStep)
+        {
+            case 1 when _captureTimer > 0.9:
+                SaveScreenshot("01_external_3d.png");
+                SetMode(ViewMode.Tactical);
+                _captureStep = 2;
+                _captureTimer = 0;
+                break;
+            case 2 when _captureTimer > 0.9:
+                SaveScreenshot("02_tactical_2d.png");
+                SetMode(ViewMode.Cockpit);
+                _captureStep = 3;
+                _captureTimer = 0;
+                break;
+            case 3 when _captureTimer > 0.9:
+                SaveScreenshot("03_cockpit.png");
+                _captureStep = 4;
+                GD.Print("Capture complete.");
+                GetTree().Quit();
+                break;
+        }
+    }
+
+    private void SaveScreenshot(string fileName)
+    {
+        if (_captureDir is null)
+            return;
+
+        var image = GetViewport().GetTexture().GetImage();
+        var path = Path.Combine(_captureDir, fileName);
+        var error = image.SavePng(path);
+        GD.Print($"CAPTURE {path} -> {error}");
+    }
+}

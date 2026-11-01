@@ -1,0 +1,13 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IndifferentStars.Client</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/IndifferentStars.Shared/IndifferentStars.Shared.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/IndifferentStars.Simulation/IndifferentStars.Simulation.csproj" />
+  </ItemGroup>
+</Project>
