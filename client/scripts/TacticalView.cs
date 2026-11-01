@@ -70,6 +70,7 @@ public sealed partial class TacticalView : Control
 
         DrawGrid(center, scale, size);
         DrawRangeRings(center, scale, size);
+        DrawSectorBoundaries(center, scale, size);
         DrawAsteroids(center, scale, size);
         if (ApproachTargetId != 0 && Catalog?.Find((int)ApproachTargetId) is { } destination)
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, destination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
@@ -158,6 +159,27 @@ public sealed partial class TacticalView : Control
         }
     }
 
+    private void DrawSectorBoundaries(Vector2 center, float scale, Vector2 size)
+    {
+        if (Catalog is null || ZoomRange >= 1_000_000)
+            return;
+
+        foreach (var sector in Catalog.Sectors)
+        {
+            var screen = Project(center, scale, sector.Center);
+            var radius = (float)(sector.Radius * scale);
+            if (radius < 30 || radius > Mathf.Max(size.X, size.Y))
+                continue;
+            if (screen.X + radius < 0 || screen.X - radius > size.X ||
+                screen.Y + radius < 0 || screen.Y - radius > size.Y)
+                continue;
+
+            var color = new Color(0.35f, 0.62f, 0.82f, 0.16f);
+            DrawArc(screen, radius, 0, Mathf.Tau, 96, color, 1.0f);
+            DrawLabel(sector.Name, screen + new Vector2(-radius, -radius - 14), TextDim, 10);
+        }
+    }
+
     private void DrawAsteroids(Vector2 center, float scale, Vector2 size)
     {
         if (Catalog is null)
@@ -182,7 +204,7 @@ public sealed partial class TacticalView : Control
 
         if (Catalog is not null)
         {
-            DrawBody(Catalog.Station, center, scale, new Color(0.45f, 0.92f, 1.0f), "STATION");
+            DrawBody(Catalog.Station, center, scale, new Color(0.45f, 0.92f, 1.0f), Locale.Text("type_station"));
             DrawCelestialBearings(center, scale, size);
         }
     }
@@ -253,8 +275,8 @@ public sealed partial class TacticalView : Control
         DrawCircle(marker, 5.0f, new Color(color.R, color.G, color.B, 0.85f));
         DrawArc(marker, 11.0f, 0, Mathf.Tau, 24, new Color(color.R, color.G, color.B, 0.45f), 1.0f);
 
-        var vertical = direction.Y < -0.05f ? " BELOW" : direction.Y > 0.05f ? " ABOVE" : "";
-        var kind = body.Kind == CelestialKind.Star ? "STAR" : "PLANET";
+        var vertical = direction.Y < -0.05f ? " " + Locale.Text("below") : direction.Y > 0.05f ? " " + Locale.Text("above") : "";
+        var kind = body.Kind == CelestialKind.Star ? Locale.Text("type_star") : Locale.Text("type_planet");
         var labelX = marker.X + 14;
         if (labelX > size.X - 220)
             labelX = marker.X - 214;
@@ -323,7 +345,7 @@ public sealed partial class TacticalView : Control
 
             DrawLabel(contact.Name, screen + new Vector2(10, -8), color, 13, true);
             var distance = Vec3d.Distance(PlayerPosition, contact.Position) / 1000f;
-            DrawLabel($"{contact.Kind} · {distance:F2} km", screen + new Vector2(10, 7), TextDim, 10);
+            DrawLabel($"{Locale.Text("type_" + contact.Kind.ToLowerInvariant())} · {distance:F2} km", screen + new Vector2(10, 7), TextDim, 10);
             DrawAltitudeTick(screen, (float)(PlayerPosition.Y - contact.Position.Y), color);
         }
     }
@@ -334,7 +356,7 @@ public sealed partial class TacticalView : Control
         if (ZoomRange >= 100_000_000)
         {
             DrawCircle(center, 4, PlayerColor);
-            DrawLabel("YOU", center + new Vector2(8, -6), PlayerColor, 11);
+            DrawLabel(Locale.Text("you"), center + new Vector2(8, -6), PlayerColor, 11);
             return;
         }
         var forward = new Vector2(-Mathf.Sin(PlayerYaw), -Mathf.Cos(PlayerYaw));
@@ -350,8 +372,8 @@ public sealed partial class TacticalView : Control
         DrawLine(center + right * 30, center + right * 40, new Color(PlayerColor.R, PlayerColor.G, PlayerColor.B, 0.3f), 1.0f);
         DrawLine(center - right * 30, center - right * 40, new Color(PlayerColor.R, PlayerColor.G, PlayerColor.B, 0.3f), 1.0f);
 
-        DrawLabel("YOU", center + new Vector2(0, 26), PlayerColor, 12);
-        DrawLabel($"ALT {(PlayerAltitude >= 0 ? "+" : "")}{PlayerAltitude:F0} m", center + new Vector2(0, 40), TextDim, 11);
+        DrawLabel(Locale.Text("you"), center + new Vector2(0, 26), PlayerColor, 12);
+        DrawLabel($"{Locale.Text("altitude")} {(PlayerAltitude >= 0 ? "+" : "")}{PlayerAltitude:F0} m", center + new Vector2(0, 40), TextDim, 11);
     }
 
     private void DrawAltitudeTick(Vector2 screen, float relativeAltitude, Color color)

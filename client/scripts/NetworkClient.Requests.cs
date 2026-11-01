@@ -8,10 +8,12 @@ public sealed partial class NetworkClient
 {
     private (uint Id, uint Target, double StartedAt, double LastResendAt)? _pendingScan;
     private (uint Id, uint Target, ushort Distance, double StartedAt, double LastResendAt)? _pendingWarp;
+    private (uint Id, ushort Commodity, int Quantity, bool Buy, double StartedAt, double LastResendAt)? _pendingTrade;
     private double _lastPingSeconds;
 
     public bool IsScanPending => _pendingScan.HasValue;
     public bool IsWarpPending => _pendingWarp.HasValue;
+    public bool IsTradePending => _pendingTrade.HasValue;
 
     public void RequestApproach(uint targetId, bool follow = false)
     {
@@ -35,6 +37,23 @@ public sealed partial class NetworkClient
         _pendingScan = (id, targetId, now, now);
         Send(new ScanRequestMessage(id, targetId));
         Send(new PingMessage(Time.GetTicksMsec()));
+    }
+
+    public void RequestMarket()
+    {
+        if (State == ConnectionState.Connected)
+            Send(new MarketRequestMessage(_requestSequence++));
+    }
+
+    public void RequestTrade(ushort commodityId, int quantity, bool buy)
+    {
+        if (State != ConnectionState.Connected || _pendingTrade.HasValue)
+            return;
+
+        var now = NowSeconds();
+        var id = _requestSequence++;
+        _pendingTrade = (id, commodityId, quantity, buy, now, now);
+        Send(new TradeRequestMessage(id, commodityId, quantity, buy));
     }
 
     public void RequestWarp(uint targetId, ushort distance = 1000)
@@ -84,6 +103,19 @@ public sealed partial class NetworkClient
             {
                 _pendingWarp = (warp.Id, warp.Target, warp.Distance, warp.StartedAt, now);
                 Send(new WarpRequestMessage(warp.Id, warp.Target, warp.Distance));
+            }
+        }
+
+        if (_pendingTrade is { } trade)
+        {
+            if (now - trade.StartedAt > 3.0)
+            {
+                _pendingTrade = null;
+            }
+            else if (now - trade.LastResendAt > 0.5)
+            {
+                _pendingTrade = (trade.Id, trade.Commodity, trade.Quantity, trade.Buy, trade.StartedAt, now);
+                Send(new TradeRequestMessage(trade.Id, trade.Commodity, trade.Quantity, trade.Buy));
             }
         }
     }

@@ -15,6 +15,7 @@ public sealed partial class ShipView : Node3D
 {
     private readonly List<MeshInstance3D> _engineGlows = new();
     private readonly List<OmniLight3D> _engineLights = new();
+    private readonly List<Node3D> _engineTrails = new();
     private Node3D? _modelRoot;
     private float _glowPhase;
     private bool _externalVisible = true;
@@ -54,6 +55,10 @@ public sealed partial class ShipView : Node3D
             engine.Scale = new Vector3(glow, glow, glow) * pulse;
         foreach (var light in _engineLights)
             light.LightEnergy = 0.8f + glow * 0.9f;
+
+        var trailLength = 0.6f + Mathf.Abs(Track.Throttle) * 3.2f + (Boosting ? 4.2f : 0f);
+        foreach (var trail in _engineTrails)
+            trail.Scale = new Vector3(1f, trailLength, 1f);
     }
 
     public void SetExternalModelVisible(bool visible)
@@ -65,6 +70,8 @@ public sealed partial class ShipView : Node3D
             glow.Visible = visible && _engineEffects;
         foreach (var light in _engineLights)
             light.Visible = visible && _engineEffects;
+        foreach (var trail in _engineTrails)
+            trail.Visible = visible && _engineEffects;
     }
 
     public void SetEngineEffects(bool enabled)
@@ -130,6 +137,39 @@ public sealed partial class ShipView : Node3D
             };
             _modelRoot.AddChild(glow);
             _engineGlows.Add(glow);
+
+            var trailPivot = new Node3D
+            {
+                Name = $"EngineTrail_{x}",
+                Position = new Vector3(x * engineScale, 0, 4.52f * engineScale),
+                RotationDegrees = new Vector3(90, 0, 0),
+            };
+            trailPivot.AddChild(new MeshInstance3D
+            {
+                Mesh = new CylinderMesh
+                {
+                    TopRadius = 0.03f,
+                    BottomRadius = 0.26f,
+                    Height = 1f,
+                    RadialSegments = 10,
+                    Rings = 1,
+                },
+                MaterialOverride = new StandardMaterial3D
+                {
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+                    CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                    AlbedoColor = new Color(0.25f, 0.65f, 1f, 0.38f),
+                    EmissionEnabled = true,
+                    Emission = new Color(0.18f, 0.58f, 1f),
+                    EmissionEnergyMultiplier = 3.2f,
+                },
+                Position = new Vector3(0, 0.5f, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+            _modelRoot.AddChild(trailPivot);
+            _engineTrails.Add(trailPivot);
 
             if (IsPlayer && HighQuality)
             {

@@ -10,6 +10,10 @@ namespace IndifferentStars.Client;
 /// </summary>
 public sealed partial class CockpitView : Node3D
 {
+    private Label3D _leftScreen = null!;
+    private Label3D _centerScreen = null!;
+    private Label3D _rightScreen = null!;
+
     private static readonly StandardMaterial3D HullMaterial = new()
     {
         AlbedoColor = new Color(0.10f, 0.115f, 0.14f),
@@ -73,6 +77,9 @@ public sealed partial class CockpitView : Node3D
         AddScreen(new Vector3(-0.86f, 0.63f, -1.44f), screen);
         AddScreen(new Vector3(0.86f, 0.63f, -1.44f), screen);
         AddScreen(new Vector3(0f, 0.60f, -1.45f), screen, new Vector3(0.62f, 0.13f, 0.02f));
+        _leftScreen = AddInstrumentText(new Vector3(-0.86f, 0.66f, -1.425f), new Color(0.62f, 0.92f, 1.0f), 30);
+        _centerScreen = AddInstrumentText(new Vector3(0f, 0.63f, -1.435f), new Color(1.0f, 0.80f, 0.48f), 26);
+        _rightScreen = AddInstrumentText(new Vector3(0.86f, 0.66f, -1.425f), new Color(0.62f, 0.92f, 1.0f), 30);
         AddBox(new Vector3(0.02f, 0.13f, 0.02f), new Vector3(-0.86f, 0.55f, -1.44f), FrameMaterial);
         AddBox(new Vector3(0.02f, 0.13f, 0.02f), new Vector3(0.86f, 0.55f, -1.44f), FrameMaterial);
 
@@ -121,6 +128,71 @@ public sealed partial class CockpitView : Node3D
             ShadowEnabled = false,
         };
         AddChild(consoleLight);
+    }
+
+    /// <summary>
+    /// Drives the three dashboard displays from the same snapshot data as the HUD.
+    /// The cockpit therefore shows live instruments, not a decorative static screen.
+    /// </summary>
+    public void UpdateInstruments(
+        float speed,
+        float throttle,
+        bool docked,
+        string? targetName,
+        float rangeMeters,
+        float relativeAltitude,
+        bool hasTarget,
+        bool assist,
+        bool autopilot,
+        bool following)
+    {
+        if (!Visible)
+            return;
+
+        var throttleSign = throttle >= 0 ? "+" : "";
+        _leftScreen.Text =
+            Locale.Format("cockpit_speed", speed) + "\n" +
+            Locale.Format("cockpit_throttle", throttleSign, throttle * 100);
+
+        string mode;
+        if (docked) mode = Locale.Text("cockpit_docked");
+        else if (following) mode = Locale.Text("following");
+        else if (autopilot) mode = Locale.Text("cockpit_autopilot");
+        else mode = Locale.Text("cockpit_cruise");
+        _centerScreen.Text = Locale.Format("cockpit_status", mode,
+            assist ? Locale.Text("cockpit_assist") : "");
+
+        if (hasTarget && !string.IsNullOrEmpty(targetName))
+        {
+            var sign = relativeAltitude >= 0 ? "+" : "";
+            _rightScreen.Text =
+                Locale.Format("cockpit_target", targetName.ToUpperInvariant()) + "\n" +
+                Locale.Format("cockpit_range", rangeMeters / 1000f, sign, relativeAltitude);
+        }
+        else
+        {
+            _rightScreen.Text = Locale.Text("cockpit_no_target");
+        }
+    }
+
+    private Label3D AddInstrumentText(Vector3 position, Color color, int fontSize)
+    {
+        var label = new Label3D
+        {
+            Text = "",
+            Position = position,
+            FontSize = fontSize,
+            PixelSize = 0.0016f,
+            Modulate = color,
+            OutlineSize = 8,
+            OutlineModulate = new Color(0f, 0f, 0f, 0.9f),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            NoDepthTest = true,
+            RenderPriority = 10,
+        };
+        AddChild(label);
+        return label;
     }
 
     private void AddScreen(Vector3 position, Material material, Vector3? size = null)

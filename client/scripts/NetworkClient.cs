@@ -60,6 +60,8 @@ public sealed partial class NetworkClient : IDisposable
     public event Action<WarpResultMessage>? WarpCompleted;
     public event Action<ApproachResultMessage>? ApproachCompleted;
     public event Action<DockResultMessage>? DockCompleted;
+    public event Action<MarketStateMessage>? MarketReceived;
+    public event Action<TradeResultMessage>? TradeCompleted;
     public event Action<string>? TransportError;
 
     public void Start()
@@ -171,6 +173,16 @@ public sealed partial class NetworkClient : IDisposable
 
                 case DockResultMessage dock:
                     DockCompleted?.Invoke(dock);
+                    break;
+
+                case MarketStateMessage market:
+                    MarketReceived?.Invoke(market);
+                    break;
+
+                case TradeResultMessage trade:
+                    if (_pendingTrade is { } pendingTrade && pendingTrade.Id == trade.RequestId)
+                        _pendingTrade = null;
+                    TradeCompleted?.Invoke(trade);
                     break;
 
                 case PongMessage pong:

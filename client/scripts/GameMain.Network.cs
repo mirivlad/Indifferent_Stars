@@ -151,7 +151,10 @@ public sealed partial class GameMain
         _hasTarget = true;
 
         _hud.SetSystem(welcome.SystemName, welcome.WorldSeed, welcome.PlayerId);
-        _hud.ShowToast($"LINK ESTABLISHED — WELCOME TO {_catalog.SystemName.ToUpperInvariant()}", new Color(0.45f, 0.95f, 0.65f), 4f);
+        var spawnSector = _catalog.SectorAt(welcome.Spawn);
+        _sectorId = spawnSector.Id;
+        _hud.SetSector(spawnSector.Name);
+        _hud.ShowToast(Locale.Format("connected_welcome", _catalog.SystemName.ToUpperInvariant()), new Color(0.45f, 0.95f, 0.65f), 4f);
         GD.Print($"Connected as ship #{welcome.PlayerId} '{welcome.PlayerName}'.");
 
         SetMode(_mode);
@@ -161,7 +164,7 @@ public sealed partial class GameMain
 
     private void OnJoinRejected(HelloRejectedMessage rejected)
     {
-        _hud.ShowToast($"JOIN REJECTED: {rejected.Reason}", new Color(1f, 0.45f, 0.4f), 8f);
+        _hud.ShowToast($"{Locale.Text("join_rejected")}: {rejected.Reason}", new Color(1f, 0.45f, 0.4f), 8f);
         GD.PrintErr($"Join rejected: {rejected.Reason}");
     }
 
@@ -201,7 +204,7 @@ public sealed partial class GameMain
         _audio.NavigationCue();
         _hud.ShowScanResult(_settings.Language == "ru" ? result.RussianTitle : result.Title,
             _settings.Language == "ru" ? result.RussianBody : result.Body, result.Success);
-        _hud.ShowToast(result.Success ? "SCAN COMPLETE" : "SCAN REJECTED",
+        _hud.ShowToast(Locale.Text(result.Success ? "scan_complete" : "scan_rejected"),
             result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 2.6f);
         GD.Print($"Scan #{result.TargetId}: {result.Title}");
     }
@@ -228,15 +231,36 @@ public sealed partial class GameMain
     private void OnApproachCompleted(ApproachResultMessage result)
     {
         _audio.NavigationCue();
-        _hud.ShowToast(result.Accepted ? "AUTOPILOT ENGAGED" : "APPROACH UNAVAILABLE",
+        _hud.ShowToast(Locale.Text(result.Accepted ? "autopilot_on" : "approach_unavailable"),
             result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
     }
 
     private void OnDockCompleted(DockResultMessage result)
     {
         _audio.NavigationCue();
-        var message = result.Accepted ? (result.Undock ? "UNDOCKING APPROVED" : "DOCKING CLEARANCE GRANTED") : "DOCKING REQUEST REJECTED";
+        var message = result.Accepted
+            ? Locale.Text(result.Undock ? "undock_approved" : "dock_approved")
+            : Locale.Text("dock_rejected");
         _hud.ShowToast(message, result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+        if (result.Accepted && !result.Undock)
+        {
+            _marketRetry = 0;
+            _net?.RequestMarket();
+        }
+    }
+
+    private void OnMarketReceived(MarketStateMessage market)
+    {
+        _stationView.UpdateMarket(market.State);
+    }
+
+    private void OnTradeCompleted(TradeResultMessage result)
+    {
+        var text = _settings.Language == "ru" ? result.RussianMessage : result.Message;
+        _stationView.UpdateMarket(result.State);
+        _stationView.ShowStatus(text, result.Success);
+        _hud.ShowToast(result.Success ? Locale.Text("trade_complete") : Locale.Text("trade_failed"),
+            result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
     }
 
     private void RequestDock()
@@ -267,7 +291,7 @@ public sealed partial class GameMain
 
         if (contacts.Count == 0)
         {
-            _hud.ShowToast("NO CONTACTS IN SENSOR RANGE", new Color(1f, 0.7f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("no_contacts"), new Color(1f, 0.7f, 0.4f), 2.5f);
             _hasTarget = false;
             return;
         }
@@ -284,13 +308,13 @@ public sealed partial class GameMain
             return;
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
-            _hud.ShowToast("SELECT A CONTACT WITH TAB FIRST", new Color(1f, 0.75f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("choose_contact"), new Color(1f, 0.75f, 0.4f), 2.5f);
             return;
         }
 
         if (_net?.State != ConnectionState.Connected)
         {
-            _hud.ShowToast("NO SERVER CONNECTION", new Color(1f, 0.5f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("no_connection"), new Color(1f, 0.5f, 0.4f), 2.5f);
             return;
         }
 
@@ -303,18 +327,18 @@ public sealed partial class GameMain
     {
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
-            _hud.ShowToast("SELECT A WARP TARGET WITH TAB FIRST", new Color(1f, 0.75f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("choose_contact"), new Color(1f, 0.75f, 0.4f), 2.5f);
             return;
         }
 
         if (_net?.State != ConnectionState.Connected)
         {
-            _hud.ShowToast("NO SERVER CONNECTION", new Color(1f, 0.5f, 0.4f), 2.5f);
+            _hud.ShowToast(Locale.Text("no_connection"), new Color(1f, 0.5f, 0.4f), 2.5f);
             return;
         }
 
         _net.RequestWarp(_targetId, distance);
-        _hud.ShowToast($"WARP DRIVE SPOOLING — {contact.Name}", new Color(1f, 0.78f, 0.4f), 2.2f);
+        _hud.ShowToast(Locale.Format("warp_spooling", contact.Name), new Color(1f, 0.78f, 0.4f), 2.2f);
     }
 
     private ContactRef? FindContact(uint id)
