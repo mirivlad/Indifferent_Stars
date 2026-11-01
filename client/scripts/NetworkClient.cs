@@ -232,7 +232,9 @@ public sealed partial class NetworkClient : IDisposable
             ToSByte(input.Pitch),
             ToSByte(input.Vertical),
             input.Boost,
-            input.Brake);
+            input.Brake,
+            ToSByte(input.Strafe),
+            ToSByte(input.Roll));
         Send(message);
     }
 

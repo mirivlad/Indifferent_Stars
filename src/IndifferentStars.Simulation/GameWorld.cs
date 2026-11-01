@@ -188,8 +188,7 @@ public sealed class GameWorld
 
         player.Position = arrival;
         player.Velocity = toTarget * 60.0;
-        player.Yaw = yaw;
-        player.Pitch = pitch;
+        player.SetAngles(yaw, pitch);
         player.Throttle = 0.2;
         player.LastWarpAtSeconds = TimeSeconds;
 
@@ -223,7 +222,8 @@ public sealed class GameWorld
         (float)ship.Yaw,
         (float)ship.Pitch,
         ship.Velocity,
-        (sbyte)Math.Clamp(Math.Round(ship.Throttle * 127), -127, 127));
+        (sbyte)Math.Clamp(Math.Round(ship.Throttle * 127), -127, 127),
+        ship.Orientation);
 
     private static string DescribeVessel(ShipState npc)
     {

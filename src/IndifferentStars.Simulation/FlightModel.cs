@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
 
@@ -16,7 +17,7 @@ public static class FlightModel
     public const double BrakeAcceleration = 300.0;
     public const double YawRate = 1.15;
     public const double PitchRate = 0.85;
-    public const double MaxPitch = 1.45;
+    public const double RollRate = 1.5;
 
     public static (Vec3d Forward, Vec3d Right, Vec3d Up) Basis(double yaw, double pitch)
     {
@@ -45,15 +46,21 @@ public static class FlightModel
             throw new ArgumentException("StepPlayer requires a player ship.", nameof(ship));
 
         input = input.Clamped();
-        var (forward, _, up) = Basis(ship.Yaw, ship.Pitch);
-
         ship.Throttle = input.Throttle;
         ship.Boosting = input.Boost && ship.Throttle > 0.05;
         ship.Braking = input.Brake;
 
-        ship.Yaw = WrapAngle(ship.Yaw + input.Steer * YawRate * dt);
-        ship.Pitch = Math.Clamp(ship.Pitch + input.Pitch * PitchRate * dt, -MaxPitch, MaxPitch);
-        (forward, _, up) = Basis(ship.Yaw, ship.Pitch);
+        var rotation = Quaternion.CreateFromYawPitchRoll(
+            (float)(input.Steer * YawRate * dt),
+            (float)(input.Pitch * PitchRate * dt),
+            (float)(input.Roll * RollRate * dt));
+        ship.Orientation = Quaternion.Normalize(ship.Orientation * rotation);
+        var f = Vector3.Transform(-Vector3.UnitZ, ship.Orientation);
+        var r = Vector3.Transform(Vector3.UnitX, ship.Orientation);
+        var u = Vector3.Transform(Vector3.UnitY, ship.Orientation);
+        var forward = new Vec3d(f.X, f.Y, f.Z);
+        var right = new Vec3d(r.X, r.Y, r.Z);
+        var up = new Vec3d(u.X, u.Y, u.Z);
 
         var throttle = ship.Throttle;
         var primaryAccel = throttle >= 0
@@ -69,7 +76,7 @@ public static class FlightModel
         else
         {
             var previousSpeed = ship.Velocity.Length;
-            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * VerticalAcceleration)) * dt;
+            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * VerticalAcceleration) + right * (input.Strafe * VerticalAcceleration)) * dt;
             var maxSpeed = ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
             var allowedSpeed = Math.Max(previousSpeed, maxSpeed);
             if (ship.Velocity.Length > allowedSpeed)
@@ -97,7 +104,8 @@ public static class FlightModel
                 var step = Math.Min(speed * dt, distance);
                 ship.Position += dir * step;
                 ship.Velocity = dir * speed;
-                (ship.Yaw, ship.Pitch) = AnglesForDirection(dir);
+                var (yaw, pitch) = AnglesForDirection(dir);
+                ship.SetAngles(yaw, pitch);
                 ship.Throttle = 0.75;
                 return;
             }
@@ -106,10 +114,4 @@ public static class FlightModel
         }
     }
 
-    private static double WrapAngle(double angle)
-    {
-        while (angle > Math.PI) angle -= Math.PI * 2;
-        while (angle < -Math.PI) angle += Math.PI * 2;
-        return angle;
-    }
 }

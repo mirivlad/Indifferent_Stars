@@ -233,8 +233,8 @@ public sealed partial class Hud : CanvasLayer
         _root.AddChild(panel);
 
         var controls = MakeLabel(
-            "[W/S] THRUST     [A/D] YAW     [UP/DOWN] PITCH\n" +
-            "[Q/E] VERTICAL   [SHIFT] BOOST  [SPACE] BRAKE\n" +
+            "[W/S] THRUST   [A/D] STRAFE   [ARROWS/MOUSE] TURN\n" +
+            "[Q/E] ROLL   [R/C] VERTICAL   [SHIFT] BOOST   [SPACE] BRAKE\n" +
             "[TAB] CONTACT    [F] SCAN      [X] SHORT WARP\n" +
             "[F1] 2D NAV      [F2] EXTERNAL 3D  [F3] COCKPIT  [F4] QUALITY",
             13, Dim);

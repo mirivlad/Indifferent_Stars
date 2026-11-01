@@ -18,6 +18,7 @@ public sealed class ShipTrack
         public Vector3 Position;
         public float Yaw;
         public float Pitch;
+        public Quaternion Orientation;
         public Vector3 Velocity;
         public sbyte Throttle;
     }
@@ -27,6 +28,7 @@ public sealed class ShipTrack
     public Vector3 Position { get; private set; }
     public float Yaw { get; private set; }
     public float Pitch { get; private set; }
+    public Quaternion Orientation { get; private set; } = Quaternion.Identity;
     public float Throttle { get; private set; }
     public bool HasData => _points.Count > 0;
     public string Name { get; private set; } = string.Empty;
@@ -55,6 +57,7 @@ public sealed class ShipTrack
             Position = position,
             Yaw = snapshot.Yaw,
             Pitch = snapshot.Pitch,
+            Orientation = new Quaternion(snapshot.Orientation.X, snapshot.Orientation.Y, snapshot.Orientation.Z, snapshot.Orientation.W).Normalized(),
             Velocity = ToVector3(snapshot.Velocity),
             Throttle = snapshot.Throttle,
         });
@@ -93,6 +96,7 @@ public sealed class ShipTrack
             Position = a.Position.Lerp(b.Position, t);
             Yaw = LerpAngle(a.Yaw, b.Yaw, t);
             Pitch = Mathf.Lerp(a.Pitch, b.Pitch, t);
+            Orientation = a.Orientation.Slerp(b.Orientation, t).Normalized();
             Velocity = a.Velocity.Lerp(b.Velocity, t);
             Throttle = Mathf.Lerp(a.Throttle / 127f, b.Throttle / 127f, t);
             return;
@@ -103,6 +107,7 @@ public sealed class ShipTrack
         Position = last.Position + last.Velocity * (float)extrapolation;
         Yaw = last.Yaw;
         Pitch = last.Pitch;
+        Orientation = last.Orientation;
         Velocity = last.Velocity;
         Throttle = last.Throttle / 127f;
     }
@@ -113,6 +118,7 @@ public sealed class ShipTrack
         Position = ToVector3(position);
         Yaw = yaw;
         Pitch = pitch;
+        Orientation = ShipView.BasisFromAngles(yaw, pitch).GetRotationQuaternion();
         Throttle = 0;
         _points.Add(new Point
         {
@@ -120,6 +126,7 @@ public sealed class ShipTrack
             Position = Position,
             Yaw = yaw,
             Pitch = pitch,
+            Orientation = Orientation,
         });
     }
 
@@ -130,6 +137,7 @@ public sealed class ShipTrack
         Position = point.Position;
         Yaw = point.Yaw;
         Pitch = point.Pitch;
+        Orientation = point.Orientation;
         Velocity = point.Velocity;
         Throttle = point.Throttle / 127f;
     }

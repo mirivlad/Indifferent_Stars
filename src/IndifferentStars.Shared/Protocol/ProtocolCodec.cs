@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Numerics;
 using System.Text;
 
 namespace IndifferentStars.Shared.Protocol;
@@ -54,6 +55,8 @@ public static class ProtocolCodec
                 writer.Write(input.Vertical);
                 writer.Write(input.Boost);
                 writer.Write(input.Brake);
+                writer.Write(input.Strafe);
+                writer.Write(input.Roll);
                 break;
 
             case SnapshotMessage snapshot:
@@ -72,6 +75,10 @@ public static class ProtocolCodec
                     writer.Write(entity.Pitch);
                     WriteVec3(writer, entity.Velocity);
                     writer.Write(entity.Throttle);
+                    writer.Write(entity.Orientation.X);
+                    writer.Write(entity.Orientation.Y);
+                    writer.Write(entity.Orientation.Z);
+                    writer.Write(entity.Orientation.W);
                 }
                 break;
 
@@ -192,7 +199,9 @@ public static class ProtocolCodec
                     reader.ReadSByte(),
                     reader.ReadSByte(),
                     reader.ReadBoolean(),
-                    reader.ReadBoolean()),
+                    reader.ReadBoolean(),
+                    reader.ReadSByte(),
+                    reader.ReadSByte()),
 
                 MessageType.Snapshot => ReadSnapshot(reader),
 
@@ -277,7 +286,8 @@ public static class ProtocolCodec
                 reader.ReadSingle(),
                 reader.ReadSingle(),
                 ReadVec3(reader),
-                reader.ReadSByte());
+                reader.ReadSByte(),
+                new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()));
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

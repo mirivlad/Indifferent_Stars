@@ -113,6 +113,31 @@ public sealed class FlightModelTests
         Assert.Equal(600, ship.Velocity.Length, 8);
     }
 
+    [Fact]
+    public void StrafeChangesSidewaysVelocityWithoutCancellingForwardVelocity()
+    {
+        var ship = NewWorld().AddPlayer("Strafe");
+        ship.SetAngles(0, 0);
+        ship.Velocity = new Vec3d(0, 0, -100);
+        FlightModel.StepPlayer(ship, new InputState(0, 0, 0, 0, false, false, 1, 0), 1);
+        Assert.Equal(FlightModel.VerticalAcceleration, ship.Velocity.X, 5);
+        Assert.Equal(-100, ship.Velocity.Z, 5);
+    }
+
+    [Fact]
+    public void FullRollPreservesForwardAndVelocity()
+    {
+        var ship = NewWorld().AddPlayer("Roll");
+        ship.SetAngles(0, 0);
+        ship.Velocity = new Vec3d(20, 30, -100);
+        var velocity = ship.Velocity;
+        for (var i = 0; i < 360; i++)
+            FlightModel.StepPlayer(ship, new InputState(0, 0, 0, 0, false, false, 0, 1), 2 * Math.PI / FlightModel.RollRate / 360);
+        Assert.Equal(velocity, ship.Velocity);
+        Assert.True(Vec3d.Dot(ship.Forward, new Vec3d(0, 0, -1)) > 0.99999);
+        Assert.True(Math.Abs(ship.Orientation.W) > 0.99999);
+    }
+
     [Theory]
     [InlineData(8500)]
     [InlineData(10000)]

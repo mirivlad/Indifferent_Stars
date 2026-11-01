@@ -41,7 +41,7 @@ public sealed partial class ShipView : Node3D
         if (!Track.HasData)
             return;
 
-        GlobalTransform = new Transform3D(BasisFromAngles(Track.Yaw, Track.Pitch), Track.Position);
+        GlobalTransform = new Transform3D(new Basis(Track.Orientation), Track.Position);
 
         _glowPhase += 0.1f;
         var throttle = Mathf.Max(0.18f, Mathf.Abs(Track.Throttle));

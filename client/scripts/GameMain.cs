@@ -51,6 +51,8 @@ public sealed partial class GameMain : Node3D
     private float _lastHudUpdate;
     private ulong _serverTick;
     private InputState _input = InputState.None;
+    private Vector2 _mouseTurn;
+    private ulong _mouseTurnAt;
 
     private string _playerName = "Captain";
     private string _serverHost = "127.0.0.1";
@@ -160,9 +162,21 @@ public sealed partial class GameMain : Node3D
                     RequestWarp();
                     break;
                 case Key.Escape:
-                    GetTree().Quit();
+                    if (Input.MouseMode == Input.MouseModeEnum.Captured)
+                        Input.MouseMode = Input.MouseModeEnum.Visible;
+                    else
+                        GetTree().Quit();
                     break;
             }
+        }
+        else if (@event is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured && _mode != ViewMode.Tactical)
+        {
+            _mouseTurn = motion.Relative;
+            _mouseTurnAt = Time.GetTicksMsec();
+        }
+        else if (@event is InputEventMouseButton capture && capture.Pressed && capture.ButtonIndex == MouseButton.Left && _mode != ViewMode.Tactical)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Captured;
         }
         else if (@event is InputEventMouseButton mouse && mouse.Pressed && _mode == ViewMode.Tactical)
         {
@@ -255,6 +269,8 @@ public sealed partial class GameMain : Node3D
     private void SetMode(ViewMode mode)
     {
         _mode = mode;
+        if (mode == ViewMode.Tactical)
+            Input.MouseMode = Input.MouseModeEnum.Visible;
         _tactical.Visible = mode == ViewMode.Tactical;
         _tacticalLayer.Visible = mode == ViewMode.Tactical;
         _staticRoot.Visible = mode != ViewMode.Tactical;
@@ -272,7 +288,7 @@ public sealed partial class GameMain : Node3D
 
         var (title, subtitle) = mode switch
         {
-            ViewMode.Tactical => ("2D NAVIGATION", "Top-down tactical plot — Q/E controls relative altitude"),
+            ViewMode.Tactical => ("2D NAVIGATION", "Top-down tactical plot — R/C controls relative altitude"),
             ViewMode.Cockpit => ("COCKPIT", "Inside the ship — same hull, same authoritative state"),
             _ => ("EXTERNAL 3D", "Chase camera — same hull, same authoritative state"),
         };

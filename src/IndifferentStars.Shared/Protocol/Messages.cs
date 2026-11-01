@@ -1,10 +1,11 @@
 using System;
+using System.Numerics;
 
 namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 1;
+    public const byte Version = 2;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -81,7 +82,9 @@ public sealed record InputMessage(
     sbyte Pitch,
     sbyte Vertical,
     bool Boost,
-    bool Brake) : IProtocolMessage
+    bool Brake,
+    sbyte Strafe = 0,
+    sbyte Roll = 0) : IProtocolMessage
 {
     public MessageType Type => MessageType.Input;
 }
@@ -94,7 +97,8 @@ public sealed record EntitySnapshot(
     float Yaw,
     float Pitch,
     Vec3d Velocity,
-    sbyte Throttle)
+    sbyte Throttle,
+    Quaternion Orientation = default)
 {
 }
 

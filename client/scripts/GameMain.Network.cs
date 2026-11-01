@@ -97,12 +97,19 @@ public sealed partial class GameMain
     private InputState ReadInput()
     {
         var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
-        var steer = (Input.IsKeyPressed(Key.A) ? 1f : 0f) - (Input.IsKeyPressed(Key.D) ? 1f : 0f);
+        var steer = (Input.IsKeyPressed(Key.Left) ? 1f : 0f) - (Input.IsKeyPressed(Key.Right) ? 1f : 0f);
         var pitch = (Input.IsKeyPressed(Key.Up) ? 1f : 0f) - (Input.IsKeyPressed(Key.Down) ? 1f : 0f);
-        var vertical = (Input.IsKeyPressed(Key.E) ? 1f : 0f) - (Input.IsKeyPressed(Key.Q) ? 1f : 0f);
+        if (_mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
+        {
+            steer = Mathf.Clamp(steer - _mouseTurn.X * 0.025f, -1, 1);
+            pitch = Mathf.Clamp(pitch - _mouseTurn.Y * 0.025f, -1, 1);
+        }
+        var vertical = (Input.IsKeyPressed(Key.R) ? 1f : 0f) - (Input.IsKeyPressed(Key.C) ? 1f : 0f);
+        var strafe = (Input.IsKeyPressed(Key.D) ? 1f : 0f) - (Input.IsKeyPressed(Key.A) ? 1f : 0f);
+        var roll = (Input.IsKeyPressed(Key.Q) ? 1f : 0f) - (Input.IsKeyPressed(Key.E) ? 1f : 0f);
         var boost = Input.IsKeyPressed(Key.Shift);
         var brake = Input.IsKeyPressed(Key.Space);
-        return new InputState(throttle, steer, pitch, vertical, boost, brake);
+        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)
