@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
 
 namespace IndifferentStars.Client;
@@ -35,13 +36,13 @@ public sealed partial class ShipView : Node3D
     public EntityKind Kind => Track.Kind;
     public bool Boosting { get; set; }
 
-    public void UpdateVisual()
+    public void UpdateVisual(Vec3d renderOrigin)
     {
-        Track.Sample(Time.GetTicksMsec() / 1000.0 - (IsPlayer ? 0.05 : 0.11));
+        Track.Sample(Time.GetTicksMsec() / 1000.0 - (IsPlayer ? 0.05 : 0.11), renderOrigin);
         if (!Track.HasData)
             return;
 
-        GlobalTransform = new Transform3D(new Basis(Track.Orientation), Track.Position);
+        GlobalTransform = new Transform3D(new Basis(Track.Orientation), Track.RenderPosition);
 
         _glowPhase += 0.1f;
         var throttle = Mathf.Max(0.18f, Mathf.Abs(Track.Throttle));

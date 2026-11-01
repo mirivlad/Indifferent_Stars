@@ -54,6 +54,7 @@ public sealed partial class GameMain : Node3D
     private float _lastHudUpdate;
     private ulong _serverTick;
     private InputState _input = InputState.None;
+    private Vec3d _renderOrigin = Vec3d.Zero;
     private Vector2 _mouseTurn;
     private ulong _mouseTurnAt;
 
@@ -109,6 +110,7 @@ public sealed partial class GameMain : Node3D
     {
         var dt = (float)delta;
         _net?.Poll();
+        UpdateRenderOrigin();
 
         _input = ReadInput();
         _net?.Update(delta, _input);
@@ -116,7 +118,7 @@ public sealed partial class GameMain : Node3D
         if (_playerShip is not null)
         {
             _playerShip.Boosting = _input.Boost;
-            _playerShip.UpdateVisual();
+            _playerShip.UpdateVisual(_renderOrigin);
             var docked = _playerShip.Track.Docked;
             if (_stationLayer.Visible != docked)
             {
@@ -133,7 +135,7 @@ public sealed partial class GameMain : Node3D
         UpdateTargeting();
         UpdateTactical();
         UpdateCamera(dt);
-        _worldBuilder?.Process(delta, PlayerPosition());
+        _worldBuilder?.Process(delta, _playerShip?.Track.WorldPosition ?? Vec3d.Zero, _renderOrigin);
         _camera.Far = _worldBuilder?.RequiredFarPlane ?? 900_000f;
 
         _warpCooldown = Mathf.Max(0f, _warpCooldown - dt);
@@ -379,7 +381,7 @@ public sealed partial class GameMain : Node3D
     {
         var now = Time.GetTicksMsec() / 1000.0;
         foreach (var ship in _remoteShips.Values)
-            ship.UpdateVisual();
+            ship.UpdateVisual(_renderOrigin);
 
         List<uint>? stale = null;
         foreach (var (id, seenAt) in _remoteSeen)
@@ -506,6 +508,20 @@ public sealed partial class GameMain : Node3D
 
     private Vector3 PlayerPosition() =>
         _playerShip is not null && _playerShip.Track.HasData ? _playerShip.Track.Position : Vector3.Zero;
+
+    private void UpdateRenderOrigin()
+    {
+        if (_playerShip is null || !_playerShip.Track.HasData)
+            return;
+        var position = _playerShip.Track.LatestPosition;
+        var next = RenderFrame.ChooseOrigin(position, _renderOrigin);
+        if (next.Equals(_renderOrigin))
+            return;
+        var shift = ShipTrack.ToVector3(next - _renderOrigin);
+        _camera.GlobalPosition -= shift;
+        _renderOrigin = next;
+        _staticRoot.Position = -ShipTrack.ToVector3(_renderOrigin);
+    }
 
     private void OnTransportError(string message) => _hud.ShowToast(message, new Color(1f, 0.45f, 0.4f), 6f);
 }

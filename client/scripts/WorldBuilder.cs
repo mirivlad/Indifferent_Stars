@@ -43,10 +43,10 @@ public sealed partial class WorldBuilder
         BuildLights();
     }
 
-    public void Process(double delta, Vector3 observerLocal)
+    public void Process(double delta, Vec3d observerLocal, Vec3d renderOrigin)
     {
         _elapsed += (float)delta;
-        _celestial?.Update(observerLocal, (float)delta);
+        _celestial?.Update(observerLocal, renderOrigin, (float)delta);
 
         if (_stationNode is not null)
             _stationNode.RotateY((float)delta * 0.012f);
