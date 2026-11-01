@@ -23,6 +23,9 @@ public sealed partial class WorldBuilder
     private WorldEnvironment? _worldEnvironment;
     private CelestialRenderer? _celestial;
     private ShaderMaterial? _skyMaterial;
+    private readonly Dictionary<string, Node3D> _asteroidSectors = new();
+    private Mesh[]? _asteroidMeshes;
+    public int LoadedAsteroidSectors => _asteroidSectors.Count;
 
     public WorldBuilder(Node3D root, WorldCatalog catalog, bool highQuality)
     {
@@ -40,7 +43,7 @@ public sealed partial class WorldBuilder
         BuildEnvironment();
         _celestial = new CelestialRenderer(_root, Catalog, _highQuality);
         BuildStation();
-        BuildAsteroidBelt();
+        UpdateAsteroidSectors(Vec3d.Zero);
         BuildLights();
     }
 
@@ -48,6 +51,7 @@ public sealed partial class WorldBuilder
     {
         _elapsed += (float)delta;
         _celestial?.Update(observerLocal, renderOrigin, (float)delta);
+        UpdateAsteroidSectors(observerLocal);
 
         if (_stationNode is not null)
             _stationNode.RotateY((float)delta * 0.012f);
@@ -55,6 +59,30 @@ public sealed partial class WorldBuilder
         {
             var pulse = 0.65f + 0.35f * Mathf.Sin(_elapsed * 2.4f);
             _beaconMaterial.EmissionEnergyMultiplier = 2.5f + pulse * 4.0f;
+        }
+    }
+
+    private void UpdateAsteroidSectors(Vec3d observer)
+    {
+        foreach (var sector in Catalog.Sectors)
+        {
+            var distance = Vec3d.Distance(observer, sector.Center) - sector.Radius;
+            if (_asteroidSectors.TryGetValue(sector.Id, out var loaded))
+            {
+                if (distance > WorldCatalog.RelevanceRange + 2000)
+                {
+                    _asteroidSectors.Remove(sector.Id);
+                    loaded.QueueFree();
+                }
+            }
+            else if (distance <= WorldCatalog.RelevanceRange)
+            {
+                _asteroidMeshes ??= LoadAsteroidMeshes();
+                var node = new Node3D { Name = sector.Id };
+                _root.AddChild(node);
+                BuildAsteroidBelt(node, sector.Bodies.Where(body => body.Kind == BodyKind.Asteroid), _asteroidMeshes);
+                _asteroidSectors.Add(sector.Id, node);
+            }
         }
     }
 

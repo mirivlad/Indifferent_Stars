@@ -15,6 +15,7 @@ public sealed class ShipTrack
     private struct Point
     {
         public double Time;
+        public ulong? ServerMs;
         public Vec3d Position;
         public float Yaw;
         public float Pitch;
@@ -44,8 +45,10 @@ public sealed class ShipTrack
 
     public static Vector3 ToVector3(Vec3d value) => new((float)value.X, (float)value.Y, (float)value.Z);
 
-    public void Push(EntitySnapshot snapshot, double receivedAt)
+    public void Push(EntitySnapshot snapshot, double receivedAt, ulong serverTimeMs)
     {
+        if (_points.Count > 0 && _points[^1].ServerMs is { } latest && serverTimeMs <= latest)
+            return;
         Name = snapshot.Name;
         Kind = snapshot.Kind;
         ApproachTargetId = snapshot.ApproachTargetId;
@@ -54,19 +57,28 @@ public sealed class ShipTrack
         FlightAssist = snapshot.FlightAssist;
         ApproachFollowing = snapshot.ApproachFollowing;
         var position = snapshot.Position;
+        var sampleTime = receivedAt;
 
         if (_points.Count > 0)
         {
             var last = _points[^1];
-            if (receivedAt <= last.Time)
-                receivedAt = last.Time + 0.001;
+            // Timestamp samples by the server's own clock rather than by arrival time.
+            // Two datagrams processed in the same frame would otherwise get almost the
+            // same local timestamp and produce a violent speed spike between them.
+            if (last.ServerMs is { } previous)
+                sampleTime = last.Time + (serverTimeMs - previous) / 1000.0;
+
             if (Vec3d.Distance(position, last.Position) > 2500)
+            {
                 _points.Clear();
+                sampleTime = receivedAt;
+            }
         }
 
         _points.Add(new Point
         {
-            Time = receivedAt,
+            Time = sampleTime,
+            ServerMs = serverTimeMs,
             Position = position,
             Yaw = snapshot.Yaw,
             Pitch = snapshot.Pitch,

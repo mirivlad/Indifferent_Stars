@@ -1,4 +1,7 @@
 {
+  "deep_space":"Deep space",
+  "planet_surface_distance":"Distance to surface: {0:N1} km",
+  "planet_closing_speed":"Closing: {0:+0.0;-0.0;0.0} m/s (+ closer, − farther)",
   "play":"Start flight", "resume":"Resume", "settings":"Settings", "quit":"Quit", "back":"Back",
   "graphics":"Graphics", "sound":"Sound", "controls":"Controls", "language":"Language", "network":"Game and network",
   "fullscreen":"Fullscreen", "render_scale":"3D render scale", "glow":"Glow", "antialiasing":"Antialiasing",

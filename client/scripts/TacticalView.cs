@@ -31,6 +31,7 @@ public sealed partial class TacticalView : Control
 
     public WorldCatalog? Catalog { get; set; }
     public Vec3d PlayerPosition { get; set; }
+    public Vec3d PlayerVelocity { get; set; }
     public float PlayerYaw { get; set; }
     public float PlayerAltitude { get; set; }
     public uint PlayerId { get; set; }
@@ -78,7 +79,19 @@ public sealed partial class TacticalView : Control
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, movingDestination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
         DrawContactLabels(center, scale, size);
         DrawPlayer(center, scale);
+        DrawPlanetNavigation();
         FlushLabels();
+    }
+
+    private void DrawPlanetNavigation()
+    {
+        if (Catalog is null) return;
+        var navigation = SurfaceNavigation.Measure(Catalog.LocalFrameOrigin + PlayerPosition, PlayerVelocity, Catalog.Planet);
+        var position = new Vector2(30, 190);
+        DrawRect(new Rect2(position - new Vector2(8, 18), new Vector2(390, 95)), new Color(0.008f, 0.02f, 0.035f, 0.94f));
+        DrawLabel(Catalog.Planet.Name, position, PlayerColor, 16, true);
+        DrawLabel(Locale.Format("planet_surface_distance", navigation.DistanceMetres / 1000), position + new Vector2(0, 25), PlayerColor, 16, true);
+        DrawLabel(Locale.Format("planet_closing_speed", navigation.ClosingMetresPerSecond), position + new Vector2(0, 50), TextDim, 14, true);
     }
 
     public override void _Process(double delta)

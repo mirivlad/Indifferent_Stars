@@ -180,7 +180,7 @@ public sealed partial class GameMain
         {
             if (entity.Id == _playerId)
             {
-                _playerShip.Track.Push(entity, now);
+                _playerShip.Track.Push(entity, now, snapshot.ServerTimeMs);
                 continue;
             }
 
@@ -194,7 +194,7 @@ public sealed partial class GameMain
             }
 
             view.DisplayName = entity.Name;
-            view.Track.Push(entity, now);
+            view.Track.Push(entity, now, snapshot.ServerTimeMs);
             _remoteSeen[entity.Id] = now;
         }
     }
