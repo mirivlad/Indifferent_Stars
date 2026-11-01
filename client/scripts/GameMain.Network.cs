@@ -96,7 +96,7 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
-        if (_mode == ViewMode.Tactical)
+        if (_mode == ViewMode.Tactical || _playerShip?.Track.Docked == true)
             return InputState.None;
         var throttle = (Input.IsKeyPressed(Key.W) ? 1f : 0f) - (Input.IsKeyPressed(Key.S) ? 1f : 0f);
         var steer = (Input.IsKeyPressed(Key.Left) ? 1f : 0f) - (Input.IsKeyPressed(Key.Right) ? 1f : 0f);
@@ -219,6 +219,18 @@ public sealed partial class GameMain
     {
         _hud.ShowToast(result.Accepted ? "AUTOPILOT ENGAGED" : "APPROACH UNAVAILABLE",
             result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+    }
+
+    private void OnDockCompleted(DockResultMessage result)
+    {
+        var message = result.Accepted ? (result.Undock ? "UNDOCKING APPROVED" : "DOCKING CLEARANCE GRANTED") : "DOCKING REQUEST REJECTED";
+        _hud.ShowToast(message, result.Accepted ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+    }
+
+    private void RequestDock()
+    {
+        if (_hasTarget)
+            _net?.RequestDock(_targetId, false);
     }
 
     private void RequestApproach()

@@ -37,6 +37,9 @@ public sealed class ShipState
     public bool Braking { get; set; }
     public uint ApproachTargetId { get; set; }
     public Vec3d ApproachDestination { get; set; }
+    public bool DockingGranted { get; set; }
+    public bool Docked { get; set; }
+    public Vec3d DockingPoint { get; set; }
     public double LastWarpAtSeconds { get; set; } = -1000;
     public NpcRoute? Route { get; set; }
 

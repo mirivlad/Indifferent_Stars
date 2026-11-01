@@ -32,6 +32,8 @@ public sealed class ProtocolTests
             new DisconnectMessage("leaving"),
             new ApproachRequestMessage(1001),
             new ApproachResultMessage(1001, true),
+            new DockRequestMessage(3, false),
+            new DockResultMessage(false, true),
         };
         return data;
     }

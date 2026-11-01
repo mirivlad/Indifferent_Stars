@@ -235,7 +235,7 @@ public sealed partial class Hud : CanvasLayer
         var controls = MakeLabel(
             "[W/S] THRUST   [A/D] STRAFE   [ARROWS/MOUSE] TURN\n" +
             "[Q/E] ROLL   [R/C] VERTICAL   [SHIFT] BOOST   [SPACE] BRAKE\n" +
-            "[TAB] CONTACT    [F] SCAN    [G] APPROACH    [X] WARP\n" +
+            "[TAB] CONTACT  [F] SCAN  [G] APPROACH  [H] DOCK  [X] WARP\n" +
             "[F1] 2D NAV      [F2] EXTERNAL 3D  [F3] COCKPIT  [F4] QUALITY",
             13, Dim);
         Place(controls, 0, 0, new Vector2(16, 12), new Vector2(468, 106));

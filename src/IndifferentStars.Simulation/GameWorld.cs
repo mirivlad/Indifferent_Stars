@@ -96,7 +96,7 @@ public sealed class GameWorld
     {
         var player = GetPlayer(playerId);
         var body = Catalog.Find((int)targetId);
-        if (player is null || body is null)
+        if (player is null || player.Docked || body is null)
             return false;
         var away = (player.Position - body.Position).Normalized();
         if (away.LengthSquared < 0.5)
@@ -106,12 +106,49 @@ public sealed class GameWorld
         return true;
     }
 
+    public bool RequestDocking(uint playerId, uint targetId)
+    {
+        var player = GetPlayer(playerId);
+        var station = Catalog.Station;
+        if (player is null || player.Docked || targetId != (uint)station.Id)
+            return false;
+        var away = (player.Position - station.Position).Normalized();
+        if (away.LengthSquared < 0.5)
+            return false;
+        player.DockingGranted = true;
+        player.DockingPoint = station.Position + away * (station.Radius + 100);
+        player.ApproachDestination = player.DockingPoint;
+        player.ApproachTargetId = targetId;
+        return true;
+    }
+
+    public bool Undock(uint playerId)
+    {
+        var player = GetPlayer(playerId);
+        if (player is null || !player.Docked)
+            return false;
+        player.Docked = false;
+        player.DockingGranted = false;
+        return true;
+    }
+
     public void Tick(double dt)
     {
         foreach (var (id, ship) in _players)
         {
             var slot = _inputs[id];
             slot.AgeSeconds += dt;
+            if (ship.Docked)
+                continue;
+            if (ship.DockingGranted && ApproachPilot.Arrived(ship, ship.DockingPoint))
+            {
+                ship.Docked = true;
+                ship.DockingGranted = false;
+                ship.ApproachTargetId = 0;
+                ship.Velocity = Vec3d.Zero;
+                ship.Throttle = 0;
+                continue;
+            }
             var input = slot.AgeSeconds <= InputTimeoutSeconds ? slot.Input : InputState.None;
             if (ship.ApproachTargetId != 0)
             {
@@ -177,6 +214,8 @@ public sealed class GameWorld
         var player = GetPlayer(playerId);
         if (player is null)
             return WarpFail(targetId, "Unknown or unowned ship.");
+        if (player.Docked)
+            return WarpFail(targetId, "Undock before using warp.");
 
         var npc = _npcs.FirstOrDefault(n => n.Id == targetId);
         var body = Catalog.Find((int)targetId);
@@ -248,7 +287,9 @@ public sealed class GameWorld
         ship.Velocity,
         (sbyte)Math.Clamp(Math.Round(ship.Throttle * 127), -127, 127),
         ship.Orientation,
-        ship.ApproachTargetId);
+        ship.ApproachTargetId,
+        ship.Docked,
+        ship.DockingGranted);
 
     private static string DescribeVessel(ShipState npc)
     {
@@ -271,7 +312,7 @@ public sealed class GameWorld
                 "Orbital station — Kestrel Reach\n" +
                 "Traffic control online. Reactor signature stable.\n" +
                 $"Range: {distance / 1000:F2} km\n" +
-                "Docking interface is not part of First Flight; station services are telemetry only.",
+                "Docking clearance available. Trading services are currently unavailable.",
             _ => "Unclassified object.",
         };
     }

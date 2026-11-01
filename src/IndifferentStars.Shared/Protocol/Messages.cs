@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 3;
+    public const byte Version = 4;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -34,6 +34,8 @@ public enum MessageType : byte
     Disconnect = 12,
     ApproachRequest = 13,
     ApproachResult = 14,
+    DockRequest = 15,
+    DockResult = 16,
 }
 
 public enum EntityKind : byte
@@ -101,7 +103,9 @@ public sealed record EntitySnapshot(
     Vec3d Velocity,
     sbyte Throttle,
     Quaternion Orientation = default,
-    uint ApproachTargetId = 0)
+    uint ApproachTargetId = 0,
+    bool Docked = false,
+    bool DockingGranted = false)
 {
 }
 
@@ -165,4 +169,14 @@ public sealed record ApproachRequestMessage(uint TargetId) : IProtocolMessage
 public sealed record ApproachResultMessage(uint TargetId, bool Accepted) : IProtocolMessage
 {
     public MessageType Type => MessageType.ApproachResult;
+}
+
+public sealed record DockRequestMessage(uint TargetId, bool Undock) : IProtocolMessage
+{
+    public MessageType Type => MessageType.DockRequest;
+}
+
+public sealed record DockResultMessage(bool Undock, bool Accepted) : IProtocolMessage
+{
+    public MessageType Type => MessageType.DockResult;
 }

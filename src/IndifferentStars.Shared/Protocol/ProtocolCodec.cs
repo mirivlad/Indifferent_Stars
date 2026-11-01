@@ -80,6 +80,8 @@ public static class ProtocolCodec
                     writer.Write(entity.Orientation.Z);
                     writer.Write(entity.Orientation.W);
                     writer.Write(entity.ApproachTargetId);
+                    writer.Write(entity.Docked);
+                    writer.Write(entity.DockingGranted);
                 }
                 break;
 
@@ -130,6 +132,16 @@ public static class ProtocolCodec
             case ApproachResultMessage approachResult:
                 writer.Write(approachResult.TargetId);
                 writer.Write(approachResult.Accepted);
+                break;
+
+            case DockRequestMessage dock:
+                writer.Write(dock.TargetId);
+                writer.Write(dock.Undock);
+                break;
+
+            case DockResultMessage dockResult:
+                writer.Write(dockResult.Undock);
+                writer.Write(dockResult.Accepted);
                 break;
 
             default:
@@ -246,6 +258,8 @@ public static class ProtocolCodec
 
                 MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32()),
                 MessageType.ApproachResult => new ApproachResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+                MessageType.DockRequest => new DockRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+                MessageType.DockResult => new DockResultMessage(reader.ReadBoolean(), reader.ReadBoolean()),
 
                 _ => throw new InvalidDataException($"Unknown message type {(byte)type}."),
             };
@@ -301,7 +315,9 @@ public static class ProtocolCodec
                 ReadVec3(reader),
                 reader.ReadSByte(),
                 new Quaternion(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()),
-                reader.ReadUInt32());
+                reader.ReadUInt32(),
+                reader.ReadBoolean(),
+                reader.ReadBoolean());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

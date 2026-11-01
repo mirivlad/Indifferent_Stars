@@ -176,6 +176,15 @@ public sealed class UdpGameServer : IDisposable
                 }
                 break;
 
+            case DockRequestMessage dock:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var dockSession))
+                {
+                    dockSession.LastSeenSeconds = now;
+                    var accepted = dock.Undock ? _world.Undock(dockSession.PlayerId) : _world.RequestDocking(dockSession.PlayerId, dock.TargetId);
+                    Send(endpoint, new DockResultMessage(dock.Undock, accepted));
+                }
+                break;
+
             case WarpRequestMessage warpRequest:
                 HandleWarp(warpRequest, endpoint, now);
                 break;

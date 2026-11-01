@@ -19,6 +19,12 @@ public sealed partial class NetworkClient
             Send(new ApproachRequestMessage(targetId));
     }
 
+    public void RequestDock(uint targetId, bool undock)
+    {
+        if (State == ConnectionState.Connected)
+            Send(new DockRequestMessage(targetId, undock));
+    }
+
     public void RequestScan(uint targetId)
     {
         if (State != ConnectionState.Connected)

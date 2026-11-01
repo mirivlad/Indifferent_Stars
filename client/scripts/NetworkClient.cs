@@ -59,6 +59,7 @@ public sealed partial class NetworkClient : IDisposable
     public event Action<ScanResultMessage>? ScanCompleted;
     public event Action<WarpResultMessage>? WarpCompleted;
     public event Action<ApproachResultMessage>? ApproachCompleted;
+    public event Action<DockResultMessage>? DockCompleted;
     public event Action<string>? TransportError;
 
     public void Start()
@@ -166,6 +167,10 @@ public sealed partial class NetworkClient : IDisposable
 
                 case ApproachResultMessage approach:
                     ApproachCompleted?.Invoke(approach);
+                    break;
+
+                case DockResultMessage dock:
+                    DockCompleted?.Invoke(dock);
                     break;
 
                 case PongMessage pong:

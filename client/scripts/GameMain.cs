@@ -38,6 +38,8 @@ public sealed partial class GameMain : Node3D
     private TacticalView _tactical = null!;
     private CanvasLayer _tacticalLayer = null!;
     private PopupMenu _contactMenu = null!;
+    private CanvasLayer _stationLayer = null!;
+    private Button _undockButton = null!;
 
     private readonly Dictionary<uint, ShipView> _remoteShips = new();
     private readonly Dictionary<uint, double> _remoteSeen = new();
@@ -94,6 +96,7 @@ public sealed partial class GameMain : Node3D
         _net.ScanCompleted += OnScanCompleted;
         _net.WarpCompleted += OnWarpCompleted;
         _net.ApproachCompleted += OnApproachCompleted;
+        _net.DockCompleted += OnDockCompleted;
         _net.TransportError += OnTransportError;
         _net.Start();
 
@@ -114,6 +117,16 @@ public sealed partial class GameMain : Node3D
         {
             _playerShip.Boosting = _input.Boost;
             _playerShip.UpdateVisual();
+            var docked = _playerShip.Track.Docked;
+            if (_stationLayer.Visible != docked)
+            {
+                _stationLayer.Visible = docked;
+                if (docked)
+                {
+                    Input.MouseMode = Input.MouseModeEnum.Visible;
+                    _undockButton.GrabFocus();
+                }
+            }
         }
 
         UpdateRemoteShips();
@@ -165,6 +178,9 @@ public sealed partial class GameMain : Node3D
                     break;
                 case Key.G:
                     RequestApproach();
+                    break;
+                case Key.H:
+                    RequestDock();
                     break;
                 case Key.Escape:
                     if (Input.MouseMode == Input.MouseModeEnum.Captured)
@@ -275,13 +291,33 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem("Approach", 1);
         _contactMenu.AddItem("Scan", 2);
         _contactMenu.AddItem("Short warp", 3);
+        _contactMenu.AddItem("Request docking", 4);
         _contactMenu.IdPressed += id =>
         {
             if (id == 1) RequestApproach();
             else if (id == 2) RequestScan();
             else if (id == 3) RequestWarp();
+            else if (id == 4) RequestDock();
         };
         AddChild(_contactMenu);
+
+        _stationLayer = new CanvasLayer { Name = "StationLayer", Layer = 15, Visible = false };
+        AddChild(_stationLayer);
+        var panel = new PanelContainer();
+        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
+        panel.Position = new Vector2(-240, -130);
+        panel.CustomMinimumSize = new Vector2(480, 260);
+        _stationLayer.AddChild(panel);
+        var column = new VBoxContainer();
+        panel.AddChild(column);
+        column.AddChild(new Label { Text = "KESTREL REACH — DOCKED", HorizontalAlignment = HorizontalAlignment.Center });
+        column.AddChild(new Label { Text = "Information: orbital station and traffic control." });
+        column.AddChild(new Label { Text = "Communications: docking control online." });
+        column.AddChild(new Label { Text = "Services: docking and departure." });
+        column.AddChild(new Label { Text = "Trade: unavailable at this station." });
+        _undockButton = new Button { Text = "Undock" };
+        _undockButton.Pressed += () => _net?.RequestDock((uint)_catalog.Station.Id, true);
+        column.AddChild(_undockButton);
     }
 
     private void RebuildStaticWorld(int seed)
