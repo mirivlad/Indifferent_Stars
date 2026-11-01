@@ -74,6 +74,7 @@ public sealed partial class GameMain : Node3D
             System.Globalization.CultureInfo.InvariantCulture;
 
         ParseCommandLine();
+        AddChild(new ShipAudio { Name = "ShipAudio" });
         _catalog = WorldCatalog.Generate(DefaultSeed);
 
         _staticRoot = new Node3D { Name = "StaticWorld" };

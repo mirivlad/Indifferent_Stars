@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://d0hh317qt5txp"
+path="res://.godot/imported/A Speck Among Stars.mp3-5bd33aa975913c2232ca8aa0a7227bfc.mp3str"
+
+[deps]
+
+source_file="res://assets/music/A Speck Among Stars.mp3"
+dest_files=["res://.godot/imported/A Speck Among Stars.mp3-5bd33aa975913c2232ca8aa0a7227bfc.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
