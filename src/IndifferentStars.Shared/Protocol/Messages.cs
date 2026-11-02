@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 9;
+    public const byte Version = 10;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -115,7 +115,8 @@ public sealed record EntitySnapshot(
     bool DockingGranted = false,
     bool FlightAssist = false,
     bool ApproachFollowing = false,
-    bool Cruising = false)
+    bool Cruising = false,
+    Vec3d? ApproachPoint = null)
 {
 }
 
@@ -174,7 +175,7 @@ public sealed record DisconnectMessage(string Reason) : IProtocolMessage
     public MessageType Type => MessageType.Disconnect;
 }
 
-public sealed record ApproachRequestMessage(uint TargetId, bool Follow = false) : IProtocolMessage
+public sealed record ApproachRequestMessage(uint TargetId, bool Follow = false, Vec3d? Waypoint = null) : IProtocolMessage
 {
     public MessageType Type => MessageType.ApproachRequest;
 }

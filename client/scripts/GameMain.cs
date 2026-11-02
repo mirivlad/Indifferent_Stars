@@ -38,6 +38,7 @@ public sealed partial class GameMain : Node3D
     private TacticalView _tactical = null!;
     private CanvasLayer _tacticalLayer = null!;
     private PopupMenu _contactMenu = null!;
+    private Vec3d _mapDestination;
     private StationView _stationView = null!;
     private ClientSettings _settings = null!;
     private SettingsMenu _settingsMenu = null!;
@@ -375,9 +376,18 @@ public sealed partial class GameMain : Node3D
                     _hasTarget = true;
                     if (mouse.ButtonIndex == MouseButton.Right)
                     {
+                        BuildContactMenu();
                         _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
                         _contactMenu.Popup();
                     }
+                }
+                else if (mouse.ButtonIndex == MouseButton.Right)
+                {
+                    _mapDestination = _tactical.WorldPositionAt(mouse.Position);
+                    _contactMenu.Clear();
+                    _contactMenu.AddItem(Locale.Text("context_move_point"), 9);
+                    _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
+                    _contactMenu.Popup();
                 }
             }
         }
@@ -454,6 +464,12 @@ public sealed partial class GameMain : Node3D
             else if (id == 6) RequestWarp(5000);
             else if (id == 7) RequestApproach(true);
             else if (id == 8) RequestWarp(10000);
+            else if (id == 9)
+            {
+                _cruise = false;
+                _cruiseStopping = false;
+                _net?.RequestApproach(0, waypoint: _mapDestination);
+            }
         };
         AddChild(_contactMenu);
         BuildContactMenu();
@@ -599,6 +615,7 @@ public sealed partial class GameMain : Node3D
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
         _tactical.ApproachTargetId = _playerShip?.Track.ApproachTargetId ?? 0;
+        _tactical.ApproachPoint = _playerShip?.Track.ApproachPoint;
 
         _tactical.Contacts.Clear();
         foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))

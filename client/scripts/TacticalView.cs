@@ -38,6 +38,7 @@ public sealed partial class TacticalView : Control
     public uint TargetId { get; set; }
     public bool HasTarget { get; set; }
     public uint ApproachTargetId { get; set; }
+    public Vec3d? ApproachPoint { get; set; }
     public double ZoomRange { get; private set; } = 8500;
     private double _targetZoom = 8500;
     private Vec3d _center = Vec3d.Zero;
@@ -73,7 +74,13 @@ public sealed partial class TacticalView : Control
         DrawRangeRings(center, scale, size);
         DrawSectorBoundaries(center, scale, size);
         DrawAsteroids(center, scale, size);
-        if (ApproachTargetId != 0 && Catalog?.Find((int)ApproachTargetId) is { } destination)
+        if (ApproachPoint is { } point)
+        {
+            var endpoint = Project(center, scale, point);
+            DrawLine(Project(center, scale, PlayerPosition), endpoint, PlayerColor, 1.5f);
+            DrawArc(endpoint, 6, 0, Mathf.Tau, 20, PlayerColor, 1.5f);
+        }
+        else if (ApproachTargetId != 0 && Catalog?.Find((int)ApproachTargetId) is { } destination)
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, destination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
         else if (ApproachTargetId != 0 && Contacts.Find(contact => contact.Id == ApproachTargetId) is { } movingDestination)
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, movingDestination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
@@ -133,6 +140,13 @@ public sealed partial class TacticalView : Control
 
     public Vector2 ScreenPosition(Vec3d world) =>
         Project(Size * 0.5f, (float)(Math.Min(Size.X, Size.Y) * 0.43 / ZoomRange), world);
+
+    public Vec3d WorldPositionAt(Vector2 screen)
+    {
+        var scale = Math.Min(Size.X, Size.Y) * 0.43 / ZoomRange;
+        var offset = screen - Size * 0.5f;
+        return new Vec3d(_center.X + offset.X / scale, PlayerPosition.Y, _center.Z + offset.Y / scale);
+    }
 
     private void DrawGrid(Vector2 center, float scale, Vector2 size)
     {

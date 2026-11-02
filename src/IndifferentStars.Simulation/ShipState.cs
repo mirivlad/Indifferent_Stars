@@ -38,6 +38,7 @@ public sealed class ShipState
     public bool CruiseInhibited { get; set; }
     public bool Braking { get; set; }
     public bool FlightAssist { get; set; }
+    // The ship's own id marks a free waypoint; other ids refer to contacts.
     public uint ApproachTargetId { get; set; }
     public bool ApproachFollowing { get; set; }
     public Vec3d ApproachDestination { get; set; }

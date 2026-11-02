@@ -15,10 +15,10 @@ public sealed partial class NetworkClient
     public bool IsWarpPending => _pendingWarp.HasValue;
     public bool IsTradePending => _pendingTrade.HasValue;
 
-    public void RequestApproach(uint targetId, bool follow = false)
+    public void RequestApproach(uint targetId, bool follow = false, IndifferentStars.Shared.Vec3d? waypoint = null)
     {
         if (State == ConnectionState.Connected)
-            Send(new ApproachRequestMessage(targetId, follow));
+            Send(new ApproachRequestMessage(targetId, follow, waypoint));
     }
 
     public void RequestDock(uint targetId, bool undock)

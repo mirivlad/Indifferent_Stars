@@ -19,7 +19,7 @@ namespace IndifferentStars.Tests;
 public sealed class ServerIntegrationTests
 {
     [Fact]
-    public void TwoClientsObserveCruiseRejectionNearStationAndCannotForceSystemWarp()
+    public void TwoClientsObserveCruiseSafetyAndAuthoritativeWaypoints()
     {
         var catalog = WorldCatalog.Generate(2026);
         var world = new GameWorld(catalog);
@@ -48,6 +48,13 @@ public sealed class ServerIntegrationTests
             Assert.NotNull(rejected);
             Assert.False(rejected!.Success);
             Assert.Contains("cruise", rejected.Message);
+            var destination = new IndifferentStars.Shared.Vec3d(-30_000, 260, 0);
+            Send(pilot, new ApproachRequestMessage(0, Waypoint: destination));
+            Assert.True(WaitFor<ApproachResultMessage>(pilot, message => message.TargetId == 0)?.Accepted);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => System.Array.Exists(message.Entities,
+                entity => entity.Id == welcome!.PlayerId && entity.ApproachPoint is { } point && point.Equals(destination))));
+            Send(pilot, new ApproachRequestMessage(0, Waypoint: new IndifferentStars.Shared.Vec3d(double.NaN, 0, 0)));
+            Assert.False(WaitFor<ApproachResultMessage>(pilot, message => message.TargetId == 0)?.Accepted);
         }
         finally
         {
