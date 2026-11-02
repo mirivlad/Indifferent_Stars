@@ -118,7 +118,7 @@ public sealed class GameWorldTests
 
         var warp = world.Warp(ship.Id, (uint)planet.Id);
         Assert.False(warp.Success);
-        Assert.Contains("interplanetary", warp.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cruise", warp.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

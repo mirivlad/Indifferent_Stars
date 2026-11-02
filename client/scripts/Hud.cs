@@ -169,7 +169,7 @@ public sealed partial class Hud : CanvasLayer
         _targetDetailLabel.Text = subtitle;
     }
 
-    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following)
+    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following, bool cruising, bool cruiseRequested)
     {
         _speedLabel.Text = $"{speed,5:F0} m/s";
         _speedLabel.AddThemeColorOverride("font_color", boosting ? Warm : Cyan);
@@ -180,7 +180,7 @@ public sealed partial class Hud : CanvasLayer
         _telemetryLabel.Text =
             Locale.Format("telemetry_throttle", throttle >= 0 ? "+" : "", throttle * 100, altitude >= 0 ? "+" : "", altitude) + "\n" +
             Locale.Format("telemetry_status", scanRangeKm, warp, auto, assist ? Locale.Text("cockpit_assist") : Locale.Text("off"));
-        _warpLabel.Text = boosting ? Locale.Text("boost_short") : "";
+        _warpLabel.Text = cruising ? Locale.Text("cruise_active") : cruiseRequested ? Locale.Text("cruise_blocked") : boosting ? Locale.Text("boost_short") : "";
     }
 
     public void SetTarget(string? name, string type, float distanceMeters, float relativeAltitude, bool inRange, bool hasTarget)
@@ -239,7 +239,7 @@ public sealed partial class Hud : CanvasLayer
         string K(string action) => OS.GetKeycodeString(settings.Keys[action]);
         _controlsLabel.Text =
             $"[{K("forward")}/{K("reverse")}] {Locale.Text("thrust_hint")}   [{K("left")}/{K("right")}] {Locale.Text("strafe_hint")}\n" +
-            $"[{K("roll_left")}/{K("roll_right")}] {Locale.Text("roll_hint")}  [{K("up")}/{K("down")}] {Locale.Text("vertical_hint")}  [{K("assist")}] {Locale.Text("assist_short")}\n" +
+            $"[{K("roll_left")}/{K("roll_right")}] {Locale.Text("roll_hint")}  [{K("up")}/{K("down")}] {Locale.Text("vertical_hint")}  [{K("cruise")}] {Locale.Text("cruise")}  [{K("assist")}] {Locale.Text("assist_short")}\n" +
             $"[{K("target")}] {Locale.Text("target")}  [{K("scan")}] {Locale.Text("scan")}  [{K("approach")}] {Locale.Text("approach")}  [{K("dock")}] {Locale.Text("dock")}\n" +
             $"[{K("view_2d")}/{K("view_3d")}/{K("view_cockpit")}] {Locale.Text("view_2d")} / {Locale.Text("view_3d")} / {Locale.Text("view_cockpit")}   [{K("menu")}] {Locale.Text("menu")}";
     }

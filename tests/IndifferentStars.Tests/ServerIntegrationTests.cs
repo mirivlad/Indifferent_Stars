@@ -19,6 +19,44 @@ namespace IndifferentStars.Tests;
 public sealed class ServerIntegrationTests
 {
     [Fact]
+    public void TwoClientsObserveCruiseRejectionNearStationAndCannotForceSystemWarp()
+    {
+        var catalog = WorldCatalog.Generate(2026);
+        var world = new GameWorld(catalog);
+        using var server = new UdpGameServer(new ServerConfig { BindAddress = "127.0.0.1", Port = 0 }, catalog, world);
+        using var cancellation = new CancellationTokenSource();
+        var thread = new Thread(() => server.Run(cancellation.Token)) { IsBackground = true };
+        thread.Start();
+        try
+        {
+            using var pilot = new UdpClient(AddressFamily.InterNetwork);
+            using var observer = new UdpClient(AddressFamily.InterNetwork);
+            pilot.Connect(server.LocalEndpoint); observer.Connect(server.LocalEndpoint);
+            Send(pilot, new HelloMessage(Guid.NewGuid(), "Cruise pilot"));
+            var welcome = WaitFor<HelloAcceptedMessage>(pilot, _ => true);
+            Assert.NotNull(welcome);
+            Send(observer, new HelloMessage(Guid.NewGuid(), "Observer"));
+            Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer, _ => true));
+            Send(pilot, new InputMessage(1, 127, 0, 0, 0, false, false, Cruise: true));
+            var snapshot = WaitFor<SnapshotMessage>(observer, message =>
+                System.Array.Exists(message.Entities, entity => entity.Id == welcome!.PlayerId));
+            Assert.NotNull(snapshot);
+            var ship = Assert.Single(snapshot!.Entities, entity => entity.Id == welcome!.PlayerId);
+            Assert.False(ship.Cruising);
+            Send(pilot, new WarpRequestMessage(12, (uint)catalog.Planet.Id, 10000));
+            var rejected = WaitFor<WarpResultMessage>(pilot, message => message.RequestId == 12);
+            Assert.NotNull(rejected);
+            Assert.False(rejected!.Success);
+            Assert.Contains("cruise", rejected.Message);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            Assert.True(thread.Join(TimeSpan.FromSeconds(3)));
+        }
+    }
+
+    [Fact]
     public void MarketAndTradeRequestsAreAuthoritativeAndIdempotent()
     {
         var catalog = WorldCatalog.Generate(2026);

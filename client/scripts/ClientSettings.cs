@@ -34,7 +34,7 @@ public sealed class ClientSettings
         ["forward"] = Key.W, ["reverse"] = Key.S, ["left"] = Key.A, ["right"] = Key.D,
         ["up"] = Key.R, ["down"] = Key.C, ["roll_left"] = Key.Q, ["roll_right"] = Key.E,
         ["yaw_left"] = Key.Left, ["yaw_right"] = Key.Right, ["pitch_up"] = Key.Up, ["pitch_down"] = Key.Down,
-        ["boost"] = Key.Shift, ["brake"] = Key.Space, ["assist"] = Key.Z,
+        ["cruise"] = Key.V, ["boost"] = Key.Shift, ["brake"] = Key.Space, ["assist"] = Key.Z,
         ["view_2d"] = Key.F1, ["view_3d"] = Key.F2, ["view_cockpit"] = Key.F3,
         ["quality"] = Key.F4, ["target"] = Key.Tab, ["scan"] = Key.F, ["warp"] = Key.X,
         ["approach"] = Key.G, ["dock"] = Key.H, ["map_system"] = Key.M, ["map_ship"] = Key.Home,
