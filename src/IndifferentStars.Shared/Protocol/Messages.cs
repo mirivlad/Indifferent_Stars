@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 8;
+    public const byte Version = 9;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -94,7 +94,8 @@ public sealed record InputMessage(
     bool Brake,
     sbyte Strafe = 0,
     sbyte Roll = 0,
-    bool FlightAssist = false) : IProtocolMessage
+    bool FlightAssist = false,
+    bool Cruise = false) : IProtocolMessage
 {
     public MessageType Type => MessageType.Input;
 }
@@ -113,7 +114,8 @@ public sealed record EntitySnapshot(
     bool Docked = false,
     bool DockingGranted = false,
     bool FlightAssist = false,
-    bool ApproachFollowing = false)
+    bool ApproachFollowing = false,
+    bool Cruising = false)
 {
 }
 

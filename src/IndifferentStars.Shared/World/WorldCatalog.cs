@@ -73,6 +73,8 @@ public sealed class WorldCatalog
     /// <summary>Dynamic entities farther than this are not sent to a client.</summary>
     public const double RelevanceRange = 15000.0;
     public const double MaxSpeed = 260.0;
+    public const double CruiseSpeed = 20_000;
+    public const double CruiseClearance = 10_000;
     public const double MaxBoostSpeed = 720.0;
     public const float StartFuel = 100f;
 

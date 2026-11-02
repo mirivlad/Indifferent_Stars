@@ -42,6 +42,7 @@ public sealed class ShipTrack
     public bool DockingGranted { get; private set; }
     public bool FlightAssist { get; private set; }
     public bool ApproachFollowing { get; private set; }
+    public bool Cruising { get; private set; }
 
     public static Vector3 ToVector3(Vec3d value) => new((float)value.X, (float)value.Y, (float)value.Z);
 
@@ -56,6 +57,7 @@ public sealed class ShipTrack
         DockingGranted = snapshot.DockingGranted;
         FlightAssist = snapshot.FlightAssist;
         ApproachFollowing = snapshot.ApproachFollowing;
+        Cruising = snapshot.Cruising;
         var position = snapshot.Position;
         var sampleTime = receivedAt;
 

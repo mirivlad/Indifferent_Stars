@@ -99,8 +99,11 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
-        if (_settingsMenu.IsOpen || _mode == ViewMode.Tactical || _playerShip?.Track.Docked == true)
+        if (_cruiseStopping && (_playerShip?.Track.Velocity.Length() ?? 0) < 0.1f) _cruiseStopping = false;
+        if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true)
             return InputState.None with { FlightAssist = _flightAssist };
+        if (_mode == ViewMode.Tactical)
+            return InputState.None with { Throttle = _cruise ? 1 : 0, Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
         var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
@@ -114,7 +117,7 @@ public sealed partial class GameMain
         var roll = (_settings.Pressed("roll_left") ? 1f : 0f) - (_settings.Pressed("roll_right") ? 1f : 0f);
         var boost = _settings.Pressed("boost");
         var brake = _settings.Pressed("brake");
-        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist);
+        return new InputState(_cruise ? 1 : throttle, steer, pitch, vertical, boost, brake || _cruiseStopping, strafe, roll, _flightAssist, _cruise);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)
@@ -215,6 +218,8 @@ public sealed partial class GameMain
         var text = _settings.Language == "ru" ? result.RussianMessage : result.Message;
         if (result.Success && _playerShip is not null)
         {
+            _cruise = false;
+            _cruiseStopping = false;
             _playerShip.Track.Reset(result.NewPosition, result.Yaw, result.Pitch);
             _cameraSnap = true;
             _warpCooldown = 8f;

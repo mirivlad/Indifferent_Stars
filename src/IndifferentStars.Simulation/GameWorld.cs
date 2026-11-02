@@ -303,6 +303,12 @@ public sealed class GameWorld
                 else
                     input = ApproachPilot.Steer(ship, ship.ApproachDestination);
             }
+            if (!input.Cruise) ship.CruiseInhibited = false;
+            if (input.Cruise && (!CanCruise(ship) || ship.CruiseInhibited))
+            {
+                ship.CruiseInhibited = true;
+                input = input with { Cruise = false, Throttle = 0, Brake = ship.Velocity.Length > 0.1 || input.Brake };
+            }
             FlightModel.StepPlayer(ship, input, dt);
         }
 
@@ -320,6 +326,22 @@ public sealed class GameWorld
         entities.AddRange(_npcs.Select(ToSnapshot));
         entities.Sort((a, b) => a.Id.CompareTo(b.Id));
         return entities.ToArray();
+    }
+
+    private bool CanCruise(ShipState ship) =>
+        !ship.Docked && ship.ApproachTargetId == 0 &&
+        Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
+        _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
+        _npcs.All(other => CruiseClearOf(ship, other.Position, 20)) &&
+        new[] { Catalog.Star, Catalog.Planet }.All(body =>
+            CruiseClearOf(ship, body.SystemPosition - Catalog.LocalFrameOrigin, body.Radius + body.AtmosphereHeight));
+
+    private static bool CruiseClearOf(ShipState ship, Vec3d target, double radius)
+    {
+        var offset = target - ship.Position;
+        var closing = Math.Max(0, Vec3d.Dot(ship.Velocity, offset.Normalized()));
+        var stoppingDistance = closing * closing / (2 * FlightModel.CruiseBrakeAcceleration);
+        return offset.Length - radius >= WorldCatalog.CruiseClearance + stoppingDistance + closing * 0.1;
     }
 
     /// <summary>
@@ -395,14 +417,18 @@ public sealed class GameWorld
             return WarpFail(targetId, "unknown_ship");
         if (player.Docked)
             return WarpFail(targetId, "warp_undock");
-        if (arrivalDistance is not (500 or 1000 or 5000))
+        if (arrivalDistance is not (500 or 1000 or 5000 or 10000))
             return WarpFail(targetId, "warp_invalid");
 
         var npc = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
         if (npc?.Id == playerId)
             return WarpFail(targetId, "warp_self");
         var body = Catalog.Find((int)targetId);
-        if (npc is null && body is null)
+        var celestial = Catalog.FindCelestial((int)targetId);
+        var systemWarp = arrivalDistance == 10000;
+        if (systemWarp && (!player.Cruising || player.Velocity.Length < 1000))
+            return WarpFail(targetId, "warp_cruise_required");
+        if (npc is null && body is null && (!systemWarp || celestial is null))
         {
             if (Catalog.FindCelestial((int)targetId) is not null)
             {
@@ -416,10 +442,12 @@ public sealed class GameWorld
         if (TimeSeconds - player.LastWarpAtSeconds < 8.0)
             return WarpFail(targetId, "warp_cooldown", 8.0 - (TimeSeconds - player.LastWarpAtSeconds));
 
-        var targetPosition = npc?.Position ?? body!.Position;
-        var targetRadius = npc is not null ? 20.0 : body!.Radius;
+        var targetPosition = npc?.Position ?? body?.Position ?? (celestial!.SystemPosition - Catalog.LocalFrameOrigin);
+        var targetRadius = npc is not null ? 20.0 : body?.Radius ?? (celestial!.Radius + celestial.AtmosphereHeight);
         var distance = Vec3d.Distance(player.Position, targetPosition);
-        if (distance > WorldCatalog.WarpRange)
+        if (systemWarp && npc is not null && distance > WorldCatalog.RelevanceRange)
+            return WarpFail(targetId, "warp_unknown");
+        if (!systemWarp && distance > WorldCatalog.WarpRange)
             return WarpFail(targetId, "warp_range", distance / 1000, WorldCatalog.WarpRange / 1000);
 
         var arrivalOffset = targetRadius + arrivalDistance;
@@ -433,7 +461,7 @@ public sealed class GameWorld
             _npcs.Any(other => Vec3d.Distance(arrival, other.Position) < 20 + clearance) ||
             _players.Values.Any(other => other.Id != playerId && Vec3d.Distance(arrival, other.Position) < 2 * clearance) ||
             new[] { Catalog.Star, Catalog.Planet }.Any(other =>
-                Vec3d.Distance(ToSystemPosition(arrival), other.SystemPosition) < other.Radius + clearance))
+                Vec3d.Distance(ToSystemPosition(arrival), other.SystemPosition) < other.Radius + other.AtmosphereHeight + clearance))
             return WarpFail(targetId, "warp_blocked");
         var toTarget = (targetPosition - arrival).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toTarget);
@@ -441,20 +469,23 @@ public sealed class GameWorld
         player.Position = arrival;
         player.ApproachTargetId = 0;
         player.DockingGranted = false;
-        player.Velocity = toTarget * 60.0;
+        player.Velocity = systemWarp ? Vec3d.Zero : toTarget * 60.0;
+        player.Cruising = false;
+        player.CruiseInhibited = true;
+        _inputs[playerId].Input = InputState.None;
         player.SetAngles(yaw, pitch);
-        player.Throttle = 0.2;
+        player.Throttle = systemWarp ? 0 : 0.2;
         player.LastWarpAtSeconds = TimeSeconds;
 
-        var label = npc?.Name ?? body!.Name;
+        var label = npc?.Name ?? body?.Name ?? celestial!.Name;
         return new WarpOutcome(
             true,
             targetId,
-            ServerText.Get("en", "warp_success", label, arrivalDistance / 1000.0),
+            ServerText.Get("en", systemWarp ? "warp_system_success" : "warp_success", label, arrivalDistance / 1000.0),
             arrival,
             (float)yaw,
             (float)pitch,
-            ServerText.Get("ru", "warp_success", label, arrivalDistance / 1000.0));
+            ServerText.Get("ru", systemWarp ? "warp_system_success" : "warp_success", label, arrivalDistance / 1000.0));
     }
 
     private static WarpOutcome WarpFail(uint targetId, string key, params object[] args) =>
@@ -483,7 +514,8 @@ public sealed class GameWorld
         ship.Docked,
         ship.DockingGranted,
         ship.FlightAssist,
-        ship.ApproachTargetId != 0 && ship.ApproachFollowing);
+        ship.ApproachTargetId != 0 && ship.ApproachFollowing,
+        ship.Cruising);
 
     private static string DescribeVessel(ShipState npc, string language)
     {

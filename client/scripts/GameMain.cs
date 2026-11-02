@@ -63,6 +63,8 @@ public sealed partial class GameMain : Node3D
     private string _sectorId = "";
     private InputState _input = InputState.None;
     private bool _flightAssist;
+    private bool _cruise;
+    private bool _cruiseStopping;
     private Vec3d _renderOrigin = Vec3d.Zero;
     private Vector2 _mouseTurn;
     private ulong _mouseTurnAt;
@@ -276,13 +278,18 @@ public sealed partial class GameMain : Node3D
                     RequestScan();
                     break;
                 case "warp":
-                    RequestWarp();
+                    RequestWarp(_playerShip?.Track.Cruising == true ? (ushort)10000 : (ushort)1000);
                     break;
                 case "approach":
                     RequestApproach();
                     break;
                 case "dock":
                     RequestDock();
+                    break;
+                case "cruise":
+                    _cruise = !_cruise;
+                    _cruiseStopping = !_cruise;
+                    _hud.ShowToast(Locale.Text(_cruise ? "cruise_request_hint" : "cruise_stop_hint"), duration: 6);
                     break;
                 case "assist" when _mode != ViewMode.Tactical:
                     _flightAssist = !_flightAssist;
@@ -422,6 +429,7 @@ public sealed partial class GameMain : Node3D
             else if (id == 5) RequestWarp(500);
             else if (id == 6) RequestWarp(5000);
             else if (id == 7) RequestApproach(true);
+            else if (id == 8) RequestWarp(10000);
         };
         AddChild(_contactMenu);
         BuildContactMenu();
@@ -442,6 +450,7 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem(Locale.Text("context_warp_500"), 5);
         _contactMenu.AddItem(Locale.Text("context_warp_5"), 6);
         _contactMenu.AddItem(Locale.Text("context_follow"), 7);
+        _contactMenu.AddItem(Locale.Text("context_warp_10"), 8);
     }
 
     private void RequestUndock() => _net?.RequestDock((uint)_catalog.Station.Id, true);
@@ -650,7 +659,7 @@ public sealed partial class GameMain : Node3D
             autopilot = track.ApproachTargetId != 0;
             following = track.ApproachFollowing;
             _hud.SetTelemetry(speed, throttle, altitude, _input.Boost, _warpCooldown, _scanRange / 1000f,
-                autopilot, assist, following);
+                autopilot, assist, following, track.Cruising, _cruise);
         }
 
         ContactRef? contact = null;

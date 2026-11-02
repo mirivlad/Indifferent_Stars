@@ -18,6 +18,8 @@ public static class FlightModel
     public const double YawRate = 1.15;
     public const double PitchRate = 0.85;
     public const double RollRate = 1.5;
+    public const double CruiseAcceleration = 2000;
+    public const double CruiseBrakeAcceleration = 3000;
 
     public static (Vec3d Forward, Vec3d Right, Vec3d Up) Basis(double yaw, double pitch)
     {
@@ -47,6 +49,7 @@ public static class FlightModel
 
         input = input.Clamped();
         ship.Throttle = input.Throttle;
+        ship.Cruising = input.Cruise;
         ship.Boosting = input.Boost && ship.Throttle > 0.05;
         ship.Braking = input.Brake;
 
@@ -63,15 +66,17 @@ public static class FlightModel
         var up = new Vec3d(u.X, u.Y, u.Z);
 
         var throttle = ship.Throttle;
+        var acceleration = ship.Cruising ? CruiseAcceleration : Acceleration;
         var primaryAccel = throttle >= 0
-            ? throttle * Acceleration * (ship.Boosting ? 2.2 : 1.0)
-            : throttle * Acceleration * ReverseFactor;
+            ? throttle * acceleration * (ship.Boosting && !ship.Cruising ? 2.2 : 1.0)
+            : throttle * acceleration * ReverseFactor;
         if (input.Brake)
         {
             var speed = ship.Velocity.Length;
-            ship.Velocity = speed <= BrakeAcceleration * dt
+            var braking = speed > WorldCatalog.MaxBoostSpeed || ship.Cruising ? CruiseBrakeAcceleration : BrakeAcceleration;
+            ship.Velocity = speed <= braking * dt
                 ? Vec3d.Zero
-                : ship.Velocity * ((speed - BrakeAcceleration * dt) / speed);
+                : ship.Velocity * ((speed - braking * dt) / speed);
         }
         else
         {
@@ -85,7 +90,7 @@ public static class FlightModel
                 if (input.Vertical == 0)
                     ship.Velocity += up * Math.Clamp(-Vec3d.Dot(ship.Velocity, up), -limit, limit);
             }
-            var maxSpeed = ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
+            var maxSpeed = ship.Cruising ? WorldCatalog.CruiseSpeed : ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
             var allowedSpeed = Math.Max(previousSpeed, maxSpeed);
             if (ship.Velocity.Length > allowedSpeed)
                 ship.Velocity = ship.Velocity.Normalized() * allowedSpeed;
