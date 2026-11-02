@@ -20,7 +20,7 @@ public sealed class ProtocolTests
             new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true, true),
             new SnapshotMessage(100, 5000, new[]
             {
-                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0)),
+                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0), true, true),
                 new EntitySnapshot(5000, EntityKind.Npc, "Dawn Trader", new Vec3d(-400, 80, 1200), 3.1f, 0.1f, new Vec3d(-40, 0, -70), 90),
             }),
             new ScanRequestMessage(9, 1001),

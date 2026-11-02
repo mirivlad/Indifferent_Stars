@@ -39,10 +39,15 @@ public sealed class ServerIntegrationTests
             Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer, _ => true));
             Send(pilot, new InputMessage(1, 127, 0, 0, 0, false, false, Cruise: true));
             var snapshot = WaitFor<SnapshotMessage>(observer, message =>
-                System.Array.Exists(message.Entities, entity => entity.Id == welcome!.PlayerId));
+                System.Array.Exists(message.Entities, entity => entity.Id == welcome!.PlayerId && entity.CruiseInhibited));
             Assert.NotNull(snapshot);
             var ship = Assert.Single(snapshot!.Entities, entity => entity.Id == welcome!.PlayerId);
             Assert.False(ship.Cruising);
+            Assert.False(ship.CruiseBraking);
+            Assert.True(ship.Velocity.Length > 0);
+            Send(pilot, new InputMessage(2, 127, 0, 0, 0, true, false));
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => System.Array.Exists(message.Entities,
+                entity => entity.Id == welcome!.PlayerId && !entity.CruiseInhibited && !entity.Cruising && entity.Velocity.Length > 0)));
             Send(pilot, new WarpRequestMessage(12, (uint)catalog.Planet.Id, 10000));
             var rejected = WaitFor<WarpResultMessage>(pilot, message => message.RequestId == 12);
             Assert.NotNull(rejected);

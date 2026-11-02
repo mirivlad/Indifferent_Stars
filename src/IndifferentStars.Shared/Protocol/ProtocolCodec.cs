@@ -114,6 +114,8 @@ public static class ProtocolCodec
                     writer.Write(entity.Cruising);
                     writer.Write(entity.ApproachPoint.HasValue);
                     if (entity.ApproachPoint is { } point) WriteVec3(writer, point);
+                    writer.Write(entity.CruiseInhibited);
+                    writer.Write(entity.CruiseBraking);
                 }
                 break;
 
@@ -404,7 +406,9 @@ public static class ProtocolCodec
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
-                ReadOptionalVec3(reader));
+                ReadOptionalVec3(reader),
+                reader.ReadBoolean(),
+                reader.ReadBoolean());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

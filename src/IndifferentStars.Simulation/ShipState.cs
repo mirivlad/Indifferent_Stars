@@ -36,6 +36,7 @@ public sealed class ShipState
     public bool Boosting { get; set; }
     public bool Cruising { get; set; }
     public bool CruiseInhibited { get; set; }
+    public bool CruiseBraking { get; set; }
     public bool Braking { get; set; }
     public bool FlightAssist { get; set; }
     // The ship's own id marks a free waypoint; other ids refer to contacts.

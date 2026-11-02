@@ -1,4 +1,18 @@
 {
+  "map_navigation_bearings":"BEARINGS — NOT POSITIONS ON THE MAP",
+  "map_body_altitude":"Height relative to ship: {0:+0.0;-0.0;0.0} km",
+  "map_ring_extent":"Rings: {0:N0}–{1:N0} km from planet centre",
+  "map_local_projection":"XZ PROJECTION · HEIGHT SHOWN SEPARATELY",
+  "map_system_scale":"SYSTEM · SYMBOLS ENLARGED",
+  "map_planet_projection":"{0} · PROJECTION",
+  "map_distance_au":"{0:F2} AU",
+  "map_distance_km":"{0:N1} km",
+
+  "cruise_denied_hint":"Cruise refused: an object is nearby. Normal thrust and boost remain available.",
+  "cruise_safety_stop_hint":"Safety braking. Normal flight resumes after stopping.",
+  "cruise_braking":"SAFETY BRAKING",
+  "cruise_pending":"CRUISE REQUESTED",
+
   "context_move_point":"Fly to this point",
   "particles":"Ion trails / particles",
   "cruise_request_hint":"Cruise requested: requires 10 km clearance. System warp to 10 km becomes available after acceleration.",

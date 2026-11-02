@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 10;
+    public const byte Version = 11;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -116,7 +116,9 @@ public sealed record EntitySnapshot(
     bool FlightAssist = false,
     bool ApproachFollowing = false,
     bool Cruising = false,
-    Vec3d? ApproachPoint = null)
+    Vec3d? ApproachPoint = null,
+    bool CruiseInhibited = false,
+    bool CruiseBraking = false)
 {
 }
 

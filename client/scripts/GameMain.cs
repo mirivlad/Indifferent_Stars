@@ -353,10 +353,11 @@ public sealed partial class GameMain : Node3D
                 _tactical.ZoomAt(mouse.Position, 1 / 0.65);
             else if (mouse.ButtonIndex is MouseButton.Left or MouseButton.Right)
             {
+                if (_tactical.TryPickNavigationTarget(mouse.Position, out var navigationId) && navigationId == 0) return;
                 var contact = BuildContacts().Where(c => c.Id != _playerId && _tactical.ZoomRange < 100_000_000)
                     .Select(c => (Contact: c, Distance: _tactical.ScreenPosition(new Vec3d(c.Position.X, c.Position.Y, c.Position.Z)).DistanceTo(mouse.Position)))
                     .Where(c => c.Distance < 20).OrderBy(c => c.Distance).FirstOrDefault();
-                var selectedId = contact.Contact.Id;
+                var selectedId = navigationId != 0 ? navigationId : contact.Contact.Id;
                 var selectedDistance = selectedId == 0 ? float.MaxValue : contact.Distance;
                 if (_tactical.ZoomRange >= 100_000_000)
                 {
@@ -701,7 +702,7 @@ public sealed partial class GameMain : Node3D
             autopilot = track.ApproachTargetId != 0;
             following = track.ApproachFollowing;
             _hud.SetTelemetry(speed, throttle, altitude, _input.Boost, _warpCooldown, _scanRange / 1000f,
-                autopilot, assist, following, track.Cruising, _cruise);
+                autopilot, assist, following, track.Cruising, _cruise, track.CruiseBraking);
         }
 
         ContactRef? contact = null;

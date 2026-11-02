@@ -108,7 +108,7 @@ public sealed class GameWorld
         if (_players.TryGetValue(playerId, out var assistedShip))
             assistedShip.FlightAssist = input.FlightAssist;
         if (_players.TryGetValue(playerId, out var ship) &&
-            (input.Throttle != 0 || input.Steer != 0 || input.Pitch != 0 || input.Vertical != 0 || input.Strafe != 0 || input.Roll != 0 || input.Brake))
+            (input.Throttle != 0 || input.Steer != 0 || input.Pitch != 0 || input.Vertical != 0 || input.Strafe != 0 || input.Roll != 0 || input.Brake || input.Cruise))
             ship.ApproachTargetId = 0;
         slot.AgeSeconds = 0;
     }
@@ -316,10 +316,19 @@ public sealed class GameWorld
                     input = ApproachPilot.Steer(ship, ship.ApproachDestination);
             }
             if (!input.Cruise) ship.CruiseInhibited = false;
-            if (input.Cruise && (!CanCruise(ship) || ship.CruiseInhibited))
+            var cruiseSafe = (!input.Cruise && !ship.Cruising) || CanCruise(ship);
+            if (ship.Cruising && !cruiseSafe)
+                ship.CruiseBraking = true;
+            if (input.Cruise && (!cruiseSafe || ship.CruiseInhibited || ship.CruiseBraking))
             {
                 ship.CruiseInhibited = true;
-                input = input with { Cruise = false, Throttle = 0, Brake = ship.Velocity.Length > 0.1 || input.Brake };
+                if (ship.Cruising || ship.Velocity.Length > WorldCatalog.MaxBoostSpeed) ship.CruiseBraking = true;
+                input = input with { Cruise = false };
+            }
+            if (ship.CruiseBraking)
+            {
+                if (ship.Velocity.Length <= 0.1) ship.CruiseBraking = false;
+                else input = input with { Cruise = false, Throttle = 0, Brake = true };
             }
             FlightModel.StepPlayer(ship, input, dt);
         }
@@ -484,6 +493,7 @@ public sealed class GameWorld
         player.Velocity = systemWarp ? Vec3d.Zero : toTarget * 60.0;
         player.Cruising = false;
         player.CruiseInhibited = true;
+        player.CruiseBraking = false;
         _inputs[playerId].Input = InputState.None;
         player.SetAngles(yaw, pitch);
         player.Throttle = systemWarp ? 0 : 0.2;
@@ -528,7 +538,9 @@ public sealed class GameWorld
         ship.FlightAssist,
         ship.ApproachTargetId != 0 && ship.ApproachFollowing,
         ship.Cruising,
-        ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null);
+        ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null,
+        ship.CruiseInhibited,
+        ship.CruiseBraking);
 
     private static string DescribeVessel(ShipState npc, string language)
     {

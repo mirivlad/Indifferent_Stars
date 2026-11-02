@@ -25,6 +25,9 @@ public sealed partial class ShipTrackChecks : Node
             track.Push(Snapshot(-100, true), 10.2, 500_050);
             track.Push(Snapshot(-200, true), 10.2, 500_100);
             Check(!track.Docked && track.LatestPosition.X == 10, "Stale/duplicate packets must not roll back state.");
+            Check(!track.Push(Snapshot(-100) with { CruiseInhibited = true, CruiseBraking = true }, 10.2, 500_050),
+                "A stale cruise refusal must not cancel a newer client request.");
+            Check(!track.CruiseInhibited && !track.CruiseBraking, "Stale packets must not replace cruise safety state.");
             track.Push(Snapshot(50_000), 11, 500_150);
             track.Sample(11, new Vec3d(50_000, 0, 0));
             Check(track.RenderPosition.Length() < 0.001, "Warp resets must re-anchor the timeline.");

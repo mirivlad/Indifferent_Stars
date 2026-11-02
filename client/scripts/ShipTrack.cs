@@ -44,13 +44,15 @@ public sealed class ShipTrack
     public bool ApproachFollowing { get; private set; }
     public bool Cruising { get; private set; }
     public Vec3d? ApproachPoint { get; private set; }
+    public bool CruiseInhibited { get; private set; }
+    public bool CruiseBraking { get; private set; }
 
     public static Vector3 ToVector3(Vec3d value) => new((float)value.X, (float)value.Y, (float)value.Z);
 
-    public void Push(EntitySnapshot snapshot, double receivedAt, ulong serverTimeMs)
+    public bool Push(EntitySnapshot snapshot, double receivedAt, ulong serverTimeMs)
     {
         if (_points.Count > 0 && _points[^1].ServerMs is { } latest && serverTimeMs <= latest)
-            return;
+            return false;
         Name = snapshot.Name;
         Kind = snapshot.Kind;
         ApproachTargetId = snapshot.ApproachTargetId;
@@ -60,6 +62,8 @@ public sealed class ShipTrack
         ApproachFollowing = snapshot.ApproachFollowing;
         Cruising = snapshot.Cruising;
         ApproachPoint = snapshot.ApproachPoint;
+        CruiseInhibited = snapshot.CruiseInhibited;
+        CruiseBraking = snapshot.CruiseBraking;
         var position = snapshot.Position;
         var sampleTime = receivedAt;
 
@@ -93,6 +97,7 @@ public sealed class ShipTrack
 
         while (_points.Count > 10)
             _points.RemoveAt(0);
+        return true;
     }
 
     public void Sample(double renderTime, Vec3d renderOrigin)
@@ -144,6 +149,9 @@ public sealed class ShipTrack
     public void Reset(Vec3d position, float yaw, float pitch)
     {
         _points.Clear();
+        Cruising = false;
+        CruiseInhibited = false;
+        CruiseBraking = false;
         WorldPosition = position;
         Position = ToVector3(position);
         Yaw = yaw;
