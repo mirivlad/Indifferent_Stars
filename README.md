@@ -44,7 +44,22 @@ Indifferent Stars — открытая по замыслу космическа�
 
 - Linux (проверено на Debian 13), .NET SDK 10, Godot 4.7.2 **.NET / Mono**.
 - GPU с Vulkan (проверено на Radeon RX 580 8 GB, Forward+).
-- Интернет не нужен, PostgreSQL/Docker/аккаунты не нужны, `sudo` не требуется.
+- Для скачивания движка и первого восстановления NuGet-пакетов нужен интернет. После подготовки локальная игра работает без интернета, PostgreSQL/Docker/аккаунтов; обычная сборка и запуск не требуют `sudo`.
+
+Установка нужной редакции Godot для Linux x86_64 в домашний каталог:
+
+```bash
+tools/install-godot-dotnet.sh
+```
+
+Скрипт скачивает официальный Godot 4.7.2 **.NET**, проверяет SHA-256 и сохраняет весь комплект вместе с `GodotSharp` в `~/.local/opt/godot-dotnet/4.7.2`. Команда `~/.local/bin/godot-dotnet` — ссылка на установленный движок. Обычный Godot и настройки оболочки не изменяются. Для другого каталога доступен `--prefix /path/to/prefix`. Нужны `curl`, `unzip`, `sha256sum`; .NET SDK 10 устанавливается отдельно. Источник: [официальные загрузки Godot](https://godotengine.org/download/linux/), вариант «.NET».
+
+Проверка версии:
+
+```bash
+~/.local/bin/godot-dotnet --version
+# 4.7.2.stable.mono.official.…
+```
 
 Если `godot-dotnet` не в `PATH`, передайте путь явно:
 
@@ -79,7 +94,7 @@ tools/run-server.sh
 ### 2. Клиент
 
 ```bash
-godot --path client
+tools/run-client.sh
 ```
 
 или, если бинарник называется иначе:
@@ -88,10 +103,10 @@ godot --path client
 GODOT_BIN="$HOME/.local/bin/godot-dotnet" tools/run-client.sh
 ```
 
-Аргументы клиента передаются после `--`:
+Аргументы клиента передаются скрипту напрямую:
 
 ```bash
-godot --path client -- --name Nova --server 127.0.0.1:7777 --view 3d
+tools/run-client.sh --name Nova --server 127.0.0.1:7777 --view 3d
 ```
 
 `--view 2d|3d|cockpit` задаёт стартовое представление, `--quality low` отключает bloom.
@@ -103,7 +118,7 @@ godot --path client -- --name Nova --server 127.0.0.1:7777 --view 3d
 Запустите ещё один экземпляр с другим позывным:
 
 ```bash
-godot --path client -- --name Vega
+tools/run-client.sh --name Vega
 ```
 
 Оба клиента должны оказаться в одной системе, видеть друг друга и одни и те же NPC.
@@ -114,7 +129,7 @@ godot --path client -- --name Vega
 tools/run-local.sh --name Nova
 ```
 
-Скрипт собирает сервер, ждёт готовности порта, запускает клиент и останавливает сервер при выходе. `IS_PORT` меняет порт, `IS_RESOLUTION` — разрешение окна.
+Скрипт собирает сервер, ждёт готовности порта, запускает клиент и останавливает сервер при выходе. Клиентский скрипт проверяет версию и поддержку C#, собирает C#-проект и выполняет headless-импорт ресурсов перед запуском — это нужно и на свежем клоне. `IS_PORT` меняет порт, `IS_RESOLUTION` — разрешение окна.
 Если UDP-порт занят, сервер сообщает об этом и не завершает чужой процесс. Можно
 подключить клиент к работающему серверу либо выбрать другой порт, например
 `IS_PORT=7778 tools/run-local.sh --name Nova`. Путь к журналу выводится при запуске.
