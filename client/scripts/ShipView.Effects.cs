@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 using IndifferentStars.Shared;
+using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Client;
 
@@ -27,7 +28,7 @@ public sealed partial class ShipView
             AlbedoColor = new Color(0.35f, 0.75f, 1, 0.65f),
         };
         var mesh = new CylinderMesh { BottomRadius = 0.13f, TopRadius = 0.01f, Height = 1, RadialSegments = 8 };
-        var scale = IsPlayer ? 1f : 0.82f;
+        var scale = IsPlayer ? 1f : (float)ModelPose.NpcScale;
         foreach (var sign in new[] { -1f, 1f })
         {
             // Retro-thrusters, side ports and dorsal/ventral pairs also provide visible rotation torque.
@@ -91,7 +92,7 @@ public sealed partial class ShipView
             nozzle.Scale = new Vector3(1, 0.15f + load * 1.6f, 1);
         }
         _ionTrail.Visible = _externalVisible && _engineEffects && _particles && !Track.Docked;
-        var scale = IsPlayer ? 1f : 0.82f;
+        var scale = IsPlayer ? 1f : (float)ModelPose.NpcScale;
         var left = Basis * new Vector3(-0.78f, 0, 4.52f) * scale;
         var right = Basis * new Vector3(0.78f, 0, 4.52f) * scale;
         _ionTrail.UpdateTrail(delta, renderOrigin,

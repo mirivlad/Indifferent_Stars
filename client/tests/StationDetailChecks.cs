@@ -38,6 +38,7 @@ public sealed partial class StationDetailChecks : Node3D
                 return;
             }
             var catalog = WorldCatalog.Generate(GameMain.DefaultSeed);
+            var stationSize = (float)(ModelPose.StationScale / 55);
             var root = new Node3D(); AddChild(root);
             var builder = new WorldBuilder(root, catalog, true);
             builder.Build(); builder.Process(0, Vec3d.Zero, Vec3d.Zero, 0);
@@ -62,6 +63,9 @@ public sealed partial class StationDetailChecks : Node3D
                     .OfType<MeshInstance3D>().Count(mesh => Enumerable.Range(0, mesh.Mesh.GetSurfaceCount()).Any(i =>
                         mesh.Mesh.SurfaceGetMaterial(i) is BaseMaterial3D mat && mat.AlbedoTexture is not null));
                 Check(textured >= 6, "Station materials must import their UV textures.");
+                var lights = builder.StationNode.FindChildren("*_Emitter", "Light3D", true, false).OfType<Light3D>().ToArray();
+                Check(lights.Length == 28 && lights.OfType<SpotLight3D>().Count() == 4,
+                    "Station windows and service berth must have real local lights.");
                 foreach (var mesh in builder.StationNode.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
                 for(var i=0;i<mesh.Mesh.GetSurfaceCount();i++)
                     if(mesh.Mesh.SurfaceGetMaterial(i) is BaseMaterial3D {AlbedoTexture: { } texture})
@@ -87,7 +91,7 @@ public sealed partial class StationDetailChecks : Node3D
                 ("06_far", new Vector3(1400,1050,1650), new Vector3(0,60,0)),
             })
             {
-                camera.Position = position; camera.LookAt(target, Vector3.Up);
+                camera.Position = position * stationSize; camera.LookAt(target * stationSize, Vector3.Up);
                 await ToSignal(GetTree().CreateTimer(.4), SceneTreeTimer.SignalName.Timeout);
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 Check(GetViewport().GetTexture().GetImage().SavePng(Path.Combine(output,name+".png")) == Error.Ok, "Capture failed.");
@@ -96,7 +100,49 @@ public sealed partial class StationDetailChecks : Node3D
             {
                 GD.Print("STATION QUICK CAPTURES PASSED."); GetTree().Quit(); return;
             }
-            camera.Position = new Vector3(620,480,760); camera.LookAt(new Vector3(0,70,0), Vector3.Up);
+            var theta = Mathf.Pi / 24;
+            var nightTarget = new Vec3d(3.18 * Math.Cos(theta), .02, -3.18 * Math.Sin(theta)) * ModelPose.StationScale;
+            var nightCamera = nightTarget + new Vec3d(Math.Cos(theta) * 120, 70, -Math.Sin(theta) * 120);
+            camera.Position = ShipTrack.ToVector3(SurfaceMesh.Rotate(nightCamera,stationRotation));
+            camera.LookAt(ShipTrack.ToVector3(SurfaceMesh.Rotate(nightTarget,stationRotation)),Vector3.Up);
+            var emitters = builder.StationNode.FindChildren("*_Emitter","Light3D",true,false).OfType<Light3D>().ToArray();
+            double[] brightness = new double[2];
+            for(var variant=0;variant<2;variant++)
+            {
+                foreach(var emitter in emitters) emitter.Visible = variant==1;
+                await Pause(.3);
+                await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+                var picture = GetViewport().GetTexture().GetImage();
+                picture.SavePng(Path.Combine(output,variant==0 ? "14_local_lights_off.png" : "15_local_lights_on.png"));
+                var center = picture.GetSize()/2;
+                for(var y=center.Y-150;y<center.Y+150;y+=4)
+                for(var x=center.X-150;x<center.X+150;x+=4)
+                {
+                    var color = picture.GetPixel(x,y); brightness[variant]+=color.R+color.G+color.B;
+                }
+            }
+            Check(brightness[1]>brightness[0]*1.05,"Actual station lights must illuminate its shaded material, independently of emissive windows.");
+            GD.Print($"STATION LOCAL LIGHTS: identical materials, center brightness off={brightness[0]:F2}, on={brightness[1]:F2}.");
+            camera.Position = ShipTrack.ToVector3(SurfaceMesh.Rotate(new Vec3d(0,4.8,.12)*ModelPose.StationScale,stationRotation));
+            camera.LookAt(new Vector3(0,(float)(4.04*ModelPose.StationScale),0),Vector3.Forward);
+            Array.Clear(brightness);
+            for(var variant=0;variant<2;variant++)
+            {
+                foreach(var emitter in emitters) emitter.Visible = variant==1;
+                await Pause(.3);
+                await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+                var picture = GetViewport().GetTexture().GetImage();
+                picture.SavePng(Path.Combine(output,variant==0 ? "16_dock_lights_off.png" : "17_dock_lights_on.png"));
+                var center = picture.GetSize()/2;
+                for(var y=center.Y-150;y<center.Y+150;y+=4)
+                for(var x=center.X-150;x<center.X+150;x+=4)
+                {
+                    var color = picture.GetPixel(x,y); brightness[variant]+=color.R+color.G+color.B;
+                }
+            }
+            Check(brightness[1]>brightness[0]*1.05,"Shadowed dock spotlights must illuminate the berth floor.");
+            GD.Print($"STATION DOCK LIGHTS: floor brightness off={brightness[0]:F2}, on={brightness[1]:F2}.");
+            camera.Position = new Vector3(620,480,760) * stationSize; camera.LookAt(new Vector3(0,70,0) * stationSize, Vector3.Up);
             foreach (var high in new[] {true,false})
             {
                 builder.SetGlowEnabled(high); builder.SetVisualQuality(high, high ? 2 : 0);
@@ -121,8 +167,8 @@ public sealed partial class StationDetailChecks : Node3D
                 for (var i=0;i<120;i++)
                 {
                     var angle = i*Mathf.Tau/120;
-                    camera.Position = new Vector3(Mathf.Sin(angle)*950,380,Mathf.Cos(angle)*950);
-                    camera.LookAt(new Vector3(0,70,0),Vector3.Up);
+                    camera.Position = new Vector3(Mathf.Sin(angle)*950,380,Mathf.Cos(angle)*950) * stationSize;
+                    camera.LookAt(new Vector3(0,70,0) * stationSize,Vector3.Up);
                     builder.Process(0, Vec3d.Zero, Vec3d.Zero, i*.1);
                     await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
                     Check(GetViewport().GetTexture().GetImage().SavePng(Path.Combine(movie,$"{i:D4}.png")) == Error.Ok,"Movie frame required.");

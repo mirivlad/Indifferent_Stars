@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Client;
 
@@ -118,7 +119,7 @@ public sealed partial class ShipView : Node3D
         {
             var model = scene.Instantiate<Node3D>();
             model.Name = "GlbModel";
-            model.Scale = Vector3.One * (IsPlayer ? 1.0f : 0.82f);
+            model.Scale = Vector3.One * (IsPlayer ? 1.0f : (float)ModelPose.NpcScale);
             if (!IsPlayer)
                 TintModel(model, Id);
             _modelRoot.AddChild(model);
@@ -137,7 +138,7 @@ public sealed partial class ShipView : Node3D
             EmissionEnergyMultiplier = 6.0f,
         };
 
-        var engineScale = IsPlayer ? 1.0f : 0.82f;
+        var engineScale = IsPlayer ? 1.0f : (float)ModelPose.NpcScale;
         foreach (var x in new[] { -0.78f, 0.78f })
         {
             var glow = new MeshInstance3D

@@ -2,7 +2,7 @@
 
 BLENDER_BIN --background --factory-startup --python tools/art/build_station.py
 Writes only the station GLB, packed editable source, textures and asset receipt.
-Blender Z-up is exported to glTF Y-up; model units are multiplied by 55 in ModelPose.
+Blender Z-up is exported to glTF Y-up; model units are multiplied by 275 in ModelPose.
 """
 import hashlib
 import json
@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCES = ROOT / "tools/art/sources"
 TEXTURES = SOURCES / "station_textures"
 SIZE = 1024
+SCALE = 275
 PARTS = {}
 MATERIALS = {}
 
@@ -141,11 +142,13 @@ def beam(mat, a, b, radius=.025, sides=6):
     rings = [[Vector(p) + basis @ Vector((radius*math.cos(i*math.tau/sides), radius*math.sin(i*math.tau/sides), 0))
               for i in range(sides)] for p in (a, b)]
     # Fans are explicitly triangulated and closed, like all structural parts.
+    cap_uv = [(radius*math.cos(i*math.tau/sides)*.65,
+               radius*math.sin(i*math.tau/sides)*.65) for i in range(sides)]
     for i in range(sides):
         j = (i + 1) % sides
         face(mat, [rings[0][i], rings[0][j], rings[1][j], rings[1][i]])
-        face(mat, [Vector(a), rings[0][j], rings[0][i]], [(0,0),(.5,0),(0,.5)])
-        face(mat, [Vector(b), rings[1][i], rings[1][j]], [(0,0),(.5,0),(0,.5)])
+        face(mat, [Vector(a), rings[0][j], rings[0][i]], [(0,0),cap_uv[j],cap_uv[i]])
+        face(mat, [Vector(b), rings[1][i], rings[1][j]], [(0,0),cap_uv[i],cap_uv[j]])
 
 
 def arc(mat, radius, section, start=0, end=math.tau, steps=72, window_side=-1):
@@ -187,6 +190,13 @@ def label(text, location, size, rotation=(math.pi/2, 0, 0), mat="Hull"):
     return obj
 
 
+def anchor(name, location):
+    obj = bpy.data.objects.new(name, None)
+    obj.location = location
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
 def build():
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
@@ -196,6 +206,7 @@ def build():
     material("Thermal", (.29,.23,.18), .78, .59, "thermal")
     material("Safety", (.82,.32,.055), .35, .50, "safety")
     material("Windows", (.1,.14,.18), .35, .30, "windows")
+    anchors = []
     # Octagonal cross section gives the ring hard, beveled shoulders.
     section = [(-.28,-.13),(-.19,-.23),(.19,-.23),(.28,-.13),
                (.28,.13),(.19,.23),(-.19,.23),(-.28,.13)]
@@ -203,6 +214,10 @@ def build():
         a, b = i*math.tau/24+.009, (i+1)*math.tau/24-.009
         arc("Hull", 2.9, section, a,b,3,window_side=3)
         theta = (a+b)/2
+        lamp = (3.20*math.cos(theta),3.20*math.sin(theta),.02)
+        anchors.append(anchor(f"Light_{'Warm' if i%3==0 else 'Cool'}_{i:02}",lamp))
+        box("Structure",(3.19*math.cos(theta),3.19*math.sin(theta),.02),(.015,.025,.018),theta)
+        box("Windows",lamp,(.006,.018,.009),theta)
         # Visible structural band clamps unite the segmented habitation ring.
         arc("Structure", 2.9, [(-.30,-.26),(.30,-.26),(.30,-.22),(-.30,-.22)], a,b,3)
         box("Safety" if i % 6 == 0 else "Structure",
@@ -219,6 +234,8 @@ def build():
     cylinder("Hull", 1.57, .72, .48, 24)
     cylinder("Structure", 2.06, .46, .50, 24)
     cylinder("Hull", 3.12, .32, 1.64, 16)
+    for z in (-.9,-.3,.3,.9):
+        arc("Structure",1.075,[(-.015,z-.018),(.015,z-.018),(.015,z+.018),(-.015,z+.018)],steps=48)
     for i in range(12):
         angle = i*math.tau/12
         r = 1.045
@@ -263,7 +280,7 @@ def build():
         # Radial cargo pods attached to the hub, away from the four ring passages.
         box("Hull",(0,side*1.17,.62),(.72,.62,.72))
         box("Safety",(0,side*1.50,.62),(.60,.035,.18))
-    # Axial service berth. Clearance point is 260m above the pivot, invariant under spin.
+    # Axial service berth; ship-sized clearance stays fixed when the station grows.
     cylinder("Structure", 4.00, .74, .16, 32)
     arc("Hull",0,[(.53,4.04),(.74,4.04),(.74,4.45),(.53,4.45)],steps=48)
     arc("Safety",0,[(.52,4.45),(.76,4.45),(.76,4.48),(.52,4.48)],steps=48)
@@ -273,6 +290,26 @@ def build():
              (.70*math.cos(theta),.70*math.sin(theta),4.0),.028)
         box("Windows",(.66*math.cos(theta),.66*math.sin(theta),4.50),(.08,.12,.04),theta)
         box("Structure",(.75*math.cos(theta),.75*math.sin(theta),4.27),(.10,.16,.36),theta)
+    for i in range(4):
+        theta = math.pi/4+i*math.pi/2
+        point = (.46*math.cos(theta),.46*math.sin(theta),4.56)
+        anchors.append(anchor(f"Light_Dock_{i:02}",(point[0],point[1],point[2]-.018)))
+        beam("Structure",(.67*math.cos(theta),.67*math.sin(theta),4.42),point,.006)
+        box("Structure",point,(.025,.045,.025),theta)
+    # External maintenance platforms connect to the solid outer habitation wall.
+    for i in range(6):
+        theta = math.pi/6+i*math.pi/3
+        def deck(r,t,z):
+            return (r*math.cos(theta)-t*math.sin(theta),r*math.sin(theta)+t*math.cos(theta),z)
+        box("Structure",deck(3.40,0,-.23),(.50,.55,.035),theta)
+        box("Safety",deck(3.40,0,-.209),(.45,.50,.006),theta)
+        box("Hull",deck(3.24,0,-.13),(.16,.29,.16),theta)
+        box("Thermal",deck(3.25,0,-.043),(.13,.25,.018),theta)
+        for side in (-1,1):
+            beam("Structure",deck(3.17,side*.24,-.33),deck(3.63,side*.24,-.23),.008)
+            for r in (3.22,3.42,3.62):
+                beam("Structure",deck(r,side*.265,-.21),deck(r,side*.265,-.198),.0015)
+            beam("Hull",deck(3.20,side*.265,-.198),deck(3.64,side*.265,-.198),.0015)
     # External service lines stop under the berth; the approach volume stays open.
     for angle in (math.pi/2, math.pi, math.pi*1.5):
         for offset in (-.035,.035):
@@ -293,13 +330,14 @@ def build():
         mesh.update()
         uv = mesh.uv_layers.new(name="UVMap")
         for loop,coord in zip(uv.data,uvs):
-            loop.uv = coord
+            loop.uv = (coord[0]*SCALE/55,coord[1]*SCALE/55)
         obj = bpy.data.objects.new(name,mesh)
         bpy.context.collection.objects.link(obj)
         objects.append(obj)
     objects.extend(labels)
+    objects.extend(anchors)
     marker = bpy.data.objects.new("DockingPoint",None)
-    marker.location = (0,0,260/55)
+    marker.location = (0,0,4.48+13.6/SCALE)
     bpy.context.collection.objects.link(marker)
     objects.append(marker)
     bpy.ops.object.select_all(action="DESELECT")
@@ -319,8 +357,9 @@ def build():
     receipt = {"asset":"station_kestrel","source":"tools/art/build_station.py", "seed":20261102,
                "blender":bpy.app.version_string,"provenance":"original project geometry, textures and markings; no third-party assets",
                "license":"distribution license follows the project owner's decision; not yet declared in repository",
-               "model_scale_metres":55,"docking_point_metres":[0,260,0],
-               "triangles":triangles,"mesh_nodes":len(objects)-1,"materials":len(MATERIALS),
+               "model_scale_metres":SCALE,"docking_point_metres":[0,4.48*SCALE+13.6,0],
+               "triangles":triangles,"mesh_nodes":sum(obj.type=="MESH" for obj in objects),"materials":len(MATERIALS),
+               "light_markers":[obj.name for obj in anchors],
                "texture_size":SIZE,"texture_files":sorted(p.name for p in TEXTURES.glob("*.png")),
                "glb_sha256":hashlib.sha256((ROOT / "client/assets/models/station_kestrel.glb").read_bytes()).hexdigest(),
                "generator_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}

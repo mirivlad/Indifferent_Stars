@@ -14,9 +14,10 @@ var cases = new[]
     ("far", new Vec3d(0, 8, 0)),
     ("open_ring", new Vec3d(2, 0, 0)),
     ("rim_hover", new Vec3d(2.9, .36, 0)),
+    ("rim_close", new Vec3d(2.9, .23 + 7 / ModelPose.StationScale, 0)),
     ("rim_contact", new Vec3d(2.9, .24, 0)),
     ("hub_near", new Vec3d(1.1, 0, 0)),
-    ("dock_hover", new Vec3d(0, 260.0/55, 0)),
+    ("dock_hover", ModelPose.StationDockingOffset / ModelPose.StationScale),
 };
 foreach(var (name, local) in cases)
 {

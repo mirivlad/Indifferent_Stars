@@ -14,10 +14,11 @@ public sealed class CollisionTests
     {
         var world = new GameWorld(WorldCatalog.Generate(12345));
         var ship = world.AddPlayer("Impact");
-        ship.Position = new Vec3d(0, 0, 180);
+        var start = new Vec3d(0, 0, 3.18 * ModelPose.StationScale + 18);
+        ship.Position = start;
         ship.Velocity = new Vec3d(0, 0, -speed);
         world.Tick(0.05);
-        Assert.InRange(ship.Position.Z, 160, 180);
+        Assert.InRange(ship.Position.Z, start.Z - 24, start.Z);
         var surfaceVelocity = Vec3d.Cross(new Vec3d(0, ModelPose.StationSpin, 0), ship.Position);
         Assert.True(Vec3d.Distance(surfaceVelocity, ship.Velocity) < 1e-8);
         Assert.False(ship.Cruising);
@@ -74,7 +75,7 @@ public sealed class CollisionTests
     {
         var world = new GameWorld(WorldCatalog.Generate(12345));
         var ship = world.AddPlayer("Impact");
-        ship.Position = new Vec3d(0, 0, 180);
+        ship.Position = new Vec3d(0, 0, 3.18 * ModelPose.StationScale + 18);
         ship.Velocity = new Vec3d(0, 0, -20000);
         Assert.True(world.StartMove(ship.Id, new Vec3d(0, 0, -1000)));
         world.Tick(0.05);

@@ -86,7 +86,8 @@ public sealed class SurfaceMesh
     }
 
     public static string Fingerprint => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
-        System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash)));
+        System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash +
+            FormattableString.Invariant($"|pose-v1|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
 
     public static readonly SurfaceMesh Ship = Load("ship_player");
     public static readonly SurfaceMesh Station = Load("station_kestrel");
@@ -96,9 +97,10 @@ public sealed class SurfaceMesh
 /// <summary>The same model scale and orientation contract is used by the renderer and server.</summary>
 public static class ModelPose
 {
-    public const double StationScale = 55;
+    public const double StationScale = 275;
     public const double StationSpin = 0.012;
-    public static readonly Vec3d StationDockingOffset = new(0, 260, 0);
+    public const double NpcScale = 0.82;
+    public static readonly Vec3d StationDockingOffset = new(0, StationScale * 4.48 + 13.6, 0);
     public static Quaternion StationRotation(StaticBody body, double seconds) =>
         Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)(body.Rotation + seconds * StationSpin));
 

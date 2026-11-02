@@ -229,7 +229,7 @@ public sealed class ServerIntegrationTests
             Send(pilot, new ApproachRequestMessage(0, Waypoint: new IndifferentStars.Shared.Vec3d(0, 3000, 0)));
             Assert.True(WaitFor<ApproachResultMessage>(pilot, reply => reply.Accepted)?.Accepted);
             Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
-                entity => entity.Id == welcome.PlayerId && entity.Position.Y > 1800), 30, Heartbeat));
+                entity => entity.Id == welcome.PlayerId && entity.Position.Y > ModelPose.StationDockingOffset.Y + 1500), 30, Heartbeat));
             var destination = new IndifferentStars.Shared.Vec3d(0, 10000, 0);
             var request = new WarpRequestMessage(42, 0, destination);
             Send(pilot, request);

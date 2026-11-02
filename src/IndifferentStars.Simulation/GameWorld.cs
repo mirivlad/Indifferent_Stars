@@ -76,7 +76,7 @@ public sealed partial class GameWorld
         // Player slot on a wide parking arc in front of the station, facing the planet below.
         var angle = 0.35 + slot * 1.35;
         var radius = 900.0 + slot * 130.0;
-        var position = station + new Vec3d(Math.Cos(angle) * radius, 260 + slot * 70, Math.Sin(angle) * radius);
+        var position = station + new Vec3d(Math.Cos(angle) * radius, ModelPose.StationDockingOffset.Y + slot * 70, Math.Sin(angle) * radius);
         var toStation = (station - position).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toStation);
 
@@ -601,11 +601,12 @@ public sealed partial class GameWorld
     private void SpawnNpcs()
     {
         var station = Catalog.Station.Position;
+        var stationSize = ModelPose.StationScale / 55;
 
-        AddOrbitNpc("Dawn Trader", "Courier", station, 620, 80, 1.7, 78, 0.0);
-        AddOrbitNpc("Wandering Kite", "Courier", station, 1050, 180, 4.1, 96, 1.1);
-        AddOrbitNpc("Pale Meridian", "Hauler", station, 1550, 120, 2.6, 58, 2.4);
-        AddOrbitNpc("Quiet Ledger", "Surveyor", station, 2050, 300, 5.4, 72, 0.6);
+        AddOrbitNpc("Dawn Trader", "Courier", station, 620 * stationSize, 80 * stationSize, 1.7, 78, 0.0);
+        AddOrbitNpc("Wandering Kite", "Courier", station, 1050 * stationSize, 180 * stationSize, 4.1, 96, 1.1);
+        AddOrbitNpc("Pale Meridian", "Hauler", station, 1550 * stationSize, 120 * stationSize, 2.6, 58, 2.4);
+        AddOrbitNpc("Quiet Ledger", "Surveyor", station, 2050 * stationSize, 300 * stationSize, 5.4, 72, 0.6);
 
         // Freighter lane: from the station down towards the planet's upper atmosphere.
         var midpoint = station + new Vec3d(2600, -900, -1800);
@@ -613,7 +614,7 @@ public sealed partial class GameWorld
         _npcs.Add(CreateNpc(
             "Long Cargo",
             "Hauler",
-            new[] { station + new Vec3d(400, 120, 0), midpoint, nearPlanet, midpoint, station + new Vec3d(400, 120, 0) },
+            new[] { station + new Vec3d(400, 120, 0) * stationSize, midpoint, nearPlanet, midpoint, station + new Vec3d(400, 120, 0) * stationSize },
             62,
             1));
 

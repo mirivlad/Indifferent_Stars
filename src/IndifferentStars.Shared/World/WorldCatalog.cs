@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Shared.World;
 
@@ -217,7 +218,7 @@ public sealed class WorldCatalog
             Kind = BodyKind.Station,
             Name = "Kestrel Reach Station",
             Position = Vec3d.Zero,
-            Radius = 160,
+            Radius = ModelPose.StationScale * (160.0 / 55),
             Rotation = -0.55f,
         };
 

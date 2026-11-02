@@ -84,12 +84,15 @@ public sealed partial class StationApproachChecks : Node
             GetViewport().Scaling3DScale=1;
             GetViewport().Msaa3D=Viewport.Msaa.Msaa4X;
             game.GetNode<Node3D>("StaticWorld").GetNode<DirectionalLight3D>("Starlight").ShadowEnabled=true;
+            foreach(var light in game.FindChildren("Light_Dock_*_Emitter","SpotLight3D",true,false).OfType<SpotLight3D>())
+                light.ShadowEnabled=true;
             var environment = game.FindChildren("*","WorldEnvironment",true,false).OfType<WorldEnvironment>().Single();
             environment.Environment.GlowEnabled=true;
             var catalog = WorldCatalog.Generate(GameMain.DefaultSeed);
             var pose = ModelPose.StationRotation(catalog.Station,0);
-            var point = SurfaceMesh.Rotate(new Vec3d(2.9,.36,0)*ModelPose.StationScale,pose);
-            var opposite = SurfaceMesh.Rotate(new Vec3d(-2.9,.36,0)*ModelPose.StationScale,pose);
+            // Leave braking room above the enlarged station's rooftop machinery.
+            var point = SurfaceMesh.Rotate(new Vec3d(2.9,.55,0)*ModelPose.StationScale,pose);
+            var opposite = SurfaceMesh.Rotate(new Vec3d(-2.9,.55,0)*ModelPose.StationScale,pose);
             Tap(Key.F2);
             _measure=true;
             transport.RequestApproach(0,waypoint:point);
