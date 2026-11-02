@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using Godot;
 
 namespace IndifferentStars.Client;
@@ -18,7 +20,12 @@ public sealed partial class ShipAudio : Node
     private AudioStreamPlayer _ui = null!;
     private AudioStreamPlayer _radio = null!;
     private AudioStreamGeneratorPlayback? _enginePlayback;
+    private string[] _customTracks = Array.Empty<string>();
+    private string _musicDirectory = "";
     private int _track;
+    private bool _previousThrust;
+    private float _maneuver;
+    private bool _boosting;
     private double _phase;
     private double _radioTimer = 48;
     private float _load;
@@ -55,9 +62,27 @@ public sealed partial class ShipAudio : Node
     public void SetFlight(float throttle, float maneuver, bool boosting, bool braking)
     {
         if (_stopped) return;
+        var thrust = Math.Abs(throttle) > 0.05;
+        if (thrust != _previousThrust)
+        {
+            _effects.PitchScale = thrust ? 1.5f : 0.65f;
+            _effects.Play();
+        }
+        _previousThrust = thrust;
+        _maneuver = maneuver;
+        _boosting = boosting;
         _load = Math.Clamp(Math.Abs(throttle) * 0.6f + maneuver * 0.25f + (boosting ? 0.4f : 0), 0, 1);
-        if (braking && !_previousBrake) _effects.Play();
+        if (braking && !_previousBrake) { _effects.PitchScale = 1; _effects.Play(); }
         _previousBrake = braking;
+    }
+
+    public void RadioCue()
+    {
+        if (_stopped) return;
+        var previous = _radio.Stream;
+        _radio.Stream = RadioBurst();
+        previous?.Dispose();
+        _radio.Play();
     }
 
     public void NavigationCue() { if (!_stopped) _ui.Play(); }
@@ -68,7 +93,7 @@ public sealed partial class ShipAudio : Node
         _radioTimer -= delta;
         if (_radioTimer <= 0)
         {
-            _radio.Play();
+            RadioCue();
             _radioTimer = 48 + GD.RandRange(0, 35);
         }
         if (_enginePlayback is null) return;
@@ -79,7 +104,9 @@ public sealed partial class ShipAudio : Node
         {
             _phase += Math.Tau * (48 + _load * 38) / 22050;
             if (_phase > Math.Tau) _phase -= Math.Tau;
-            var sample = (float)((Math.Sin(_phase) + 0.22 * Math.Sin(_phase * 2.03)) * (0.025 + _load * 0.07));
+            var sample = (float)((Math.Sin(_phase) + 0.22 * Math.Sin(_phase * 2.03)) * (0.025 + _load * 0.07)
+                + Math.Sin(_phase * 4.7) * _maneuver * 0.012
+                + (_boosting ? Math.Sin(_phase * 0.51) * 0.025 : 0));
             frames[i] = new Vector2(sample, sample);
         }
         _enginePlayback.PushBuffer(frames);
@@ -107,11 +134,57 @@ public sealed partial class ShipAudio : Node
         return player;
     }
 
+    public void SetMusicDirectory(string directory)
+    {
+        directory = directory.Trim();
+        if (_musicDirectory == directory) return;
+        _musicDirectory = directory;
+        _customTracks = Array.Empty<string>();
+        _track = 0;
+        if (!Directory.Exists(directory)) return;
+        try
+        {
+            _customTracks = Directory.EnumerateFiles(directory)
+                .Where(path => Path.GetExtension(path).Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.Ordinal).ToArray();
+        }
+        catch (IOException) { GD.PushWarning("Could not read music directory."); }
+        catch (UnauthorizedAccessException) { GD.PushWarning("Music directory is not readable."); }
+        // Finish the current track; changing views or settings never restarts music.
+    }
+
+    private static AudioStreamWav RadioBurst()
+    {
+        const int rate = 22050;
+        var random = new Random();
+        var mode = random.Next(3);
+        var length = rate * (mode + 1) / 3;
+        var bytes = new byte[length * 2];
+        for (var i = 0; i < length; i++)
+        {
+            var t = (double)i / rate;
+            var envelope = Math.Sin(Math.PI * i / length);
+            var noise = (random.NextDouble() * 2 - 1) * (mode == 0 ? 0.14 : 0.035);
+            var tone = mode == 0 ? 0 : Math.Sin(Math.Tau * (mode == 1 ? 680 : 940) * t) *
+                (Math.Sin(t * 35) > 0 ? 0.1 : 0.02);
+            var sample = (short)((noise + tone) * envelope * 12000);
+            bytes[i * 2] = (byte)sample;
+            bytes[i * 2 + 1] = (byte)(sample >> 8);
+        }
+        return new AudioStreamWav { Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = rate, Data = bytes };
+    }
+
     private void PlayNext()
     {
         if (_stopped) return;
-        var stream = GD.Load<AudioStream>(MusicPaths[_track]);
-        _track = (_track + 1) % MusicPaths.Length;
+        AudioStream? stream = null;
+        var paths = _customTracks.Length > 0 ? _customTracks : MusicPaths;
+        for (var attempt = 0; attempt < paths.Length && stream is null; attempt++)
+        {
+            var path = paths[_track % paths.Length];
+            _track = (_track + 1) % paths.Length;
+            stream = _customTracks.Length > 0 ? AudioStreamMP3.LoadFromFile(path) : GD.Load<AudioStream>(path);
+        }
         if (stream is null)
         {
             GD.PushWarning("Ambient music could not be loaded.");

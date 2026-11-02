@@ -31,6 +31,7 @@ public sealed partial class StationView : CanvasLayer
     private readonly Dictionary<ushort, Row> _rows = new();
     private readonly List<Label> _staticLabels = new();
 
+    private Button _commsButton = null!;
     private Label _header = null!;
     private Label _info = null!;
     private Label _comms = null!;
@@ -45,6 +46,7 @@ public sealed partial class StationView : CanvasLayer
     private string _statusText = "";
     private bool _statusSuccess;
 
+    public event Action? CommsRequested;
     public event Action? UndockRequested;
     public event Action<ushort, int, bool>? TradeRequested;
 
@@ -119,6 +121,7 @@ public sealed partial class StationView : CanvasLayer
         _header.Text = Locale.Format("station_docked", _stationName.ToUpperInvariant());
         _info.Text = Locale.Text("station_info");
         _comms.Text = Locale.Text("station_comms");
+        _commsButton.Text = Locale.Text("context_comms");
         _services.Text = Locale.Text("station_services");
         _tradeTitle.Text = Locale.Text("trade_title");
         _undock.Text = Locale.Text("undock");
@@ -190,6 +193,9 @@ public sealed partial class StationView : CanvasLayer
         _info = AddStaticLabel(column, "station_info", 14, Dim);
         _comms = AddStaticLabel(column, "station_comms", 14, Dim);
         _services = AddStaticLabel(column, "station_services", 14, Dim);
+        _commsButton = new Button { Text = Locale.Text("context_comms") };
+        _commsButton.Pressed += () => CommsRequested?.Invoke();
+        column.AddChild(_commsButton);
 
         column.AddChild(new HSeparator());
 

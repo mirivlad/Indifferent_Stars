@@ -7,10 +7,14 @@ namespace IndifferentStars.Client;
 public sealed class ClientSettings
 {
     private const string Path = "user://settings.cfg";
+    public bool HudHints { get; set; } = true;
+    public bool DefaultFlightAssist { get; set; }
+    public string MusicDirectory { get; set; } = "";
     public string Language { get; set; } = "ru";
     public string Server { get; set; } = "127.0.0.1:7777";
     public string Callsign { get; set; } = "Captain";
     public float MouseSensitivity { get; set; } = 0.025f;
+    public float CameraSensitivity { get; set; } = 0.005f;
     public bool InvertX { get; set; }
     public bool InvertY { get; set; }
     public bool AutoCapture { get; set; }
@@ -32,7 +36,7 @@ public sealed class ClientSettings
 
     public Dictionary<string, Key> Keys { get; } = new()
     {
-        ["forward"] = Key.W, ["reverse"] = Key.S, ["left"] = Key.A, ["right"] = Key.D,
+        ["camera_look"] = Key.Alt, ["forward"] = Key.W, ["reverse"] = Key.S, ["left"] = Key.A, ["right"] = Key.D,
         ["up"] = Key.R, ["down"] = Key.C, ["roll_left"] = Key.Q, ["roll_right"] = Key.E,
         ["yaw_left"] = Key.Left, ["yaw_right"] = Key.Right, ["pitch_up"] = Key.Up, ["pitch_down"] = Key.Down,
         ["cruise"] = Key.V, ["boost"] = Key.Shift, ["brake"] = Key.Space, ["assist"] = Key.Z,
@@ -49,9 +53,13 @@ public sealed class ClientSettings
         if (file.Load(Path) != Error.Ok) return settings;
         settings.Language = file.GetValue("general", "language", settings.Language).AsString();
         if (settings.Language is not ("ru" or "en")) settings.Language = "ru";
+        settings.HudHints = file.GetValue("general", "hud_hints", true).AsBool();
+        settings.DefaultFlightAssist = file.GetValue("input", "default_assist", false).AsBool();
+        settings.MusicDirectory = file.GetValue("audio", "music_directory", "").AsString();
         settings.Server = file.GetValue("network", "server", settings.Server).AsString();
         settings.Callsign = file.GetValue("network", "callsign", settings.Callsign).AsString();
         settings.MouseSensitivity = Math.Clamp(file.GetValue("input", "sensitivity", settings.MouseSensitivity).AsSingle(), 0.001f, 0.1f);
+        settings.CameraSensitivity = Math.Clamp(file.GetValue("input", "camera_sensitivity", 0.005f).AsSingle(), 0.001f, 0.03f);
         settings.InvertX = file.GetValue("input", "invert_x", false).AsBool();
         settings.InvertY = file.GetValue("input", "invert_y", false).AsBool();
         settings.AutoCapture = file.GetValue("input", "auto_capture", false).AsBool();
@@ -78,10 +86,14 @@ public sealed class ClientSettings
     public Error Save()
     {
         var file = new ConfigFile();
+        file.SetValue("general", "hud_hints", HudHints);
+        file.SetValue("input", "default_assist", DefaultFlightAssist);
+        file.SetValue("audio", "music_directory", MusicDirectory);
         file.SetValue("general", "language", Language);
         file.SetValue("network", "server", Server);
         file.SetValue("network", "callsign", Callsign);
         file.SetValue("input", "sensitivity", MouseSensitivity);
+        file.SetValue("input", "camera_sensitivity", CameraSensitivity);
         file.SetValue("input", "invert_x", InvertX);
         file.SetValue("input", "invert_y", InvertY);
         file.SetValue("input", "auto_capture", AutoCapture);

@@ -7,6 +7,7 @@ using Godot;
 using IndifferentStars.Client;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
+using IndifferentStars.Simulation;
 
 /// <summary>Real-time graphical smoke test against a separately started authoritative server.</summary>
 public sealed partial class FlightChecks : Node
@@ -42,6 +43,9 @@ public sealed partial class FlightChecks : Node
             var pilot = ship!;
             var tactical = game.FindChildren("*", "Control", true, false).OfType<TacticalView>().First();
             var catalog = WorldCatalog.Generate(GameMain.DefaultSeed);
+            Tap(Key.F3); await Pause(0.15);
+            CheckCockpit(game, pilot);
+            await Capture(output, "initial_cockpit");
             Tap(Key.F1); await Pause(0.1);
             for (var i = 0; i < 50 && tactical.TargetId != catalog.Planet.Id; i++) { Tap(Key.Tab); await Pause(0.06); }
             Check(tactical.TargetId == catalog.Planet.Id, "Keyboard targeting must include the known planet.");
@@ -61,10 +65,22 @@ public sealed partial class FlightChecks : Node
                 "2D waypoint must reach the server and appear in the authoritative snapshot.");
             await Capture(output, "waypoint_tactical");
             Tap(Key.F2);
+            // Turn away from the station: its hull is now solid.
+            SetKey(Key.Left, true);
+            await Pause(Math.PI / FlightModel.YawRate);
+            SetKey(Key.Left, false);
+            await Pause(0.2);
             var start = pilot.Track.WorldPosition;
             GD.Print("FLIGHT CHECK: leaving station at local boost.");
             SetKey(Key.Shift, true); SetKey(Key.W, true);
-            await Pause(35);
+            await Pause(0.5);
+            var speedBeforeRefusal = pilot.Track.Velocity.Length();
+            Tap(Key.V);
+            await Pause(0.6);
+            Check(!pilot.Track.Cruising && pilot.Track.Velocity.Length() > speedBeforeRefusal + 100,
+                "Refusing cruise near the station must preserve ordinary boost and release the client request.");
+            await Capture(output, "cruise_refused_recovered");
+            await Pause(33.9);
             SetKey(Key.W, false); SetKey(Key.Shift, false);
             await Pause(0.3);
             Check(Vec3d.Distance(start, pilot.Track.WorldPosition) > 20_000, "Flight must pass the old sector boundary without returning.");
@@ -79,6 +95,7 @@ public sealed partial class FlightChecks : Node
             await Capture(output, "cruise_external");
             Tap(Key.F3); await Pause(1);
             Check(pilot.Track.Cruising, "Cockpit switch must preserve cruise.");
+            CheckCockpit(game, pilot);
             await Capture(output, "cruise_cockpit");
             Tap(Key.F1); await Pause(1);
             Check(pilot.Track.Cruising, "Tactical switch must preserve cruise.");
@@ -117,6 +134,13 @@ public sealed partial class FlightChecks : Node
     }
 
     private async Task Pause(double seconds) => await ToSignal(GetTree().CreateTimer(seconds), SceneTreeTimer.SignalName.Timeout);
+    private void CheckCockpit(GameMain game, ShipView pilot)
+    {
+        var cockpit = pilot.GetNode<CockpitView>("CockpitInterior");
+        Check(cockpit.IsVisibleInTree() && cockpit.FindChildren("*", "MeshInstance3D", true, false).Cast<MeshInstance3D>().Any(mesh => mesh.IsVisibleInTree()),
+            "Cockpit geometry must remain visible when switching from external view.");
+        Check(GetViewport().GetCamera3D() == game.GetNode<Camera3D>("ViewCamera"), "The ship camera must remain current.");
+    }
     private static void Tap(Key key) { SetKey(key, true); SetKey(key, false); }
     private static void SetKey(Key key, bool pressed) => Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = pressed });
     private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

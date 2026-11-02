@@ -48,7 +48,7 @@ public static class FlightModel
             throw new ArgumentException("StepPlayer requires a player ship.", nameof(ship));
 
         input = input.Clamped();
-        ship.Throttle = input.Throttle;
+        ship.Throttle = input.Brake ? 0 : input.Cruise ? 1 : input.Throttle;
         ship.Cruising = input.Cruise;
         ship.Boosting = input.Boost && ship.Throttle > 0.05;
         ship.Braking = input.Brake;
@@ -73,7 +73,7 @@ public static class FlightModel
         if (input.Brake)
         {
             var speed = ship.Velocity.Length;
-            var braking = speed > WorldCatalog.MaxBoostSpeed || ship.Cruising || ship.CruiseInhibited
+            var braking = speed > WorldCatalog.MaxBoostSpeed || ship.Cruising || ship.CruiseBraking
                 ? CruiseBrakeAcceleration : BrakeAcceleration;
             ship.Velocity = speed <= braking * dt
                 ? Vec3d.Zero

@@ -68,6 +68,7 @@ public sealed class FlightModelTests
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Drifter");
+        ship.Position = new Vec3d(0, 100_000, 0);
 
         for (var i = 0; i < 100; i++)
         {

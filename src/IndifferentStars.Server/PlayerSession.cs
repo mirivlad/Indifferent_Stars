@@ -14,6 +14,7 @@ public sealed class PlayerSession
     public required ShipState Ship { get; set; }
     public double LastSeenSeconds { get; set; }
     public uint LastInputSequence { get; set; }
+    public double LastCommsAtSeconds { get; set; } = -100;
     public double LastScanAtSeconds { get; set; } = -100;
     public double LastWarpAtSeconds { get; set; } = -100;
     public WarpResultMessage? LastWarpResult { get; set; }

@@ -84,6 +84,7 @@ public sealed partial class SettingsMenu : CanvasLayer
             _settings.EngineEffects = index >= 2;
             _settings.Particles = index >= 2;
             _settings.SkyDetail = Math.Min(index - 1, 2);
+            Changed();
             Callable.From(BuildSettings).CallDeferred();
         });
         var resolutions = new[] { "auto", "1280x720", "1600x900", "1920x1080" };
@@ -104,8 +105,10 @@ public sealed partial class SettingsMenu : CanvasLayer
         AddSlider(sound, "effects", 0, 1, 0.05, _settings.EffectsVolume, value => _settings.EffectsVolume = (float)value);
         AddSlider(sound, "ui_audio", 0, 1, 0.05, _settings.UiVolume, value => _settings.UiVolume = (float)value);
         AddSlider(sound, "radio", 0, 1, 0.05, _settings.RadioVolume, value => _settings.RadioVolume = (float)value);
+        AddEntry(sound, "music_directory", _settings.MusicDirectory, value => _settings.MusicDirectory = value);
         var controls = Tab(tabs, "controls");
         AddSlider(controls, "sensitivity", 0.001, 0.1, 0.001, _settings.MouseSensitivity, value => _settings.MouseSensitivity = (float)value);
+        AddSlider(controls, "camera_sensitivity", 0.001, 0.03, 0.001, _settings.CameraSensitivity, value => _settings.CameraSensitivity = (float)value);
         AddToggle(controls, "invert_x", _settings.InvertX, value => _settings.InvertX = value);
         AddToggle(controls, "invert_y", _settings.InvertY, value => _settings.InvertY = value);
         AddToggle(controls, "auto_capture", _settings.AutoCapture, value => _settings.AutoCapture = value);
@@ -134,6 +137,8 @@ public sealed partial class SettingsMenu : CanvasLayer
             language.AddChild(button);
         }
         var network = Tab(tabs, "network");
+        AddToggle(network, "hud_hints", _settings.HudHints, value => _settings.HudHints = value);
+        AddToggle(network, "default_assist", _settings.DefaultFlightAssist, value => _settings.DefaultFlightAssist = value);
         AddEntry(network, "server", _settings.Server, value => _settings.Server = value);
         AddEntry(network, "callsign", _settings.Callsign, value => _settings.Callsign = value);
         AddButton(box, "back", BuildMenu);

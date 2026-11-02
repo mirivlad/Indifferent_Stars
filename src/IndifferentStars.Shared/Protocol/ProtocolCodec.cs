@@ -114,9 +114,20 @@ public static class ProtocolCodec
                     writer.Write(entity.Cruising);
                     writer.Write(entity.ApproachPoint.HasValue);
                     if (entity.ApproachPoint is { } point) WriteVec3(writer, point);
+                    writer.Write(entity.CruiseInhibited);
+                    writer.Write(entity.CruiseBraking);
                 }
                 break;
 
+            case CommsRequestMessage comms:
+                writer.Write(comms.TargetId);
+                break;
+            case CommsResultMessage reply:
+                writer.Write(reply.TargetId);
+                writer.Write(reply.Success);
+                WriteString(writer, reply.Message, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, reply.RussianMessage, ProtocolConstants.MaxStringBytes);
+                break;
             case ScanRequestMessage scanRequest:
                 writer.Write(scanRequest.RequestId);
                 writer.Write(scanRequest.TargetId);
@@ -292,6 +303,9 @@ public static class ProtocolCodec
 
                 MessageType.Snapshot => ReadSnapshot(reader),
 
+                MessageType.CommsRequest => new CommsRequestMessage(reader.ReadUInt32()),
+                MessageType.CommsResult => new CommsResultMessage(reader.ReadUInt32(), reader.ReadBoolean(),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes), ReadString(reader, ProtocolConstants.MaxStringBytes)),
                 MessageType.ScanRequest => new ScanRequestMessage(
                     reader.ReadUInt32(),
                     reader.ReadUInt32()),
@@ -404,7 +418,9 @@ public static class ProtocolCodec
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
-                ReadOptionalVec3(reader));
+                ReadOptionalVec3(reader),
+                reader.ReadBoolean(),
+                reader.ReadBoolean());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

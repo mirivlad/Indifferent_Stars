@@ -103,11 +103,11 @@ public sealed partial class GameMain
         if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true)
             return InputState.None with { FlightAssist = _flightAssist };
         if (_mode == ViewMode.Tactical)
-            return InputState.None with { Throttle = _cruise ? 1 : 0, Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
+            return InputState.None with { Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
         var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
-        if (_mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
+        if (!LookingAround && _mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
         {
             steer = Mathf.Clamp(steer - _mouseTurn.X * _settings.MouseSensitivity * (_settings.InvertX ? -1 : 1), -1, 1);
             pitch = Mathf.Clamp(pitch - _mouseTurn.Y * _settings.MouseSensitivity * (_settings.InvertY ? -1 : 1), -1, 1);
@@ -117,7 +117,7 @@ public sealed partial class GameMain
         var roll = (_settings.Pressed("roll_left") ? 1f : 0f) - (_settings.Pressed("roll_right") ? 1f : 0f);
         var boost = _settings.Pressed("boost");
         var brake = _settings.Pressed("brake");
-        return new InputState(_cruise ? 1 : throttle, steer, pitch, vertical, boost, brake || _cruiseStopping, strafe, roll, _flightAssist, _cruise);
+        return new InputState(throttle, steer, pitch, vertical, boost, brake || _cruiseStopping, strafe, roll, _flightAssist, _cruise);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)
@@ -184,7 +184,13 @@ public sealed partial class GameMain
         {
             if (entity.Id == _playerId)
             {
-                _playerShip.Track.Push(entity, now, snapshot.ServerTimeMs);
+                if (_playerShip.Track.Push(entity, now, snapshot.ServerTimeMs) && _cruise &&
+                    (_playerShip.Track.CruiseInhibited || _playerShip.Track.CruiseBraking))
+                {
+                    _cruise = false;
+                    _cruiseStopping = false;
+                    _hud.ShowToast(Locale.Text(_playerShip.Track.CruiseBraking ? "cruise_safety_stop_hint" : "cruise_denied_hint"), duration: 6);
+                }
                 continue;
             }
 

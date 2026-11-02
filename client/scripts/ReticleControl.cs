@@ -4,6 +4,8 @@ namespace IndifferentStars.Client;
 
 public sealed partial class ReticleControl : Control
 {
+    public Vector2? NosePoint { get; set; }
+    public Vector2? VelocityPoint { get; set; }
     public bool ShowRangeRing { get; set; } = true;
     public Color ReticleColor { get; set; } = new(0.55f, 0.85f, 1.0f, 0.72f);
 
@@ -16,6 +18,18 @@ public sealed partial class ReticleControl : Control
     public override void _Draw()
     {
         var center = Size * 0.5f;
+        if (VelocityPoint is { } velocity)
+        {
+            var offset = velocity - center;
+            var max = Mathf.Min(Size.X, Size.Y) * 0.38f;
+            var point = center + offset.LimitLength(max);
+            DrawArc(point, 9, 0, Mathf.Tau, 24, Colors.LightGreen, 1.5f);
+            DrawLine(point + new Vector2(-16, 0), point + new Vector2(-9, 0), Colors.LightGreen);
+            DrawLine(point + new Vector2(9, 0), point + new Vector2(16, 0), Colors.LightGreen);
+            DrawLine(point + new Vector2(0, -16), point + new Vector2(0, -9), Colors.LightGreen);
+        }
+        if (NosePoint is not { } nose) return;
+        center = nose;
         DrawArc(center, 24, 0, Mathf.Tau, 40, new Color(ReticleColor, 0.25f), 1.0f);
         DrawArc(center, 2.2f, 0, Mathf.Tau, 12, ReticleColor, 1.2f);
 

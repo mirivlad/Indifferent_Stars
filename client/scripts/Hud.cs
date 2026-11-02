@@ -51,6 +51,15 @@ public sealed partial class Hud : CanvasLayer
     private uint _shipId;
     private string _sectorName = "Kestrel Reach Orbit";
 
+    public void SetHintsVisible(bool visible) => _controlsLabel.Visible = visible;
+
+    public void SetFlightDirections(Vector2? nose, Vector2? point)
+    {
+        _reticle.NosePoint = nose;
+        _reticle.VelocityPoint = point;
+        _reticle.QueueRedraw();
+    }
+
     public override void _Ready()
     {
         Layer = 10;
@@ -169,7 +178,7 @@ public sealed partial class Hud : CanvasLayer
         _targetDetailLabel.Text = subtitle;
     }
 
-    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following, bool cruising, bool cruiseRequested)
+    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following, bool cruising, bool cruiseRequested, bool cruiseBraking)
     {
         _speedLabel.Text = $"{speed,5:F0} m/s";
         _speedLabel.AddThemeColorOverride("font_color", boosting ? Warm : Cyan);
@@ -180,7 +189,7 @@ public sealed partial class Hud : CanvasLayer
         _telemetryLabel.Text =
             Locale.Format("telemetry_throttle", throttle >= 0 ? "+" : "", throttle * 100, altitude >= 0 ? "+" : "", altitude) + "\n" +
             Locale.Format("telemetry_status", scanRangeKm, warp, auto, assist ? Locale.Text("cockpit_assist") : Locale.Text("off"));
-        _warpLabel.Text = cruising ? Locale.Text("cruise_active") : cruiseRequested ? Locale.Text("cruise_blocked") : boosting ? Locale.Text("boost_short") : "";
+        _warpLabel.Text = cruiseBraking ? Locale.Text("cruise_braking") : cruising ? Locale.Text("cruise_active") : cruiseRequested ? Locale.Text("cruise_pending") : boosting ? Locale.Text("boost_short") : "";
     }
 
     public void SetTarget(string? name, string type, float distanceMeters, float relativeAltitude, bool inRange, bool hasTarget)
@@ -306,7 +315,7 @@ public sealed partial class Hud : CanvasLayer
         panel.AddChild(_speedLabel);
 
         _warpLabel = MakeLabel("", 15, Warm);
-        Place(_warpLabel, 1, 0, new Vector2(-120, 20), new Vector2(100, 22));
+        Place(_warpLabel, 1, 0, new Vector2(-220, 20), new Vector2(200, 22));
         _warpLabel.HorizontalAlignment = HorizontalAlignment.Right;
         panel.AddChild(_warpLabel);
 

@@ -28,6 +28,9 @@ public sealed partial class TacticalView : Control
     private static readonly Color RingColor = new(0.3f, 0.55f, 0.72f, 0.22f);
     private static readonly Color TextDim = new(0.52f, 0.64f, 0.74f, 0.85f);
     private static readonly Color PlayerColor = new(0.55f, 0.88f, 1.0f);
+    private static readonly Rect2 NavigationPanel = new(22, 172, 450, 216);
+    private static readonly Rect2 PlanetNavigationRow = new(22, 198, 450, 96);
+    private static readonly Rect2 StarNavigationRow = new(22, 298, 450, 48);
 
     public WorldCatalog? Catalog { get; set; }
     public Vec3d PlayerPosition { get; set; }
@@ -73,6 +76,7 @@ public sealed partial class TacticalView : Control
         DrawGrid(center, scale, size);
         DrawRangeRings(center, scale, size);
         DrawSectorBoundaries(center, scale, size);
+        DrawPlanetaryContext(center, scale);
         DrawAsteroids(center, scale, size);
         if (ApproachPoint is { } point)
         {
@@ -86,19 +90,94 @@ public sealed partial class TacticalView : Control
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, movingDestination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
         DrawContactLabels(center, scale, size);
         DrawPlayer(center, scale);
-        DrawPlanetNavigation();
+        DrawScale(scale, size);
         FlushLabels();
+        DrawPlanetNavigation();
     }
 
     private void DrawPlanetNavigation()
     {
         if (Catalog is null) return;
         var navigation = SurfaceNavigation.Measure(Catalog.LocalFrameOrigin + PlayerPosition, PlayerVelocity, Catalog.Planet);
-        var position = new Vector2(30, 190);
-        DrawRect(new Rect2(position - new Vector2(8, 18), new Vector2(390, 95)), new Color(0.008f, 0.02f, 0.035f, 0.94f));
-        DrawLabel(Catalog.Planet.Name, position, PlayerColor, 16, true);
-        DrawLabel(Locale.Format("planet_surface_distance", navigation.DistanceMetres / 1000), position + new Vector2(0, 25), PlayerColor, 16, true);
-        DrawLabel(Locale.Format("planet_closing_speed", navigation.ClosingMetresPerSecond), position + new Vector2(0, 50), TextDim, 14, true);
+        DrawRect(NavigationPanel, new Color(0.008f, 0.02f, 0.035f, 0.97f));
+        Text(Locale.Text("map_navigation_bearings"), new Vector2(30, 190), 12, PlayerColor);
+        Bearing(Catalog.Planet, new Vector2(44, 217));
+        Text(Catalog.Planet.Name, new Vector2(66, 216), 15, PlayerColor);
+        Text(Locale.Format("planet_surface_distance", navigation.DistanceMetres / 1000), new Vector2(66, 239), 14, PlayerColor);
+        Text(Locale.Format("planet_closing_speed", navigation.ClosingMetresPerSecond), new Vector2(66, 262), 12, TextDim);
+        Text(Altitude(Catalog.Planet), new Vector2(66, 284), 12, TextDim);
+        Bearing(Catalog.Star, new Vector2(44, 317));
+        var starDistance = Vec3d.Distance(Catalog.LocalFrameOrigin + PlayerPosition, Catalog.Star.SystemPosition) - Catalog.Star.Radius;
+        Text(Catalog.Star.Name + " · " + FormatDistance(starDistance), new Vector2(66, 315), 14, new Color(1, 0.72f, 0.36f));
+        Text(Altitude(Catalog.Star), new Vector2(66, 338), 12, TextDim);
+        Text(Locale.Format("map_ring_extent", Catalog.Planet.Radius * Catalog.Planet.RingInnerRadii / 1000,
+            Catalog.Planet.Radius * Catalog.Planet.RingOuterRadii / 1000), new Vector2(30, 370), 12, TextDim);
+
+        string Altitude(CelestialBody body) => Locale.Format("map_body_altitude",
+            (body.SystemPosition.Y - Catalog.LocalFrameOrigin.Y - PlayerPosition.Y) / 1000);
+        void Text(string text, Vector2 at, int size, Color color) =>
+            DrawString(ThemeDB.FallbackFont, at, text, HorizontalAlignment.Left, -1, size, color);
+        void Bearing(CelestialBody body, Vector2 at)
+        {
+            var offset = body.SystemPosition - Catalog.LocalFrameOrigin - PlayerPosition;
+            var horizontal = new Vector2((float)offset.X, (float)offset.Z);
+            var direction = horizontal.LengthSquared() > 1 ? horizontal.Normalized() : new Vector2(0, offset.Y < 0 ? 1 : -1);
+            var right = direction.Orthogonal();
+            DrawLine(at - direction * 9, at + direction * 9, PlayerColor, 1.5f);
+            DrawColoredPolygon(new[] { at + direction * 12, at + direction * 3 + right * 5, at + direction * 3 - right * 5 }, PlayerColor);
+        }
+    }
+
+    public bool TryPickNavigationTarget(Vector2 screen, out uint targetId)
+    {
+        targetId = 0;
+        if (Catalog is null || !NavigationPanel.HasPoint(screen)) return false;
+        if (PlanetNavigationRow.HasPoint(screen)) targetId = (uint)Catalog.Planet.Id;
+        else if (StarNavigationRow.HasPoint(screen)) targetId = (uint)Catalog.Star.Id;
+        return true;
+    }
+
+    private void DrawScale(float scale, Vector2 size)
+    {
+        const double au = 149_597_870_700.0;
+        var unit = 150 / scale >= au * 0.1 ? au : 1000;
+        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(150 / scale / unit)));
+        var amount = Math.Floor(150 / scale / unit / magnitude) * magnitude;
+        var metres = amount * unit;
+        var pixels = (float)metres * scale;
+        var start = new Vector2((size.X - pixels) / 2, size.Y - 65);
+        DrawLine(start, start + new Vector2(pixels, 0), PlayerColor, 2);
+        DrawLine(start - new Vector2(0, 4), start + new Vector2(0, 4), PlayerColor, 1);
+        DrawLine(start + new Vector2(pixels, -4), start + new Vector2(pixels, 4), PlayerColor, 1);
+        DrawLabel(Locale.Format(unit == au ? "map_distance_au" : "map_distance_km", amount),
+            start + new Vector2(pixels / 2 - 25, -10), PlayerColor, 12, true);
+        DrawLabel(Locale.Text(ZoomRange >= 100_000_000 ? "map_system_scale" : "map_local_projection"),
+            new Vector2(size.X / 2 - 130, size.Y - 105), TextDim, 12, true);
+    }
+
+    private void DrawPlanetaryContext(Vector2 center, float scale)
+    {
+        if (Catalog is null || ZoomRange >= 100_000_000) return;
+        var planet = Catalog.Planet;
+        var radius = (float)(planet.Radius * scale);
+        if (radius < 12 || radius > 10_000) return;
+        var position = planet.SystemPosition - Catalog.LocalFrameOrigin;
+        var screen = Project(center, scale, position);
+        var color = new Color(0.4f, 0.65f, 0.9f, 0.65f);
+        DrawArc(screen, radius, 0, Mathf.Tau, 256, color, 1.5f);
+        var rotation = Basis.FromEuler(new Vector3(planet.AxialTilt, 0, 0.12f));
+        foreach (var ringRadius in new[] { planet.RingInnerRadii, planet.RingOuterRadii })
+        {
+            var points = new Vector2[129];
+            for (var i = 0; i < points.Length; i++)
+            {
+                var angle = Mathf.Tau * i / (points.Length - 1);
+                var offset = rotation * new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * (float)(planet.Radius * ringRadius);
+                points[i] = Project(center, scale, position + new Vec3d(offset.X, offset.Y, offset.Z));
+            }
+            DrawPolyline(points, new Color(0.85f, 0.72f, 0.52f, 0.55f), 1.5f);
+        }
+        DrawLabel(Locale.Format("map_planet_projection", planet.Name), screen + new Vector2(radius + 6, 0), color, 13, true);
     }
 
     public override void _Process(double delta)
@@ -232,24 +311,7 @@ public sealed partial class TacticalView : Control
         if (Catalog is not null)
         {
             DrawBody(Catalog.Station, center, scale, new Color(0.45f, 0.92f, 1.0f), Locale.Text("type_station"));
-            DrawCelestialBearings(center, scale, size);
         }
-    }
-
-    /// <summary>
-    /// Celestial bodies are millions of kilometres away, so they are not drawn on the
-    /// local plot. Their true bearing is shown as an edge marker with the real distance,
-    /// including the vertical axis that the 2D plot compresses.
-    /// </summary>
-    private void DrawCelestialBearings(Vector2 center, float scale, Vector2 size)
-    {
-        if (Catalog is null)
-            return;
-
-        var player = PlayerPosition;
-        center = Project(center, scale, player);
-        DrawCelestial(Catalog.Planet, player, center, size, new Color(0.92f, 0.80f, 0.55f));
-        DrawCelestial(Catalog.Star, player, center, size, new Color(1.0f, 0.72f, 0.36f));
     }
 
     private void DrawSystemBodies(Vector2 center, float scale, Vector2 size)
@@ -274,49 +336,10 @@ public sealed partial class TacticalView : Control
         DrawLabel(body.Name, screen + new Vector2(radius + 6, -5), color, 13, true);
     }
 
-    private void DrawCelestial(CelestialBody body, Vec3d player, Vector2 center, Vector2 size, Color color)
-    {
-        var offset = body.SystemPosition - (Catalog!.LocalFrameOrigin + player);
-        var distance = Math.Max(0, offset.Length - body.Radius);
-        var direction = offset.Normalized();
-        var horizontal = new Vector2((float)direction.X, (float)direction.Z);
-        var radius = Mathf.Min(size.X, size.Y) * 0.42f;
-
-        Vector2 marker;
-        if (Mathf.Abs(direction.Y) > 0.96f)
-        {
-            marker = direction.Y < 0
-                ? new Vector2(center.X, center.Y + radius * 0.88f)
-                : new Vector2(center.X, center.Y - radius * 0.88f);
-        }
-        else
-        {
-            var dir = horizontal.LengthSquared() > 0.0001f ? horizontal.Normalized() : new Vector2(0, -1);
-            marker = center + dir * radius;
-        }
-
-        marker = new Vector2(
-            Mathf.Clamp(marker.X, 40, size.X - 40),
-            Mathf.Clamp(marker.Y, 80, size.Y - 80));
-
-        DrawCircle(marker, 5.0f, new Color(color.R, color.G, color.B, 0.85f));
-        DrawArc(marker, 11.0f, 0, Mathf.Tau, 24, new Color(color.R, color.G, color.B, 0.45f), 1.0f);
-
-        var vertical = direction.Y < -0.05f ? " " + Locale.Text("below") : direction.Y > 0.05f ? " " + Locale.Text("above") : "";
-        var kind = body.Kind == CelestialKind.Star ? Locale.Text("type_star") : Locale.Text("type_planet");
-        var labelX = marker.X + 14;
-        if (labelX > size.X - 220)
-            labelX = marker.X - 214;
-        DrawLabel(kind + " " + body.Name, new Vector2(labelX, marker.Y - 14),
-            new Color(color.R, color.G, color.B, 0.95f), 12, true);
-        DrawLabel($"{FormatDistance(distance)}{vertical}", new Vector2(labelX, marker.Y + 1), TextDim, 10);
-    }
-
     private static string FormatDistance(double metres)
     {
-        if (metres >= 1_000_000_000) return $"{metres / 149_597_870_700.0:F2} AU";
-        if (metres >= 100_000) return $"{metres / 1000.0:N0} km";
-        return $"{metres / 1000.0:F1} km";
+        if (metres >= 1_000_000_000) return Locale.Format("map_distance_au", metres / 149_597_870_700.0);
+        return Locale.Format("map_distance_km", metres / 1000.0);
     }
 
     private void DrawBody(StaticBody body, Vector2 center, float scale, Color color, string kind)
