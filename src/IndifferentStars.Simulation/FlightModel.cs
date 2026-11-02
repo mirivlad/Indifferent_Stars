@@ -73,7 +73,8 @@ public static class FlightModel
         if (input.Brake)
         {
             var speed = ship.Velocity.Length;
-            var braking = speed > WorldCatalog.MaxBoostSpeed || ship.Cruising ? CruiseBrakeAcceleration : BrakeAcceleration;
+            var braking = speed > WorldCatalog.MaxBoostSpeed || ship.Cruising || ship.CruiseInhibited
+                ? CruiseBrakeAcceleration : BrakeAcceleration;
             ship.Velocity = speed <= braking * dt
                 ? Vec3d.Zero
                 : ship.Velocity * ((speed - braking * dt) / speed);

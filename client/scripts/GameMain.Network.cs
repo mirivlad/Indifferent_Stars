@@ -139,6 +139,7 @@ public sealed partial class GameMain
 
             _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality);
             _playerShip.SetEngineEffects(_settings.EngineEffects);
+            _playerShip.SetParticles(_settings.Particles);
             _dynamicRoot.AddChild(_playerShip);
             _cockpit = new CockpitView { Visible = false };
             _playerShip.AddChild(_cockpit);
@@ -177,7 +178,7 @@ public sealed partial class GameMain
             return;
 
         _serverTick = snapshot.Tick;
-        var now = Time.GetTicksMsec() / 1000.0;
+        var now = Time.GetTicksUsec() / 1_000_000.0;
 
         foreach (var entity in snapshot.Entities)
         {
@@ -191,6 +192,7 @@ public sealed partial class GameMain
             {
                 view = new ShipView(entity.Id, false, entity.Name, _highQuality);
                 view.SetEngineEffects(_settings.EngineEffects);
+                view.SetParticles(_settings.Particles);
                 _remoteRoot.AddChild(view);
                 _remoteShips[entity.Id] = view;
                 GD.Print($"Tracked {(entity.Kind == EntityKind.Player ? "player" : "NPC")} {entity.Name} #{entity.Id}.");
@@ -291,7 +293,11 @@ public sealed partial class GameMain
         var contacts = BuildContacts()
             .Where(c => c.Id != _playerId)
             .OrderBy(c => c.Distance)
-            .Take(48)
+            .ToList();
+        // Nearby asteroid contacts must not crowd known celestial destinations out of keyboard targeting.
+        contacts = contacts.Take(48)
+            .Concat(contacts.Where(contact => _catalog.FindCelestial((int)contact.Id) is not null))
+            .DistinctBy(contact => contact.Id)
             .ToList();
 
         if (contacts.Count == 0)
@@ -385,6 +391,9 @@ public sealed partial class GameMain
         var contacts = new List<ContactRef>(_catalog.LocalBodies.Count + _remoteShips.Count);
         foreach (var body in _catalog.LocalBodies)
             contacts.Add(MakeContact(body, player));
+        foreach (var body in new[] { _catalog.Planet, _catalog.Star })
+            if (FindContact((uint)body.Id) is { } celestial)
+                contacts.Add(celestial);
 
         foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))
         {
@@ -442,7 +451,7 @@ public sealed partial class GameMain
             else if (_captureTimer > 15.0)
             {
                 GD.PrintErr("Capture aborted: no server connection.");
-                GetTree().Quit(1);
+                _ = QuitGracefully(1);
             }
             return;
         }
@@ -466,7 +475,7 @@ public sealed partial class GameMain
                 SaveScreenshot("03_cockpit.png");
                 _captureStep = 4;
                 GD.Print("Capture complete.");
-                GetTree().Quit();
+                _ = QuitGracefully();
                 break;
         }
     }

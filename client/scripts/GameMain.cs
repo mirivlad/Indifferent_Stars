@@ -48,6 +48,8 @@ public sealed partial class GameMain : Node3D
     private ViewMode _mode = ViewMode.External;
     private bool _highQuality = true;
     private bool _cameraSnap = true;
+    private Vector3 _chaseOffset;
+    private bool _quitting;
     private uint _playerId;
     private uint _targetId;
     private bool _hasTarget;
@@ -84,6 +86,7 @@ public sealed partial class GameMain : Node3D
             System.Globalization.CultureInfo.InvariantCulture;
 
         _settings = ClientSettings.Load();
+        GetTree().AutoAcceptQuit = false;
         Locale.Load(_settings.Language);
         ParseCommandLine();
         _audio = new ShipAudio { Name = "ShipAudio" };
@@ -105,7 +108,7 @@ public sealed partial class GameMain : Node3D
         _hud.SetMode("external", Locale.Text("link_connecting_short"));
         _hud.SetTarget(null, "", 0, 0, false, false);
 
-        _settingsMenu = new SettingsMenu(_settings, ApplySettings, StartConnection);
+        _settingsMenu = new SettingsMenu(_settings, ApplySettings, StartConnection, () => { _ = QuitGracefully(); });
         AddChild(_settingsMenu);
         ApplySettings();
         if (_captureDir is not null || _trace)
@@ -141,6 +144,21 @@ public sealed partial class GameMain : Node3D
         GD.Print($"Indifferent Stars client: {_playerName} -> {_serverHost}:{_serverPort}");
     }
 
+    public async System.Threading.Tasks.Task QuitGracefully(int exitCode = 0)
+    {
+        if (_quitting) return;
+        _quitting = true;
+        _audio.Stop();
+        // Let the audio server consume pending playback stops before tearing down resources.
+        await ToSignal(GetTree().CreateTimer(0.25), SceneTreeTimer.SignalName.Timeout);
+        GetTree().Quit(exitCode);
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest) _ = QuitGracefully();
+    }
+
     private void ApplySettings()
     {
         GetViewport().Scaling3DScale = _settings.RenderScale;
@@ -163,7 +181,12 @@ public sealed partial class GameMain : Node3D
         _worldBuilder?.SetGlowEnabled(_settings.Glow && _mode != ViewMode.Tactical);
         _worldBuilder?.SetVisualQuality(_settings.Shadows, _settings.SkyDetail);
         _playerShip?.SetEngineEffects(_settings.EngineEffects);
-        foreach (var ship in _remoteShips.Values) ship.SetEngineEffects(_settings.EngineEffects);
+        _playerShip?.SetParticles(_settings.Particles);
+        foreach (var ship in _remoteShips.Values)
+        {
+            ship.SetEngineEffects(_settings.EngineEffects);
+            ship.SetParticles(_settings.Particles);
+        }
         _hud.SetControls(_settings);
         _hud.RefreshLanguage();
         _stationView?.RefreshLanguage();
@@ -190,13 +213,14 @@ public sealed partial class GameMain : Node3D
 
         _input = ReadInput();
         _net?.Update(delta, _input);
-        var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical), Math.Abs(_input.Roll)));
-        _audio.SetFlight(_playerShip?.Track.Throttle ?? 0, maneuver, _input.Boost, _input.Brake);
-
         if (_playerShip is not null)
         {
             _playerShip.Boosting = _input.Boost;
-            _playerShip.UpdateVisual(_renderOrigin);
+            _playerShip.UpdateVisual(_renderOrigin, dt);
+            var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical),
+                Math.Max(Math.Abs(_input.Roll), Math.Max(Math.Abs(_input.Steer), Math.Abs(_input.Pitch)))));
+            _audio.SetFlight(_playerShip.Track.Throttle, maneuver,
+                _input.Boost || _playerShip.Track.Cruising, _input.Brake || _playerShip.EngineBraking);
             if (_trace && _playerShip.Track.HasData)
             {
                 var p = _playerShip.Track.WorldPosition;
@@ -230,7 +254,7 @@ public sealed partial class GameMain : Node3D
             }
         }
 
-        UpdateRemoteShips();
+        UpdateRemoteShips(dt);
         UpdateTargeting();
         UpdateSector();
         UpdateTactical();
@@ -515,11 +539,11 @@ public sealed partial class GameMain : Node3D
         _hud.SetQuality(_highQuality);
     }
 
-    private void UpdateRemoteShips()
+    private void UpdateRemoteShips(float dt)
     {
         var now = Time.GetTicksMsec() / 1000.0;
         foreach (var ship in _remoteShips.Values)
-            ship.UpdateVisual(_renderOrigin);
+            ship.UpdateVisual(_renderOrigin, dt);
 
         List<uint>? stale = null;
         foreach (var (id, seenAt) in _remoteSeen)
@@ -617,19 +641,20 @@ public sealed partial class GameMain : Node3D
             }
             case ViewMode.External:
             {
-                var desired = position - forward * 17.0f + up * 5.4f + right * 1.0f;
+                var desiredOffset = -forward * 17.0f + up * 5.4f + right * 1.0f;
                 var lookAt = position + forward * 12.0f;
                 if (_cameraSnap)
                 {
-                    _camera.GlobalPosition = desired;
+                    _chaseOffset = desiredOffset;
                     _cameraSnap = false;
                 }
                 else
                 {
                     var lerp = 1f - Mathf.Exp(-7.5f * dt);
-                    _camera.GlobalPosition = _camera.GlobalPosition.Lerp(desired, lerp);
+                    _chaseOffset = _chaseOffset.Lerp(desiredOffset, lerp);
                 }
 
+                _camera.GlobalPosition = position + _chaseOffset;
                 _camera.LookAt(lookAt, up);
                 var targetFov = _playerShip.Boosting ? 82f : 70f;
                 _camera.Fov = Mathf.Lerp(_camera.Fov, targetFov, 1f - Mathf.Exp(-4f * dt));

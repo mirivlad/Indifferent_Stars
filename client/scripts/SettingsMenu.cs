@@ -9,15 +9,17 @@ public sealed partial class SettingsMenu : CanvasLayer
     private readonly ClientSettings _settings;
     private readonly Action _apply;
     private readonly Action _start;
+    private readonly Action _quit;
     private Control? _root;
     private string? _binding;
     private bool _started;
 
-    public SettingsMenu(ClientSettings settings, Action apply, Action start)
+    public SettingsMenu(ClientSettings settings, Action apply, Action start, Action quit)
     {
         _settings = settings;
         _apply = apply;
         _start = start;
+        _quit = quit;
         Layer = 30;
     }
 
@@ -59,7 +61,7 @@ public sealed partial class SettingsMenu : CanvasLayer
             if (!_started) { _started = true; _start(); }
         });
         AddButton(box, "settings", BuildSettings);
-        AddButton(box, "quit", () => GetTree().Quit());
+        AddButton(box, "quit", _quit);
         start.GrabFocus();
     }
 
@@ -80,6 +82,7 @@ public sealed partial class SettingsMenu : CanvasLayer
             _settings.Antialiasing = index >= 3;
             _settings.Shadows = index >= 4;
             _settings.EngineEffects = index >= 2;
+            _settings.Particles = index >= 2;
             _settings.SkyDetail = Math.Min(index - 1, 2);
             Callable.From(BuildSettings).CallDeferred();
         });
@@ -92,6 +95,7 @@ public sealed partial class SettingsMenu : CanvasLayer
         AddToggle(graphics, "antialiasing", _settings.Antialiasing, value => _settings.Antialiasing = value);
         AddToggle(graphics, "shadows", _settings.Shadows, value => _settings.Shadows = value);
         AddToggle(graphics, "engine_effects", _settings.EngineEffects, value => _settings.EngineEffects = value);
+        AddToggle(graphics, "particles", _settings.Particles, value => _settings.Particles = value);
         AddChoices(graphics, "sky_detail", new[] { Locale.Text("low"), Locale.Text("medium"), Locale.Text("high") }, _settings.SkyDetail, index => _settings.SkyDetail = index);
         var sound = Tab(tabs, "sound");
         AddSlider(sound, "master", 0, 1, 0.05, _settings.MasterVolume, value => _settings.MasterVolume = (float)value);

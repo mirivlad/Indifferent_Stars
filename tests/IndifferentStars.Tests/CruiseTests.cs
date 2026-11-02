@@ -9,6 +9,15 @@ public sealed class CruiseTests
     private static InputState Cruise => new(1, 0, 0, 0, false, false, Cruise: true);
 
     [Fact]
+    public void ProtectiveCruiseBrakeKeepsItsDecelerationThroughTheFinalSlowPhase()
+    {
+        var ship = new ShipState { Id = 1, Name = "Safety", IsPlayer = true, Velocity = new Vec3d(600, 0, 0), CruiseInhibited = true };
+        for (var i = 0; i < 4; i++) FlightModel.StepPlayer(ship, InputState.None with { Brake = true }, 0.05);
+        Assert.Equal(Vec3d.Zero, ship.Velocity);
+        Assert.True(ship.Position.X <= 600 * 600 / (2 * FlightModel.CruiseBrakeAcceleration));
+    }
+
+    [Fact]
     public void CruiseAcceleratesToLimitThenBrakesWithEngines()
     {
         var world = new GameWorld(WorldCatalog.Generate(20261101));

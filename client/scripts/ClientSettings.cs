@@ -21,6 +21,7 @@ public sealed class ClientSettings
     public bool Antialiasing { get; set; } = true;
     public bool Shadows { get; set; }
     public bool EngineEffects { get; set; } = true;
+    public bool Particles { get; set; } = true;
     public int SkyDetail { get; set; } = 2;
     public float MasterVolume { get; set; } = 0.8f;
     public float MusicVolume { get; set; } = 0.5f;
@@ -61,6 +62,7 @@ public sealed class ClientSettings
         settings.Antialiasing = file.GetValue("graphics", "antialiasing", true).AsBool();
         settings.Shadows = file.GetValue("graphics", "shadows", false).AsBool();
         settings.EngineEffects = file.GetValue("graphics", "engine_effects", true).AsBool();
+        settings.Particles = file.GetValue("graphics", "particles", true).AsBool();
         settings.SkyDetail = Math.Clamp(file.GetValue("graphics", "sky_detail", 2).AsInt32(), 0, 2);
         settings.MasterVolume = Math.Clamp(file.GetValue("audio", "master", 0.8f).AsSingle(), 0, 1);
         settings.MusicVolume = Math.Clamp(file.GetValue("audio", "music", 0.5f).AsSingle(), 0, 1);
@@ -90,6 +92,7 @@ public sealed class ClientSettings
         file.SetValue("graphics", "antialiasing", Antialiasing);
         file.SetValue("graphics", "shadows", Shadows);
         file.SetValue("graphics", "engine_effects", EngineEffects);
+        file.SetValue("graphics", "particles", Particles);
         file.SetValue("graphics", "sky_detail", SkyDetail);
         file.SetValue("audio", "master", MasterVolume);
         file.SetValue("audio", "music", MusicVolume);
