@@ -45,6 +45,21 @@ public sealed partial class FlightChecks : Node
             Tap(Key.F1); await Pause(0.1);
             for (var i = 0; i < 50 && tactical.TargetId != catalog.Planet.Id; i++) { Tap(Key.Tab); await Pause(0.06); }
             Check(tactical.TargetId == catalog.Planet.Id, "Keyboard targeting must include the known planet.");
+            tactical.ZoomAt(tactical.Size / 2, 6);
+            await Pause(1);
+            var waypoint = pilot.Track.WorldPosition + new Vec3d(-30_000, 0, 0);
+            game._UnhandledInput(new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Right, Pressed = true, Position = tactical.ScreenPosition(waypoint),
+            });
+            var menu = game.FindChildren("*", "PopupMenu", true, false).Cast<PopupMenu>().First();
+            Check(menu.GetItemIndex(9) >= 0, "Empty map space must offer a waypoint order.");
+            menu.EmitSignal(PopupMenu.SignalName.IdPressed, 9L);
+            menu.Hide();
+            await Pause(1);
+            Check(pilot.Track.ApproachPoint is { } point && Vec3d.Distance(point, waypoint) < 0.1,
+                "2D waypoint must reach the server and appear in the authoritative snapshot.");
+            await Capture(output, "waypoint_tactical");
             Tap(Key.F2);
             var start = pilot.Track.WorldPosition;
             GD.Print("FLIGHT CHECK: leaving station at local boost.");

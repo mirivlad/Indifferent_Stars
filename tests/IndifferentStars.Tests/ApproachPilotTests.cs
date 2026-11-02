@@ -6,6 +6,51 @@ namespace IndifferentStars.Tests;
 
 public sealed class ApproachPilotTests
 {
+    [Fact]
+    public void WaypointDepartureAllowsCruiseWithoutManualPiloting()
+    {
+        var catalog = WorldCatalog.Generate(20261101);
+        var world = new GameWorld(catalog);
+        var ship = world.AddPlayer("Captain");
+        var start = ship.Position;
+        var destination = new Vec3d(-30_000, ship.Position.Y, 0);
+        Assert.True(world.StartMove(ship.Id, destination));
+        Assert.Equal(start, ship.Position);
+        Assert.Equal(destination, world.BuildSnapshot().Single(entity => entity.Id == ship.Id).ApproachPoint);
+        for (var i = 0; i < 6000 && ship.ApproachTargetId != 0; i++)
+        {
+            world.ApplyInput(ship.Id, InputState.None);
+            world.Tick(0.05);
+        }
+        Assert.Equal(0u, ship.ApproachTargetId);
+        Assert.True(ApproachPilot.Arrived(ship, destination));
+        for (var i = 0; i < 20; i++)
+        {
+            world.ApplyInput(ship.Id, InputState.None with { Throttle = 1, Cruise = true });
+            world.Tick(0.05);
+        }
+        Assert.True(ship.Cruising);
+        Assert.True(world.Warp(ship.Id, (uint)catalog.Planet.Id, 10000).Success);
+    }
+
+    [Fact]
+    public void InvalidWaypointCannotReplaceOrderOrTeleportPlayer()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(20261101));
+        var ship = world.AddPlayer("Captain");
+        var position = ship.Position;
+        var destination = position + new Vec3d(5000, 0, 0);
+        Assert.True(world.StartMove(ship.Id, destination));
+        Assert.False(world.StartMove(ship.Id, new Vec3d(double.NaN, 0, 0)));
+        Assert.False(world.StartMove(ship.Id, new Vec3d(double.MaxValue, 0, 0)));
+        Assert.Equal(destination, ship.ApproachDestination);
+        Assert.Equal(position, ship.Position);
+        world.ApplyInput(ship.Id, InputState.None with { Strafe = 1 });
+        Assert.Equal(0u, ship.ApproachTargetId);
+        ship.Docked = true;
+        Assert.False(world.StartMove(ship.Id, destination));
+    }
+
     [Theory]
     [InlineData(1000, 200, -2500)]
     [InlineData(0, 0, 2000)]

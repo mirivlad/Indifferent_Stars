@@ -113,6 +113,18 @@ public sealed class GameWorld
         slot.AgeSeconds = 0;
     }
 
+    public bool StartMove(uint playerId, Vec3d destination)
+    {
+        var ship = GetPlayer(playerId);
+        if (ship is null || ship.Docked || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
+            return false;
+        ship.ApproachTargetId = ship.Id;
+        ship.ApproachFollowing = false;
+        ship.ApproachDestination = destination;
+        ship.DockingGranted = false;
+        return true;
+    }
+
     public bool StartApproach(uint playerId, uint targetId, bool follow = false)
     {
         var player = GetPlayer(playerId);
@@ -515,7 +527,8 @@ public sealed class GameWorld
         ship.DockingGranted,
         ship.FlightAssist,
         ship.ApproachTargetId != 0 && ship.ApproachFollowing,
-        ship.Cruising);
+        ship.Cruising,
+        ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null);
 
     private static string DescribeVessel(ShipState npc, string language)
     {

@@ -112,6 +112,8 @@ public static class ProtocolCodec
                     writer.Write(entity.FlightAssist);
                     writer.Write(entity.ApproachFollowing);
                     writer.Write(entity.Cruising);
+                    writer.Write(entity.ApproachPoint.HasValue);
+                    if (entity.ApproachPoint is { } point) WriteVec3(writer, point);
                 }
                 break;
 
@@ -162,6 +164,8 @@ public static class ProtocolCodec
             case ApproachRequestMessage approach:
                 writer.Write(approach.TargetId);
                 writer.Write(approach.Follow);
+                writer.Write(approach.Waypoint.HasValue);
+                if (approach.Waypoint is { } waypoint) WriteVec3(writer, waypoint);
                 break;
 
             case ApproachResultMessage approachResult:
@@ -321,7 +325,7 @@ public static class ProtocolCodec
                 MessageType.Disconnect => new DisconnectMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
-                MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
+                MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32(), reader.ReadBoolean(), ReadOptionalVec3(reader)),
                 MessageType.ApproachResult => new ApproachResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.DockRequest => new DockRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.DockResult => new DockResultMessage(reader.ReadBoolean(), reader.ReadBoolean()),
@@ -399,7 +403,8 @@ public static class ProtocolCodec
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
-                reader.ReadBoolean());
+                reader.ReadBoolean(),
+                ReadOptionalVec3(reader));
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
@@ -465,6 +470,8 @@ public static class ProtocolCodec
 
     private static Vec3d ReadVec3(BinaryReader reader) =>
         new(reader.ReadDouble(), reader.ReadDouble(), reader.ReadDouble());
+
+    private static Vec3d? ReadOptionalVec3(BinaryReader reader) => reader.ReadBoolean() ? ReadVec3(reader) : null;
 
     private static void WriteString(BinaryWriter writer, string value, int maxBytes)
     {

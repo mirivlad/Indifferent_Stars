@@ -62,6 +62,12 @@ public sealed partial class EffectsChecks : Node3D
             ship.SetEngineEffects(false);
             Check(jets.All(jet => !jet.Visible), "Engine quality switch must hide maneuver effects.");
             ship.QueueFree();
+            var map = new TacticalView { PlayerPosition = new Vec3d(2000, 1500, 35000) };
+            AddChild(map);
+            var waypoint = new Vec3d(-2000, 1500, 25000);
+            Check(Vec3d.Distance(map.WorldPositionAt(map.ScreenPosition(waypoint)), waypoint) < 0.01,
+                "Map waypoints must invert projection and preserve the ship's height.");
+            map.QueueFree();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             GD.Print("Effects checks passed: world trails, origin shift, hull rotation, expiry, warp reset, maneuver ports, quality switch.");
 
