@@ -12,6 +12,7 @@ public sealed partial class CockpitView : Node3D
 {
     private Label3D _leftScreen = null!;
     private Label3D _centerScreen = null!;
+    private Label3D _flightScreen = null!;
     private Label3D _rightScreen = null!;
 
     private static readonly StandardMaterial3D HullMaterial = new()
@@ -89,10 +90,17 @@ public sealed partial class CockpitView : Node3D
         AddBox(new Vector3(0.06f, 0.015f, 1.85f), new Vector3(-1.55f, 0.5f, -0.45f), AccentMaterial);
         AddBox(new Vector3(0.06f, 0.015f, 1.85f), new Vector3(1.55f, 0.5f, -0.45f), AccentMaterial);
 
-        // Canopy rim: thin edges near the frame border instead of a floating window.
-        AddBox(new Vector3(4.2f, 0.10f, 0.10f), new Vector3(0, 1.85f, -1.7f), FrameMaterial);
-        AddBox(new Vector3(0.09f, 1.4f, 0.12f), new Vector3(-1.82f, 1.2f, -1.5f), FrameMaterial, new Vector3(0, 0, -4));
-        AddBox(new Vector3(0.09f, 1.4f, 0.12f), new Vector3(1.82f, 1.2f, -1.5f), FrameMaterial, new Vector3(0, 0, 4));
+        // Continuous metal rails meet the dashboard; rivets follow each rail.
+        var metal = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.24f, 0.28f, 0.32f),
+            Metallic = 0.85f, Roughness = 0.33f,
+        };
+        AddRail(new Vector3(-1.5f, 0.48f, -1.3f), new Vector3(-1.82f, 1.85f, -1.7f), metal);
+        AddRail(new Vector3(1.5f, 0.48f, -1.3f), new Vector3(1.82f, 1.85f, -1.7f), metal);
+        AddRail(new Vector3(-1.82f, 1.85f, -1.7f), new Vector3(1.82f, 1.85f, -1.7f), metal);
+        AddScreen(new Vector3(0, 0.32f, -1.48f), screen, new Vector3(0.9f, 0.24f, 0.02f));
+        _flightScreen = AddInstrumentText(new Vector3(0, 0.32f, -1.455f), new Color(0.62f, 0.92f, 1), 22);
 
         // Central stick.
         AddChild(new MeshInstance3D
@@ -173,6 +181,34 @@ public sealed partial class CockpitView : Node3D
         {
             _rightScreen.Text = Locale.Text("cockpit_no_target");
         }
+    }
+
+    public void UpdateFlight(Vector3 localVelocity, Vector3 angles, bool braking, bool boosting)
+    {
+        _flightScreen.Text = Locale.Format("cockpit_attitude", Mathf.RadToDeg(angles.X),
+            Mathf.RadToDeg(angles.Y), Mathf.RadToDeg(angles.Z)) + "\n" +
+            Locale.Format("cockpit_drift", localVelocity.X, localVelocity.Y, -localVelocity.Z) + "\n" +
+            Locale.Text(braking ? "brake" : boosting ? "boost" : "engines");
+    }
+
+    private void AddRail(Vector3 from, Vector3 to, Material material)
+    {
+        var rail = new Node3D { Name = "CanopyRail", Position = (from + to) * 0.5f };
+        AddChild(rail);
+        rail.Quaternion = new Quaternion(Vector3.Up, (to - from).Normalized());
+        rail.AddChild(new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(0.035f, from.DistanceTo(to) + 0.035f, 0.045f) },
+            MaterialOverride = material,
+        });
+        for (var i = 0; i <= 8; i++)
+            rail.AddChild(new MeshInstance3D
+            {
+                Name = $"Rivet_{i}",
+                Position = new Vector3(0, (i / 8f - 0.5f) * from.DistanceTo(to), 0.026f),
+                Mesh = new SphereMesh { Radius = 0.008f, Height = 0.012f, RadialSegments = 8, Rings = 4 },
+                MaterialOverride = material,
+            });
     }
 
     private Label3D AddInstrumentText(Vector3 position, Color color, int fontSize)

@@ -15,6 +15,11 @@ public sealed partial class NetworkClient
     public bool IsWarpPending => _pendingWarp.HasValue;
     public bool IsTradePending => _pendingTrade.HasValue;
 
+    public void RequestComms(uint targetId)
+    {
+        if (State == ConnectionState.Connected) Send(new CommsRequestMessage(targetId));
+    }
+
     public void RequestApproach(uint targetId, bool follow = false, IndifferentStars.Shared.Vec3d? waypoint = null)
     {
         if (State == ConnectionState.Connected)

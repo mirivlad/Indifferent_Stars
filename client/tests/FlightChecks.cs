@@ -7,6 +7,7 @@ using Godot;
 using IndifferentStars.Client;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
+using IndifferentStars.Simulation;
 
 /// <summary>Real-time graphical smoke test against a separately started authoritative server.</summary>
 public sealed partial class FlightChecks : Node
@@ -64,6 +65,11 @@ public sealed partial class FlightChecks : Node
                 "2D waypoint must reach the server and appear in the authoritative snapshot.");
             await Capture(output, "waypoint_tactical");
             Tap(Key.F2);
+            // Turn away from the station: its hull is now solid.
+            SetKey(Key.Left, true);
+            await Pause(Math.PI / FlightModel.YawRate);
+            SetKey(Key.Left, false);
+            await Pause(0.2);
             var start = pilot.Track.WorldPosition;
             GD.Print("FLIGHT CHECK: leaving station at local boost.");
             SetKey(Key.Shift, true); SetKey(Key.W, true);

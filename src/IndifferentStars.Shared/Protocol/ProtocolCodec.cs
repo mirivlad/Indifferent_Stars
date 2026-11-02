@@ -119,6 +119,15 @@ public static class ProtocolCodec
                 }
                 break;
 
+            case CommsRequestMessage comms:
+                writer.Write(comms.TargetId);
+                break;
+            case CommsResultMessage reply:
+                writer.Write(reply.TargetId);
+                writer.Write(reply.Success);
+                WriteString(writer, reply.Message, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, reply.RussianMessage, ProtocolConstants.MaxStringBytes);
+                break;
             case ScanRequestMessage scanRequest:
                 writer.Write(scanRequest.RequestId);
                 writer.Write(scanRequest.TargetId);
@@ -294,6 +303,9 @@ public static class ProtocolCodec
 
                 MessageType.Snapshot => ReadSnapshot(reader),
 
+                MessageType.CommsRequest => new CommsRequestMessage(reader.ReadUInt32()),
+                MessageType.CommsResult => new CommsResultMessage(reader.ReadUInt32(), reader.ReadBoolean(),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes), ReadString(reader, ProtocolConstants.MaxStringBytes)),
                 MessageType.ScanRequest => new ScanRequestMessage(
                     reader.ReadUInt32(),
                     reader.ReadUInt32()),

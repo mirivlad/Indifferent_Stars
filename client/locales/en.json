@@ -66,5 +66,17 @@
   "cockpit_status":"{0}   {1}", "cockpit_no_target":"NO TARGET",
   "cockpit_autopilot":"AUTO", "cockpit_assist":"ASSIST", "cockpit_docked":"DOCKED", "cockpit_cruise":"CRUISE",
   "above":"ABOVE", "below":"BELOW",
-  "sector_line":"SECTOR {0}", "sector_entered":"ENTERING {0}"
+  "sector_line":"SECTOR {0}", "sector_entered":"ENTERING {0}",
+  "camera_look": "Look around (hold)",
+  "camera_sensitivity": "Look sensitivity",
+  "cockpit_attitude": "PITCH {0:F0}  YAW {1:F0}  ROLL {2:F0}",
+  "cockpit_drift": "VEL X {0:F0} Y {1:F0} FWD {2:F0}",
+  "hud_hints": "HUD control hints",
+  "default_assist": "Flight assist on next launch",
+  "music_directory": "MP3 directory (from next track)",
+  "context_comms": "Open comms",
+  "context_trade": "Station market",
+  "trade_dock_first": "Request docking before trading.",
+  "context_attack_unavailable": "Attack — unavailable",
+  "context_mine_unavailable": "Mine — unavailable"
 }

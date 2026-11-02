@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 11;
+    public const byte Version = 12;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -41,6 +41,8 @@ public enum MessageType : byte
     MarketState = 18,
     TradeRequest = 19,
     TradeResult = 20,
+    CommsRequest = 21,
+    CommsResult = 22,
 }
 
 public enum EntityKind : byte
@@ -230,4 +232,15 @@ public sealed record TradeResultMessage(
     MarketState State) : IProtocolMessage
 {
     public MessageType Type => MessageType.TradeResult;
+}
+
+
+public sealed record CommsRequestMessage(uint TargetId) : IProtocolMessage
+{
+    public MessageType Type => MessageType.CommsRequest;
+}
+
+public sealed record CommsResultMessage(uint TargetId, bool Success, string Message, string RussianMessage) : IProtocolMessage
+{
+    public MessageType Type => MessageType.CommsResult;
 }

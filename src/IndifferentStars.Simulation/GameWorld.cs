@@ -46,11 +46,13 @@ public sealed class GameWorld
     private readonly Dictionary<uint, PlayerAccount> _accounts = new();
     private readonly Dictionary<ushort, int> _stationStock = new();
     private readonly List<ShipState> _npcs = new();
+    private readonly IReadOnlyList<StaticBody> _collisionBodies;
     private uint _nextPlayerId = 10000;
 
     public GameWorld(WorldCatalog catalog)
     {
         Catalog = catalog;
+        _collisionBodies = catalog.LocalBodies;
         foreach (var commodity in CommodityCatalog.All)
             _stationStock[commodity.Id] = commodity.InitialStock;
         SpawnNpcs();
@@ -277,6 +279,7 @@ public sealed class GameWorld
 
     public void Tick(double dt)
     {
+        var starts = _players.Values.Concat(_npcs).ToDictionary(ship => ship.Id, ship => ship.Position);
         foreach (var (id, ship) in _players)
         {
             var slot = _inputs[id];
@@ -335,6 +338,34 @@ public sealed class GameWorld
 
         foreach (var npc in _npcs)
             FlightModel.StepNpc(npc, dt);
+
+        var ships = _players.Values.Concat(_npcs).OrderBy(ship => ship.Id).ToArray();
+        foreach (var ship in ships)
+        {
+            if (ship.Docked) continue;
+            double? first = null;
+            void Check(Vec3d center, double radius)
+            {
+                var time = CollisionSolver.ContactTime(starts[ship.Id], ship.Position, center,
+                    radius + CollisionSolver.ShipRadius);
+                if (time is not null && (first is null || time < first)) first = time;
+            }
+            foreach (var body in _collisionBodies) Check(body.Position, body.Radius);
+            Check(Catalog.CelestialOffset(Catalog.Planet), Catalog.Planet.Radius);
+            Check(Catalog.CelestialOffset(Catalog.Star), Catalog.Star.Radius);
+            if (first is { } hit) CollisionSolver.Stop(ship, starts[ship.Id], hit);
+        }
+        for (var i = 0; i < ships.Length; i++)
+        for (var j = i + 1; j < ships.Length; j++)
+        {
+            var a = ships[i];
+            var b = ships[j];
+            var time = CollisionSolver.ContactTime(starts[a.Id] - starts[b.Id],
+                a.Position - b.Position, Vec3d.Zero, 2 * CollisionSolver.ShipRadius);
+            if (time is not { } hit) continue;
+            if (!a.Docked) CollisionSolver.Stop(a, starts[a.Id], hit);
+            if (!b.Docked) CollisionSolver.Stop(b, starts[b.Id], hit);
+        }
 
         TickCount++;
         TimeSeconds += dt;
@@ -396,6 +427,23 @@ public sealed class GameWorld
 
         entities.Sort((a, b) => a.Id.CompareTo(b.Id));
         return entities.ToArray();
+    }
+
+    public CommsResultMessage RadioBroadcast(ShipState npc) => new(npc.Id, true,
+        ServerText.Get("en", "radio_npc", npc.Name), ServerText.Get("ru", "radio_npc", npc.Name));
+
+    public CommsResultMessage Contact(uint playerId, uint targetId)
+    {
+        var player = GetPlayer(playerId);
+        var npc = _npcs.FirstOrDefault(ship => ship.Id == targetId);
+        var station = targetId == (uint)Catalog.Station.Id;
+        var position = station ? Catalog.Station.Position : npc?.Position;
+        var success = player is not null && position is { } point &&
+            Vec3d.Distance(player.Position, point) <= WorldCatalog.RelevanceRange;
+        var key = !success ? "comms_unavailable" : station ? "comms_station" : "comms_npc";
+        var name = station ? Catalog.Station.Name : npc?.Name ?? "";
+        return new CommsResultMessage(targetId, success,
+            ServerText.Get("en", key, name), ServerText.Get("ru", key, name));
     }
 
     public ScanOutcome Scan(uint playerId, uint targetId, string language = "en")

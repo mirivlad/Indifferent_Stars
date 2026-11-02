@@ -50,6 +50,12 @@ public sealed partial class GameMain : Node3D
     private bool _highQuality = true;
     private bool _cameraSnap = true;
     private Vector3 _chaseOffset;
+    private Vector2 _cameraOrbit;
+    private Vector2 _cockpitLook;
+    private Input.MouseModeEnum _beforeLook;
+    private bool _lookCaptured;
+    private bool LookingAround => _mode != ViewMode.Tactical &&
+        (_settings.Pressed("camera_look") || Input.IsMouseButtonPressed(MouseButton.Middle));
     private bool _quitting;
     private uint _playerId;
     private uint _targetId;
@@ -88,6 +94,7 @@ public sealed partial class GameMain : Node3D
 
         _settings = ClientSettings.Load();
         GetTree().AutoAcceptQuit = false;
+        _flightAssist = _settings.DefaultFlightAssist;
         Locale.Load(_settings.Language);
         ParseCommandLine();
         _audio = new ShipAudio { Name = "ShipAudio" };
@@ -133,6 +140,11 @@ public sealed partial class GameMain : Node3D
         _net.WelcomeReceived += OnWelcome;
         _net.JoinRejected += OnJoinRejected;
         _net.SnapshotReceived += OnSnapshot;
+        _net.CommsCompleted += reply =>
+        {
+            _audio.RadioCue();
+            _hud.ShowToast(_settings.Language == "ru" ? reply.RussianMessage : reply.Message, duration: 8);
+        };
         _net.ScanCompleted += OnScanCompleted;
         _net.WarpCompleted += OnWarpCompleted;
         _net.ApproachCompleted += OnApproachCompleted;
@@ -188,6 +200,8 @@ public sealed partial class GameMain : Node3D
             ship.SetEngineEffects(_settings.EngineEffects);
             ship.SetParticles(_settings.Particles);
         }
+        _audio.SetMusicDirectory(_settings.MusicDirectory);
+        _hud.SetHintsVisible(_settings.HudHints);
         _hud.SetControls(_settings);
         _hud.RefreshLanguage();
         _stationView?.RefreshLanguage();
@@ -211,6 +225,19 @@ public sealed partial class GameMain : Node3D
         var dt = (float)delta;
         _net?.Poll();
         UpdateRenderOrigin();
+
+        var looking = LookingAround && !_settingsMenu.IsOpen;
+        if (looking && !_lookCaptured)
+        {
+            _beforeLook = Input.MouseMode;
+            Input.MouseMode = Input.MouseModeEnum.Captured;
+            _lookCaptured = true;
+        }
+        else if (!looking && _lookCaptured)
+        {
+            if (!_settingsMenu.IsOpen && _mode != ViewMode.Tactical) Input.MouseMode = _beforeLook;
+            _lookCaptured = false;
+        }
 
         _input = ReadInput();
         _net?.Update(delta, _input);
@@ -331,6 +358,16 @@ public sealed partial class GameMain : Node3D
                 if (Input.MouseMode == Input.MouseModeEnum.Captured) Input.MouseMode = Input.MouseModeEnum.Visible;
                 else _settingsMenu.ShowMenu(true);
             }
+        }
+        else if (@event is InputEventMouseMotion look && LookingAround)
+        {
+            var angles = _mode == ViewMode.Cockpit ? _cockpitLook : _cameraOrbit;
+            angles.X = Mathf.Wrap(angles.X - look.Relative.X * _settings.CameraSensitivity, -Mathf.Pi, Mathf.Pi);
+            angles.Y = Mathf.Clamp(angles.Y - look.Relative.Y * _settings.CameraSensitivity, -1.35f, 1.35f);
+            if (_mode == ViewMode.Cockpit) _cockpitLook = angles;
+            else _cameraOrbit = angles;
+            _mouseTurn = Vector2.Zero;
+            _mouseTurnAt = 0;
         }
         else if (@event is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured && _mode != ViewMode.Tactical)
         {
@@ -457,7 +494,13 @@ public sealed partial class GameMain : Node3D
         _contactMenu = new PopupMenu();
         _contactMenu.IdPressed += id =>
         {
-            if (id == 1) RequestApproach();
+            if (id == 10) _net?.RequestComms(_targetId);
+            else if (id == 11)
+            {
+                if (_playerShip?.Track.Docked == true) _stationView.Visible = true;
+                else _hud.ShowToast(Locale.Text("trade_dock_first"), duration: 5);
+            }
+            else if (id == 1) RequestApproach();
             else if (id == 2) RequestScan();
             else if (id == 3) RequestWarp();
             else if (id == 4) RequestDock();
@@ -477,6 +520,7 @@ public sealed partial class GameMain : Node3D
 
         _stationView = new StationView();
         AddChild(_stationView);
+        _stationView.CommsRequested += () => _net?.RequestComms((uint)_catalog.Station.Id);
         _stationView.UndockRequested += RequestUndock;
         _stationView.TradeRequested += (commodity, quantity, buy) => _net?.RequestTrade(commodity, quantity, buy);
     }
@@ -492,6 +536,14 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem(Locale.Text("context_warp_5"), 6);
         _contactMenu.AddItem(Locale.Text("context_follow"), 7);
         _contactMenu.AddItem(Locale.Text("context_warp_10"), 8);
+        _contactMenu.AddSeparator();
+        _contactMenu.AddItem(Locale.Text("context_comms"), 10);
+        _contactMenu.AddItem(Locale.Text("context_trade"), 11);
+        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(11), _targetId != (uint)_catalog.Station.Id);
+        _contactMenu.AddItem(Locale.Text("context_attack_unavailable"), 12);
+        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(12), true);
+        _contactMenu.AddItem(Locale.Text("context_mine_unavailable"), 13);
+        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(13), true);
     }
 
     private void RequestUndock() => _net?.RequestDock((uint)_catalog.Station.Id, true);
@@ -653,14 +705,18 @@ public sealed partial class GameMain : Node3D
             {
                 var local = CockpitView.EyePosition;
                 var camPos = position + basis * local;
-                _camera.GlobalTransform = new Transform3D(basis, camPos);
+                if (!LookingAround) _cockpitLook = Vector2.Zero;
+                var look = _cockpitLook;
+                _camera.GlobalTransform = new Transform3D(basis * new Basis(
+                    Quaternion.FromEuler(new Vector3(look.Y, look.X, 0))), camPos);
                 _camera.Fov = 78;
                 break;
             }
             case ViewMode.External:
             {
-                var desiredOffset = -forward * 17.0f + up * 5.4f + right * 1.0f;
-                var lookAt = position + forward * 12.0f;
+                var orbit = basis * new Basis(Quaternion.FromEuler(new Vector3(_cameraOrbit.Y, _cameraOrbit.X, 0)));
+                var desiredOffset = orbit * new Vector3(1, 5.4f, 17);
+                var lookAt = position;
                 if (_cameraSnap)
                 {
                     _chaseOffset = desiredOffset;
@@ -723,8 +779,24 @@ public sealed partial class GameMain : Node3D
             _hud.SetTarget(null, "", 0, 0, false, false);
         }
 
+        Vector2? velocityPoint = null;
+        if (_playerShip is not null && _mode != ViewMode.Tactical && _playerShip.Track.Velocity.Length() > 0.5f)
+        {
+            var ahead = _camera.GlobalPosition + _playerShip.Track.Velocity.Normalized() * 1000;
+            if (!_camera.IsPositionBehind(ahead)) velocityPoint = _camera.UnprojectPosition(ahead);
+        }
+        Vector2? nosePoint = null;
+        if (_playerShip is not null && _mode != ViewMode.Tactical)
+        {
+            var nose = _camera.GlobalPosition - _playerShip.GlobalBasis.Z * 1000;
+            if (!_camera.IsPositionBehind(nose)) nosePoint = _camera.UnprojectPosition(nose);
+        }
+        _hud.SetFlightDirections(nosePoint, velocityPoint);
         if (_cockpit is not null && _mode == ViewMode.Cockpit)
         {
+            if (_playerShip is not null)
+                _cockpit.UpdateFlight(_playerShip.GlobalBasis.Inverse() * _playerShip.Track.Velocity,
+                    _playerShip.GlobalBasis.GetEuler(), _input.Brake, _input.Boost);
             _cockpit.UpdateInstruments(speed, throttle, docked,
                 contact?.Name, contact?.Distance ?? 0, contact?.RelativeAltitude ?? 0,
                 contact is not null, assist, autopilot, following);

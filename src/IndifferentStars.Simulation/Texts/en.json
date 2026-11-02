@@ -13,5 +13,9 @@
  "commodity_water":"water", "commodity_food":"food", "commodity_medicine":"medicine", "commodity_fuel":"fuel", "commodity_ore":"ore", "commodity_components":"components",
  "trade_invalid":"Trade order rejected.", "trade_not_docked":"Dock before trading.", "trade_unknown":"Unknown commodity.",
  "trade_no_credits":"{0}: not enough credits.", "trade_no_stock":"{0}: station stock is exhausted.", "trade_no_space":"{0}: cargo hold is full.", "trade_no_cargo":"{0}: no units aboard.",
- "trade_bought":"Purchased {0} ×{1} for {2} credits.", "trade_sold":"Sold {0} ×{1} for {2} credits."
+ "trade_bought":"Purchased {0} ×{1} for {2} credits.", "trade_sold":"Sold {0} ×{1} for {2} credits.",
+  "comms_unavailable": "Channel unavailable: contact out of range or not responding.",
+  "comms_station": "{0}: traffic control online. Request docking; market available after arrival.",
+  "comms_npc": "{0}: signal received. Continuing my route. Out.",
+  "radio_npc": "{0}: passing through on schedule. Safe travels, everyone."
 }

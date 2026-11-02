@@ -51,6 +51,15 @@ public sealed partial class Hud : CanvasLayer
     private uint _shipId;
     private string _sectorName = "Kestrel Reach Orbit";
 
+    public void SetHintsVisible(bool visible) => _controlsLabel.Visible = visible;
+
+    public void SetFlightDirections(Vector2? nose, Vector2? point)
+    {
+        _reticle.NosePoint = nose;
+        _reticle.VelocityPoint = point;
+        _reticle.QueueRedraw();
+    }
+
     public override void _Ready()
     {
         Layer = 10;

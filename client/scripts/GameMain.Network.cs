@@ -107,7 +107,7 @@ public sealed partial class GameMain
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
         var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
-        if (_mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
+        if (!LookingAround && _mode != ViewMode.Tactical && Input.MouseMode == Input.MouseModeEnum.Captured && Time.GetTicksMsec() - _mouseTurnAt < 80)
         {
             steer = Mathf.Clamp(steer - _mouseTurn.X * _settings.MouseSensitivity * (_settings.InvertX ? -1 : 1), -1, 1);
             pitch = Mathf.Clamp(pitch - _mouseTurn.Y * _settings.MouseSensitivity * (_settings.InvertY ? -1 : 1), -1, 1);

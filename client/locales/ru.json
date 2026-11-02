@@ -66,5 +66,17 @@
   "cockpit_status":"{0}   {1}", "cockpit_no_target":"НЕТ ЦЕЛИ",
   "cockpit_autopilot":"АВТО", "cockpit_assist":"СТАБ", "cockpit_docked":"СТЫКОВКА", "cockpit_cruise":"ХОД",
   "above":"ВЫШЕ", "below":"НИЖЕ",
-  "sector_line":"СЕКТОР {0}", "sector_entered":"ВХОД В СЕКТОР {0}"
+  "sector_line":"СЕКТОР {0}", "sector_entered":"ВХОД В СЕКТОР {0}",
+  "camera_look": "Осмотреться (зажать)",
+  "camera_sensitivity": "Чувствительность обзора",
+  "cockpit_attitude": "ТАНГ {0:F0}  КУРС {1:F0}  КРЕН {2:F0}",
+  "cockpit_drift": "СКОР X {0:F0} Y {1:F0} ВПЕРЁД {2:F0}",
+  "hud_hints": "Подсказки управления в HUD",
+  "default_assist": "Flight assist при следующем запуске",
+  "music_directory": "Каталог музыки MP3 (со следующего трека)",
+  "context_comms": "Связаться",
+  "context_trade": "Рынок станции",
+  "trade_dock_first": "Для торговли сначала запросите стыковку.",
+  "context_attack_unavailable": "Атаковать — пока недоступно",
+  "context_mine_unavailable": "Добывать — пока недоступно"
 }
