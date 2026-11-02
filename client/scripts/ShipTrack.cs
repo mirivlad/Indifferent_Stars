@@ -150,7 +150,7 @@ public sealed class ShipTrack
         Throttle = 0;
         _points.Add(new Point
         {
-            Time = Time.GetTicksMsec() / 1000.0,
+            Time = Time.GetTicksUsec() / 1_000_000.0,
             Position = position,
             Yaw = yaw,
             Pitch = pitch,

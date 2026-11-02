@@ -39,16 +39,16 @@ public sealed partial class ShipView : Node3D
     public EntityKind Kind => Track.Kind;
     public bool Boosting { get; set; }
 
-    public void UpdateVisual(Vec3d renderOrigin)
+    public void UpdateVisual(Vec3d renderOrigin, float delta)
     {
-        Track.Sample(Time.GetTicksMsec() / 1000.0 - (IsPlayer ? 0.05 : 0.11), renderOrigin);
+        Track.Sample(Time.GetTicksUsec() / 1_000_000.0 - (IsPlayer ? 0.05 : 0.11), renderOrigin);
         if (!Track.HasData)
             return;
 
         GlobalTransform = new Transform3D(new Basis(Track.Orientation), Track.RenderPosition);
 
-        _glowPhase += 0.1f;
-        var throttle = Mathf.Max(0.18f, Mathf.Abs(Track.Throttle));
+        _glowPhase += delta * 6;
+        var throttle = Track.Docked ? 0 : Mathf.Max(0, Track.Throttle);
         var glow = 0.55f + throttle * 0.8f + (Boosting ? 0.9f : 0f);
         var pulse = 1.0f + Mathf.Sin(_glowPhase * 2.1f) * 0.06f;
         foreach (var engine in _engineGlows)
@@ -56,9 +56,10 @@ public sealed partial class ShipView : Node3D
         foreach (var light in _engineLights)
             light.LightEnergy = 0.8f + glow * 0.9f;
 
-        var trailLength = 0.6f + Mathf.Abs(Track.Throttle) * 3.2f + (Boosting ? 4.2f : 0f);
+        var trailLength = 0.08f + throttle * 3.2f + (Boosting && throttle > 0 ? 4.2f : 0f);
         foreach (var trail in _engineTrails)
             trail.Scale = new Vector3(1f, trailLength, 1f);
+        UpdateManeuverEffects(delta, renderOrigin, throttle);
     }
 
     public void SetExternalModelVisible(bool visible)
@@ -72,12 +73,21 @@ public sealed partial class ShipView : Node3D
             light.Visible = visible && _engineEffects;
         foreach (var trail in _engineTrails)
             trail.Visible = visible && _engineEffects;
+        foreach (var (nozzle, _) in _maneuverJets)
+            if (!visible || !_engineEffects) nozzle.Visible = false;
+        _ionTrail.Visible = visible && _engineEffects && _particles;
     }
 
     public void SetEngineEffects(bool enabled)
     {
         _engineEffects = enabled;
         SetExternalModelVisible(_externalVisible);
+    }
+
+    public void SetParticles(bool enabled)
+    {
+        _particles = enabled;
+        _ionTrail.Visible = _externalVisible && _engineEffects && enabled;
     }
 
     public static Basis BasisFromAngles(float yaw, float pitch)
@@ -186,6 +196,7 @@ public sealed partial class ShipView : Node3D
                 _engineLights.Add(light);
             }
         }
+        BuildManeuverEffects();
     }
 
     private static void TintModel(Node3D model, uint id)

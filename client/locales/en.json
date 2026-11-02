@@ -1,4 +1,5 @@
 {
+  "particles":"Ion trails / particles",
   "cruise_request_hint":"Cruise requested: requires 10 km clearance. System warp to 10 km becomes available after acceleration.",
   "cruise_stop_hint":"Leaving cruise: braking with engines.",
   "cruise":"Cruise",

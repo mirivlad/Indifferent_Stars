@@ -23,6 +23,7 @@ public sealed partial class ShipAudio : Node
     private double _radioTimer = 48;
     private float _load;
     private bool _previousBrake;
+    private bool _stopped;
 
     public override void _Ready()
     {
@@ -53,15 +54,17 @@ public sealed partial class ShipAudio : Node
 
     public void SetFlight(float throttle, float maneuver, bool boosting, bool braking)
     {
+        if (_stopped) return;
         _load = Math.Clamp(Math.Abs(throttle) * 0.6f + maneuver * 0.25f + (boosting ? 0.4f : 0), 0, 1);
         if (braking && !_previousBrake) _effects.Play();
         _previousBrake = braking;
     }
 
-    public void NavigationCue() => _ui.Play();
+    public void NavigationCue() { if (!_stopped) _ui.Play(); }
 
     public override void _Process(double delta)
     {
+        if (_stopped) return;
         _radioTimer -= delta;
         if (_radioTimer <= 0)
         {
@@ -106,6 +109,7 @@ public sealed partial class ShipAudio : Node
 
     private void PlayNext()
     {
+        if (_stopped) return;
         var stream = GD.Load<AudioStream>(MusicPaths[_track]);
         _track = (_track + 1) % MusicPaths.Length;
         if (stream is null)
@@ -117,8 +121,10 @@ public sealed partial class ShipAudio : Node
         _music.Play();
     }
 
-    public override void _ExitTree()
+    public void Stop()
     {
+        if (_stopped) return;
+        _stopped = true;
         _music.Finished -= PlayNext;
         _enginePlayback?.Dispose();
         foreach (var player in new[] { _music, _engine, _effects, _ui, _radio })
@@ -129,4 +135,6 @@ public sealed partial class ShipAudio : Node
             stream?.Dispose();
         }
     }
+
+    public override void _ExitTree() => Stop();
 }
