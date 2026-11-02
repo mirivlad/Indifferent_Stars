@@ -108,7 +108,7 @@ public sealed partial class NetworkClient : IDisposable
         if (State != ConnectionState.Connected && _lastHelloSeconds >= 0.6)
         {
             _lastHelloSeconds = 0;
-            Send(new HelloMessage(_clientId, _playerName));
+            Send(new HelloMessage(_clientId, _playerName, IndifferentStars.Shared.Collision.SurfaceMesh.Fingerprint));
         }
 
         if (State == ConnectionState.Connected)

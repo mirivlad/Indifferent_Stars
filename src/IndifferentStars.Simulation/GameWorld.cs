@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
+using IndifferentStars.Shared.Collision;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
 using IndifferentStars.Shared.World;
@@ -13,7 +15,7 @@ public sealed record WarpOutcome(
     bool Success,
     uint TargetId,
     string Message,
-    Vec3d NewPosition,
+    Vec3d Destination,
     float Yaw,
     float Pitch,
     string RussianMessage = "");
@@ -27,7 +29,7 @@ public sealed record TradeOutcome(
 /// <summary>
 /// Authoritative, engine-independent world state. Fixed-step and free of Godot types.
 /// </summary>
-public sealed class GameWorld
+public sealed partial class GameWorld
 {
     private sealed class PlayerInputSlot
     {
@@ -47,12 +49,14 @@ public sealed class GameWorld
     private readonly Dictionary<ushort, int> _stationStock = new();
     private readonly List<ShipState> _npcs = new();
     private readonly IReadOnlyList<StaticBody> _collisionBodies;
+    private readonly Dictionary<int, SurfacePose> _fixedSurfaces;
     private uint _nextPlayerId = 10000;
 
     public GameWorld(WorldCatalog catalog)
     {
         Catalog = catalog;
         _collisionBodies = catalog.LocalBodies;
+        _fixedSurfaces = catalog.Asteroids.ToDictionary(body => body.Id, body => WorldSurfaces.Body(catalog, body, 0));
         foreach (var commodity in CommodityCatalog.All)
             _stationStock[commodity.Id] = commodity.InitialStock;
         SpawnNpcs();
@@ -107,6 +111,7 @@ public sealed class GameWorld
         if (!_inputs.TryGetValue(playerId, out var slot))
             return;
         slot.Input = input.Clamped();
+        if (_players.TryGetValue(playerId, out var warpingShip) && warpingShip.InWarp) return;
         if (_players.TryGetValue(playerId, out var assistedShip))
             assistedShip.FlightAssist = input.FlightAssist;
         if (_players.TryGetValue(playerId, out var ship) &&
@@ -118,7 +123,7 @@ public sealed class GameWorld
     public bool StartMove(uint playerId, Vec3d destination)
     {
         var ship = GetPlayer(playerId);
-        if (ship is null || ship.Docked || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
+        if (ship is null || ship.Docked || ship.InWarp || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
             return false;
         ship.ApproachTargetId = ship.Id;
         ship.ApproachFollowing = false;
@@ -132,7 +137,7 @@ public sealed class GameWorld
         var player = GetPlayer(playerId);
         var body = Catalog.Find((int)targetId);
         var targetShip = _players.GetValueOrDefault(targetId) ?? _npcs.FirstOrDefault(n => n.Id == targetId);
-        if (player is null || player.Docked || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null))
+        if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null))
             return false;
         var targetPosition = targetShip?.Position ?? body!.Position;
         var targetRadius = targetShip is null ? body!.Radius : 20;
@@ -149,7 +154,7 @@ public sealed class GameWorld
     {
         var player = GetPlayer(playerId);
         var station = Catalog.Station;
-        if (player is null || player.Docked || targetId != (uint)station.Id)
+        if (player is null || player.Docked || player.InWarp || targetId != (uint)station.Id)
             return false;
         var away = (player.Position - station.Position).Normalized();
         if (away.LengthSquared < 0.5)
@@ -279,11 +284,17 @@ public sealed class GameWorld
 
     public void Tick(double dt)
     {
-        var starts = _players.Values.Concat(_npcs).ToDictionary(ship => ship.Id, ship => ship.Position);
+        var warping = _players.Values.Where(ship => ship.InWarp).Select(ship => ship.Id).ToHashSet();
+        var starts = _players.Values.Concat(_npcs).ToDictionary(ship => ship.Id, ship => (ship.Position, ship.Orientation));
         foreach (var (id, ship) in _players)
         {
             var slot = _inputs[id];
             slot.AgeSeconds += dt;
+            if (ship.InWarp)
+            {
+                StepWarp(ship, dt);
+                continue;
+            }
             if (ship.Docked)
                 continue;
             if (ship.DockingGranted && ApproachPilot.Arrived(ship, ship.DockingPoint))
@@ -340,36 +351,67 @@ public sealed class GameWorld
             FlightModel.StepNpc(npc, dt);
 
         var ships = _players.Values.Concat(_npcs).OrderBy(ship => ship.Id).ToArray();
+        void Stop(ShipState ship, double hit)
+        {
+            var before = starts[ship.Id];
+            var rotation = Quaternion.Slerp(before.Orientation, ship.Orientation, (float)hit);
+            CollisionSolver.Stop(ship, before.Position, hit);
+            ship.Orientation = rotation;
+        }
         foreach (var ship in ships)
         {
-            if (ship.Docked) continue;
+            if (ship.Docked || warping.Contains(ship.Id)) continue;
+            var before = starts[ship.Id];
+            var from = WorldSurfaces.Ship(ship, before.Position, before.Orientation);
+            var to = WorldSurfaces.Ship(ship, ship.Position, ship.Orientation);
             double? first = null;
-            void Check(Vec3d center, double radius)
+            StaticBody? contactBody = null;
+            void Hit(double? time, StaticBody? body = null)
             {
-                var time = CollisionSolver.ContactTime(starts[ship.Id], ship.Position, center,
-                    radius + CollisionSolver.ShipRadius);
-                if (time is not null && (first is null || time < first)) first = time;
+                if (time is null || first is not null && time >= first) return;
+                first = time;
+                contactBody = body;
             }
-            foreach (var body in _collisionBodies) Check(body.Position, body.Radius);
-            Check(Catalog.CelestialOffset(Catalog.Planet), Catalog.Planet.Radius);
-            Check(Catalog.CelestialOffset(Catalog.Star), Catalog.Star.Radius);
-            if (first is { } hit) CollisionSolver.Stop(ship, starts[ship.Id], hit);
+            foreach (var body in _collisionBodies)
+                Hit(WorldSurfaces.Contact(from, to, BodySurface(body, TimeSeconds),
+                    BodySurface(body, TimeSeconds + dt)), body);
+            Hit(WorldSurfaces.SphereContact(from, to, Catalog.CelestialOffset(Catalog.Planet), Catalog.Planet.Radius));
+            Hit(WorldSurfaces.SphereContact(from, to, Catalog.CelestialOffset(Catalog.Star), Catalog.Star.Radius));
+            if (first is { } hit)
+            {
+                Stop(ship, hit);
+                if (contactBody?.Kind == BodyKind.Station)
+                {
+                    var atContact = ModelPose.StationRotation(contactBody, TimeSeconds + dt * hit);
+                    var atEnd = ModelPose.StationRotation(contactBody, TimeSeconds + dt);
+                    var carried = atEnd * Quaternion.Conjugate(atContact);
+                    var previous = ship.Position;
+                    ship.Position = contactBody.Position + SurfaceMesh.Rotate(previous - contactBody.Position, carried);
+                    ship.Orientation = Quaternion.Normalize(carried * ship.Orientation);
+                    ship.Velocity = Vec3d.Cross(new Vec3d(0, ModelPose.StationSpin, 0), ship.Position - contactBody.Position);
+                }
+            }
         }
         for (var i = 0; i < ships.Length; i++)
         for (var j = i + 1; j < ships.Length; j++)
         {
-            var a = ships[i];
-            var b = ships[j];
-            var time = CollisionSolver.ContactTime(starts[a.Id] - starts[b.Id],
-                a.Position - b.Position, Vec3d.Zero, 2 * CollisionSolver.ShipRadius);
-            if (time is not { } hit) continue;
-            if (!a.Docked) CollisionSolver.Stop(a, starts[a.Id], hit);
-            if (!b.Docked) CollisionSolver.Stop(b, starts[b.Id], hit);
+            var a = ships[i]; var b = ships[j];
+            if (warping.Contains(a.Id) || warping.Contains(b.Id)) continue;
+            var sa = starts[a.Id]; var sb = starts[b.Id];
+            var hit = WorldSurfaces.Contact(WorldSurfaces.Ship(a, sa.Position, sa.Orientation),
+                WorldSurfaces.Ship(a, a.Position, a.Orientation), WorldSurfaces.Ship(b, sb.Position, sb.Orientation),
+                WorldSurfaces.Ship(b, b.Position, b.Orientation));
+            if (hit is not { } time) continue;
+            if (!a.Docked) Stop(a, time);
+            if (!b.Docked) Stop(b, time);
         }
 
         TickCount++;
         TimeSeconds += dt;
     }
+
+    private SurfacePose BodySurface(StaticBody body, double time) =>
+        _fixedSurfaces.TryGetValue(body.Id, out var pose) ? pose : WorldSurfaces.Body(Catalog, body, time);
 
     public EntitySnapshot[] BuildSnapshot()
     {
@@ -479,88 +521,6 @@ public sealed class GameWorld
         return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance, language));
     }
 
-    public WarpOutcome Warp(uint playerId, uint targetId, ushort arrivalDistance = 1000)
-    {
-        var player = GetPlayer(playerId);
-        if (player is null)
-            return WarpFail(targetId, "unknown_ship");
-        if (player.Docked)
-            return WarpFail(targetId, "warp_undock");
-        if (arrivalDistance is not (500 or 1000 or 5000 or 10000))
-            return WarpFail(targetId, "warp_invalid");
-
-        var npc = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
-        if (npc?.Id == playerId)
-            return WarpFail(targetId, "warp_self");
-        var body = Catalog.Find((int)targetId);
-        var celestial = Catalog.FindCelestial((int)targetId);
-        var systemWarp = arrivalDistance == 10000;
-        if (systemWarp && (!player.Cruising || player.Velocity.Length < 1000))
-            return WarpFail(targetId, "warp_cruise_required");
-        if (npc is null && body is null && (!systemWarp || celestial is null))
-        {
-            if (Catalog.FindCelestial((int)targetId) is not null)
-            {
-                var realDistance = (Catalog.FindCelestial((int)targetId)!.SystemPosition - ToSystemPosition(player.Position)).Length;
-                return WarpFail(targetId, "warp_celestial", realDistance / 1_000_000);
-            }
-
-            return WarpFail(targetId, "warp_unknown");
-        }
-
-        if (TimeSeconds - player.LastWarpAtSeconds < 8.0)
-            return WarpFail(targetId, "warp_cooldown", 8.0 - (TimeSeconds - player.LastWarpAtSeconds));
-
-        var targetPosition = npc?.Position ?? body?.Position ?? (celestial!.SystemPosition - Catalog.LocalFrameOrigin);
-        var targetRadius = npc is not null ? 20.0 : body?.Radius ?? (celestial!.Radius + celestial.AtmosphereHeight);
-        var distance = Vec3d.Distance(player.Position, targetPosition);
-        if (systemWarp && npc is not null && distance > WorldCatalog.RelevanceRange)
-            return WarpFail(targetId, "warp_unknown");
-        if (!systemWarp && distance > WorldCatalog.WarpRange)
-            return WarpFail(targetId, "warp_range", distance / 1000, WorldCatalog.WarpRange / 1000);
-
-        var arrivalOffset = targetRadius + arrivalDistance;
-        if (distance <= arrivalOffset + 250)
-            return WarpFail(targetId, "warp_close");
-
-        var direction = (targetPosition - player.Position).Normalized();
-        var arrival = targetPosition - direction * arrivalOffset;
-        const double clearance = 20;
-        if (Catalog.LocalBodies.Any(other => Vec3d.Distance(arrival, other.Position) < other.Radius + clearance) ||
-            _npcs.Any(other => Vec3d.Distance(arrival, other.Position) < 20 + clearance) ||
-            _players.Values.Any(other => other.Id != playerId && Vec3d.Distance(arrival, other.Position) < 2 * clearance) ||
-            new[] { Catalog.Star, Catalog.Planet }.Any(other =>
-                Vec3d.Distance(ToSystemPosition(arrival), other.SystemPosition) < other.Radius + other.AtmosphereHeight + clearance))
-            return WarpFail(targetId, "warp_blocked");
-        var toTarget = (targetPosition - arrival).Normalized();
-        var (yaw, pitch) = FlightModel.AnglesForDirection(toTarget);
-
-        player.Position = arrival;
-        player.ApproachTargetId = 0;
-        player.DockingGranted = false;
-        player.Velocity = systemWarp ? Vec3d.Zero : toTarget * 60.0;
-        player.Cruising = false;
-        player.CruiseInhibited = true;
-        player.CruiseBraking = false;
-        _inputs[playerId].Input = InputState.None;
-        player.SetAngles(yaw, pitch);
-        player.Throttle = systemWarp ? 0 : 0.2;
-        player.LastWarpAtSeconds = TimeSeconds;
-
-        var label = npc?.Name ?? body?.Name ?? celestial!.Name;
-        return new WarpOutcome(
-            true,
-            targetId,
-            ServerText.Get("en", systemWarp ? "warp_system_success" : "warp_success", label, arrivalDistance / 1000.0),
-            arrival,
-            (float)yaw,
-            (float)pitch,
-            ServerText.Get("ru", systemWarp ? "warp_system_success" : "warp_success", label, arrivalDistance / 1000.0));
-    }
-
-    private static WarpOutcome WarpFail(uint targetId, string key, params object[] args) =>
-        new(false, targetId, ServerText.Get("en", key, args), Vec3d.Zero, 0, 0, ServerText.Get("ru", key, args));
-
     private static ScanOutcome OutOfRange(uint targetId, double distance, string language) =>
         new(false,
             targetId,
@@ -588,7 +548,10 @@ public sealed class GameWorld
         ship.Cruising,
         ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null,
         ship.CruiseInhibited,
-        ship.CruiseBraking);
+        ship.CruiseBraking,
+        ship.WarpStage,
+        ship.WarpProgress,
+        ship.InWarp ? ship.WarpDestination : null);
 
     private static string DescribeVessel(ShipState npc, string language)
     {
@@ -650,7 +613,7 @@ public sealed class GameWorld
         _npcs.Add(CreateNpc(
             "Long Cargo",
             "Hauler",
-            new[] { station + new Vec3d(400, 120, 0), midpoint, nearPlanet, midpoint, station },
+            new[] { station + new Vec3d(400, 120, 0), midpoint, nearPlanet, midpoint, station + new Vec3d(400, 120, 0) },
             62,
             1));
 

@@ -20,8 +20,6 @@
   "cruise":"Крейсерский режим",
   "cruise_active":"КРЕЙСЕРСКИЙ",
   "cruise_blocked":"КРЕЙСЕРСКИЙ: НУЖЕН СБРОС",
-  "context_warp_10":"Дальний варп — 10 км",
-
   "deep_space":"Открытый космос",
   "planet_surface_distance":"До поверхности: {0:N1} км",
   "planet_closing_speed":"Сближение: {0:+0.0;-0.0;0.0} м/с (+ ближе, − дальше)",
@@ -36,7 +34,7 @@
   "ready":"ГОТОВ", "throttle":"ТЯГА", "altitude":"ВЫСОТА", "scan_short":"СКАНЕР", "warp_short":"ВАРП", "auto_short":"АВТОПИЛОТ", "following":"СЛЕДОВАНИЕ", "on":"ВКЛ", "off":"ВЫКЛ", "assist_short":"СТАБИЛИЗАЦИЯ", "boost_short":"ФОРСАЖ", "range":"ДИСТАНЦИЯ", "target_actions":"{0} — СКАНИРОВАТЬ  •  {1} — ВАРП", "scanner_out":"ВНЕ ДАЛЬНОСТИ СКАНЕРА", "scanning":"СКАНИРОВАНИЕ…", "scan_complete":"СКАНИРОВАНИЕ ЗАВЕРШЕНО", "scan_rejected":"СКАНИРОВАНИЕ ОТКЛОНЕНО",
   "type_station":"СТАНЦИЯ", "type_asteroid":"АСТЕРОИД", "type_planet":"ПЛАНЕТА", "type_star":"ЗВЕЗДА", "type_player":"ИГРОК", "type_npc":"NPC",
   "connected_welcome":"СВЯЗЬ УСТАНОВЛЕНА — ДОБРО ПОЖАЛОВАТЬ В {0}", "join_rejected":"ПОДКЛЮЧЕНИЕ ОТКЛОНЕНО", "autopilot_on":"АВТОПИЛОТ ВКЛЮЧЁН", "approach_unavailable":"СБЛИЖЕНИЕ НЕДОСТУПНО", "undock_approved":"ОТСТЫКОВКА РАЗРЕШЕНА", "dock_approved":"СТЫКОВКА РАЗРЕШЕНА", "dock_rejected":"ЗАПРОС ОТКЛОНЁН", "no_contacts":"НЕТ КОНТАКТОВ В РАДИУСЕ СЕНСОРОВ", "choose_contact":"СНАЧАЛА ВЫБЕРИТЕ ЦЕЛЬ", "no_connection":"НЕТ СОЕДИНЕНИЯ С СЕРВЕРОМ", "warp_spooling":"ПОДГОТОВКА ВАРПА — {0}",
-  "context_approach":"Подлететь", "context_scan":"Сканировать", "context_warp_1":"Варп на 1 км", "context_dock":"Запросить стыковку", "context_warp_500":"Варп на 500 м", "context_warp_5":"Варп на 5 км", "context_follow":"Следовать",
+  "context_approach":"Подлететь", "context_scan":"Сканировать", "context_dock":"Запросить стыковку", "context_follow":"Следовать",
   "station_title":"KESTREL REACH — СТЫКОВКА", "station_info":"Информация: орбитальная станция и диспетчерская.", "station_comms":"Связь: диспетчер стыковки на связи.", "station_services":"Услуги: стыковка и отправление.", "station_trade":"Торговля: на этой станции пока недоступна.", "undock":"Отстыковаться", "you":"ВЫ",
   "thrust_hint":"тяга", "strafe_hint":"боковая тяга", "roll_hint":"крен", "vertical_hint":"вверх/вниз", "forward":"Тяга вперёд", "reverse":"Тяга назад", "left":"Тяга влево", "right":"Тяга вправо", "up":"Тяга вверх", "down":"Тяга вниз",
   "roll_left":"Крен влево", "roll_right":"Крен вправо", "yaw_left":"Рыскание влево", "yaw_right":"Рыскание вправо", "pitch_up":"Тангаж вверх", "pitch_down":"Тангаж вниз",
@@ -50,7 +48,7 @@
   "link_online_ping":"СВЯЗЬ УСТАНОВЛЕНА   {0} мс", "link_failed_text":"СВЯЗЬ НЕ УСТАНОВЛЕНА   {0}", "link_connecting_short":"СВЯЗЬ: СОЕДИНЕНИЕ С СЕРВЕРОМ…",
   "server_start_hint":"Запустите сервер командой:\n  tools/run-server.sh\n\nКлиент подключится автоматически.",
   "system_line":"{0}\nЗЕРНО {1}   КОРАБЛЬ #{2}", "tab_hint":"TAB переключает ближайшие контакты",
-  "scan_hint":"{0} — СКАНИРОВАТЬ   •   {1} — КОРОТКИЙ ВАРП",
+  "scan_hint":"{0} — СКАНИРОВАТЬ   •   {1} — ВАРП",
   "telemetry_throttle":"ТЯГА {0}{1:F0}%    ВЫСОТА {2}{3:F0} м",
   "telemetry_status":"СКАНЕР {0:F1} км  ВАРП {1}  АВТО {2}  СТАБ {3}",
   "target_range_line":"{0}\nДИСТАНЦИЯ {1:F2} км    ВЫСОТА {2}{3:F0} м",
@@ -78,5 +76,14 @@
   "context_trade": "Рынок станции",
   "trade_dock_first": "Для торговли сначала запросите стыковку.",
   "context_attack_unavailable": "Атаковать — пока недоступно",
-  "context_mine_unavailable": "Добывать — пока недоступно"
+  "context_mine_unavailable": "Добывать — пока недоступно",
+  "context_warp": "Варп сюда",
+  "warp_recovery": "Точка прибытия занята. Возврат в безопасную область.",
+  "warp_cancelled": "Варп отменён: точка прибытия стала небезопасной.",
+  "warp_arrived": "Выход из варпа завершён.",
+  "warp_stage_1": "ПОДГОТОВКА ВАРПА {0:F0}%",
+  "warp_stage_2": "ВАРП-ПЕРЕЛЁТ {0:F0}%",
+  "warp_stage_3": "ВЫХОД ИЗ ВАРПА {0:F0}%",
+  "warp_stage_4": "БЕЗОПАСНЫЙ ВОЗВРАТ {0:F0}%",
+  "warp_engaged": "ВАРП"
 }

@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using IndifferentStars.Shared;
+using IndifferentStars.Shared.Collision;
 using IndifferentStars.Shared.Protocol;
 using IndifferentStars.Shared.World;
 using IndifferentStars.Simulation;
@@ -247,6 +248,11 @@ public sealed class UdpGameServer : IDisposable
 
     private void HandleHello(HelloMessage hello, IPEndPoint endpoint, double now)
     {
+        if (hello.GeometryHash != SurfaceMesh.Fingerprint)
+        {
+            Send(endpoint, new HelloRejectedMessage("Geometry mismatch. Update the client and server together."));
+            return;
+        }
         if (_sessions.TryGetValue(hello.ClientId, out var existing))
         {
             if (!existing.Endpoint.Equals(endpoint))
@@ -297,7 +303,7 @@ public sealed class UdpGameServer : IDisposable
             _catalog.Seed,
             _catalog.SystemName,
             (float)WorldCatalog.ScanRange,
-            (float)WorldCatalog.WarpRange,
+            (float)WarpFlight.Clearance,
             (float)WorldCatalog.MaxBoostSpeed,
             _world.TickCount,
             (byte)_config.TickRate));
@@ -339,17 +345,22 @@ public sealed class UdpGameServer : IDisposable
             Send(endpoint, previous);
             return;
         }
+        if (session.LastWarpResult is { } latest && request.RequestId < latest.RequestId)
+        {
+            Send(endpoint, GameWorld.StaleWarp(request.RequestId, request.TargetId));
+            return;
+        }
         if (now - session.LastWarpAtSeconds < 0.4)
             return;
         session.LastWarpAtSeconds = now;
 
-        var result = _world.Warp(session.PlayerId, request.TargetId, request.ArrivalDistance);
+        var result = _world.Warp(session.PlayerId, request.TargetId, request.Destination);
         var response = new WarpResultMessage(
             request.RequestId,
             result.TargetId,
             result.Success,
             result.Message,
-            result.NewPosition,
+            result.Destination,
             result.Yaw,
             result.Pitch,
             result.RussianMessage);

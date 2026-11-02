@@ -11,12 +11,14 @@ public sealed class SurfaceNavigationTests
     {
         var world = new GameWorld(WorldCatalog.Generate(20261101));
         var ship = world.AddPlayer("Long flight");
-        ship.Position = Vec3d.Zero;
+        ship.Position = new Vec3d(0, 0, 1000);
         ship.Velocity = new Vec3d(0, -720, 0);
         for (var tick = 0; tick < 36_000; tick++) world.Tick(0.05);
         Assert.Equal(-1_296_000, ship.Position.Y, 3);
         Assert.Equal(new Vec3d(0, -720, 0), ship.Velocity);
-        Assert.Equal(104_000, SurfaceNavigation.Measure(world.Catalog.LocalFrameOrigin + ship.Position,
+        var radial = world.Catalog.Planet.Radius + WorldCatalog.StationOrbitAltitude - 1_296_000;
+        var expectedAltitude = System.Math.Sqrt(radial * radial + 1_000_000) - world.Catalog.Planet.Radius;
+        Assert.Equal(expectedAltitude, SurfaceNavigation.Measure(world.Catalog.LocalFrameOrigin + ship.Position,
             ship.Velocity, world.Catalog.Planet).DistanceMetres, 3);
     }
 

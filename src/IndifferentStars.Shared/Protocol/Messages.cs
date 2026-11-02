@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 12;
+    public const byte Version = 13;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -56,7 +56,7 @@ public interface IProtocolMessage
     MessageType Type { get; }
 }
 
-public sealed record HelloMessage(Guid ClientId, string ClientName) : IProtocolMessage
+public sealed record HelloMessage(Guid ClientId, string ClientName, string GeometryHash) : IProtocolMessage
 {
     public MessageType Type => MessageType.Hello;
 }
@@ -69,7 +69,7 @@ public sealed record HelloAcceptedMessage(
     int WorldSeed,
     string SystemName,
     float ScanRange,
-    float WarpRange,
+    float WarpClearance,
     float MaxSpeed,
     ulong ServerTick,
     byte TickRate) : IProtocolMessage
@@ -120,7 +120,10 @@ public sealed record EntitySnapshot(
     bool Cruising = false,
     Vec3d? ApproachPoint = null,
     bool CruiseInhibited = false,
-    bool CruiseBraking = false)
+    bool CruiseBraking = false,
+    WarpStage WarpStage = WarpStage.None,
+    float WarpProgress = 0,
+    Vec3d? WarpDestination = null)
 {
 }
 
@@ -146,7 +149,7 @@ public sealed record ScanResultMessage(
     public MessageType Type => MessageType.ScanResult;
 }
 
-public sealed record WarpRequestMessage(uint RequestId, uint TargetId, ushort ArrivalDistance = 1000) : IProtocolMessage
+public sealed record WarpRequestMessage(uint RequestId, uint TargetId, Vec3d? Destination = null) : IProtocolMessage
 {
     public MessageType Type => MessageType.WarpRequest;
 }
@@ -156,7 +159,7 @@ public sealed record WarpResultMessage(
     uint TargetId,
     bool Success,
     string Message,
-    Vec3d NewPosition,
+    Vec3d Destination,
     float Yaw,
     float Pitch,
     string RussianMessage = "") : IProtocolMessage
@@ -243,4 +246,22 @@ public sealed record CommsRequestMessage(uint TargetId) : IProtocolMessage
 public sealed record CommsResultMessage(uint TargetId, bool Success, string Message, string RussianMessage) : IProtocolMessage
 {
     public MessageType Type => MessageType.CommsResult;
+}
+
+
+public enum WarpStage : byte
+{
+    None,
+    Charging,
+    Travel,
+    Exit,
+    Recovery,
+}
+
+public static class WarpFlight
+{
+    public const double Clearance = 1000;
+    public const double ChargeSeconds = 2;
+    public const double TravelSeconds = 4;
+    public const double ExitSeconds = 1;
 }

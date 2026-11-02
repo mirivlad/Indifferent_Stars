@@ -1,4 +1,5 @@
 using Godot;
+using IndifferentStars.Shared.Protocol;
 
 namespace IndifferentStars.Client;
 
@@ -152,18 +153,20 @@ public sealed partial class CockpitView : Node3D
         bool hasTarget,
         bool assist,
         bool autopilot,
-        bool following)
+        bool following,
+        WarpStage warpStage = WarpStage.None)
     {
         if (!Visible)
             return;
 
         var throttleSign = throttle >= 0 ? "+" : "";
         _leftScreen.Text =
-            Locale.Format("cockpit_speed", speed) + "\n" +
+            (warpStage == WarpStage.None ? Locale.Format("cockpit_speed", speed) : Locale.Text("warp_engaged")) + "\n" +
             Locale.Format("cockpit_throttle", throttleSign, throttle * 100);
 
         string mode;
         if (docked) mode = Locale.Text("cockpit_docked");
+        else if (warpStage != WarpStage.None) mode = Locale.Text("warp_engaged");
         else if (following) mode = Locale.Text("following");
         else if (autopilot) mode = Locale.Text("cockpit_autopilot");
         else mode = Locale.Text("cockpit_cruise");
@@ -183,11 +186,11 @@ public sealed partial class CockpitView : Node3D
         }
     }
 
-    public void UpdateFlight(Vector3 localVelocity, Vector3 angles, bool braking, bool boosting)
+    public void UpdateFlight(Vector3 localVelocity, Vector3 angles, bool braking, bool boosting, bool warping = false)
     {
         _flightScreen.Text = Locale.Format("cockpit_attitude", Mathf.RadToDeg(angles.X),
             Mathf.RadToDeg(angles.Y), Mathf.RadToDeg(angles.Z)) + "\n" +
-            Locale.Format("cockpit_drift", localVelocity.X, localVelocity.Y, -localVelocity.Z) + "\n" +
+            (warping ? Locale.Text("warp_engaged") : Locale.Format("cockpit_drift", localVelocity.X, localVelocity.Y, -localVelocity.Z)) + "\n" +
             Locale.Text(braking ? "brake" : boosting ? "boost" : "engines");
     }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
+using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Client;
 
@@ -18,13 +19,12 @@ public sealed partial class WorldBuilder
     private readonly Node3D _root;
     private readonly bool _highQuality;
     private Node3D? _stationNode;
-    private float _elapsed;
-    private StandardMaterial3D? _beaconMaterial;
     private WorldEnvironment? _worldEnvironment;
     private CelestialRenderer? _celestial;
     private ShaderMaterial? _skyMaterial;
     private readonly Dictionary<string, Node3D> _asteroidSectors = new();
     private Mesh[]? _asteroidMeshes;
+    public double SimulationTime { get; set; }
     public int LoadedAsteroidSectors => _asteroidSectors.Count;
 
     public WorldBuilder(Node3D root, WorldCatalog catalog, bool highQuality)
@@ -47,18 +47,16 @@ public sealed partial class WorldBuilder
         BuildLights();
     }
 
-    public void Process(double delta, Vec3d observerLocal, Vec3d renderOrigin)
+    public void Process(double delta, Vec3d observerLocal, Vec3d renderOrigin, double? serverSeconds = null)
     {
-        _elapsed += (float)delta;
+        SimulationTime = serverSeconds ?? SimulationTime + delta;
         _celestial?.Update(observerLocal, renderOrigin, (float)delta);
         UpdateAsteroidSectors(observerLocal);
 
         if (_stationNode is not null)
-            _stationNode.RotateY((float)delta * 0.012f);
-        if (_beaconMaterial is not null)
         {
-            var pulse = 0.65f + 0.35f * Mathf.Sin(_elapsed * 2.4f);
-            _beaconMaterial.EmissionEnergyMultiplier = 2.5f + pulse * 4.0f;
+            var rotation = ModelPose.StationRotation(Catalog.Station, SimulationTime);
+            _stationNode.Quaternion = new Quaternion(rotation.X, rotation.Y, rotation.Z, rotation.W);
         }
     }
 
@@ -142,30 +140,13 @@ public sealed partial class WorldBuilder
         {
             var model = scene.Instantiate<Node3D>();
             model.Name = "Model";
-            model.Scale = Vector3.One * 55f;
+            model.Scale = Vector3.One * (float)ModelPose.StationScale;
             node.AddChild(model);
         }
         else
         {
-            BuildFallbackStation(node);
+            throw new InvalidOperationException("The station GLB is required for matching collision geometry.");
         }
-
-        _beaconMaterial = new StandardMaterial3D
-        {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            AlbedoColor = new Color(0.45f, 0.9f, 1.0f),
-            EmissionEnabled = true,
-            Emission = new Color(0.35f, 0.85f, 1.0f),
-            EmissionEnergyMultiplier = 5.0f,
-        };
-        var beacon = new MeshInstance3D
-        {
-            Name = "Beacon",
-            Mesh = new SphereMesh { Radius = 5.5f, Height = 11, RadialSegments = 16, Rings = 8 },
-            MaterialOverride = _beaconMaterial,
-            Position = new Vector3(0, 120, 0),
-        };
-        node.AddChild(beacon);
 
         _root.AddChild(node);
         _stationNode = node;

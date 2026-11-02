@@ -100,7 +100,7 @@ public sealed partial class GameMain
     private InputState ReadInput()
     {
         if (_cruiseStopping && (_playerShip?.Track.Velocity.Length() ?? 0) < 0.1f) _cruiseStopping = false;
-        if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true)
+        if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true || (_playerShip is not null && _playerShip.Track.WarpStage != WarpStage.None))
             return InputState.None with { FlightAssist = _flightAssist };
         if (_mode == ViewMode.Tactical)
             return InputState.None with { Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
@@ -228,9 +228,7 @@ public sealed partial class GameMain
         {
             _cruise = false;
             _cruiseStopping = false;
-            _playerShip.Track.Reset(result.NewPosition, result.Yaw, result.Pitch);
             _cameraSnap = true;
-            _warpCooldown = 8f;
             _hud.ShowToast(text, new Color(1f, 0.78f, 0.4f), 5f);
         }
         else
@@ -340,7 +338,7 @@ public sealed partial class GameMain
         _hud.SetScanPending(contact.Name);
     }
 
-    private void RequestWarp(ushort distance = 1000)
+    private void RequestWarp()
     {
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
@@ -354,7 +352,7 @@ public sealed partial class GameMain
             return;
         }
 
-        _net.RequestWarp(_targetId, distance);
+        _net.RequestWarp(_targetId);
         _hud.ShowToast(Locale.Format("warp_spooling", contact.Name), new Color(1f, 0.78f, 0.4f), 2.2f);
     }
 

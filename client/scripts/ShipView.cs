@@ -39,16 +39,19 @@ public sealed partial class ShipView : Node3D
     public EntityKind Kind => Track.Kind;
     public bool Boosting { get; set; }
 
-    public void UpdateVisual(Vec3d renderOrigin, float delta)
+    public void UpdateVisual(Vec3d renderOrigin, float delta, double? frameTime = null)
     {
-        Track.Sample(Time.GetTicksUsec() / 1_000_000.0 - (IsPlayer ? 0.05 : 0.11), renderOrigin);
+        Track.Sample((frameTime ?? Time.GetTicksUsec() / 1_000_000.0) - (IsPlayer ? 0.05 : 0.11), renderOrigin);
         if (!Track.HasData)
             return;
 
         GlobalTransform = new Transform3D(new Basis(Track.Orientation), Track.RenderPosition);
 
         _glowPhase += delta * 6;
-        var throttle = Track.Docked ? 0 : Mathf.Max(0, Track.Throttle);
+        var warp = Track.WarpStage != WarpStage.None;
+        if (_modelRoot is not null)
+            _modelRoot.Scale = new Vector3(1, 1, Track.WarpStage == WarpStage.Travel ? 1.8f : 1);
+        var throttle = Track.Docked ? 0 : warp ? 1 : Mathf.Max(0, Track.Throttle);
         var glow = 0.55f + throttle * 0.8f + (Boosting ? 0.9f : 0f);
         var pulse = 1.0f + Mathf.Sin(_glowPhase * 2.1f) * 0.06f;
         foreach (var engine in _engineGlows)
@@ -122,7 +125,7 @@ public sealed partial class ShipView : Node3D
         }
         else
         {
-            BuildFallbackHull(_modelRoot);
+            throw new InvalidOperationException("The ship GLB is required for matching collision geometry.");
         }
 
         var glowMaterial = new StandardMaterial3D
@@ -225,37 +228,4 @@ public sealed partial class ShipView : Node3D
         }
     }
 
-    private static void BuildFallbackHull(Node3D parent)
-    {
-        var hull = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.22f, 0.27f, 0.35f),
-            Metallic = 0.65f,
-            Roughness = 0.35f,
-        };
-        var dark = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.06f, 0.07f, 0.09f),
-            Metallic = 0.8f,
-            Roughness = 0.4f,
-        };
-
-        parent.AddChild(new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(1.4f, 0.5f, 7.5f) },
-            MaterialOverride = hull,
-        });
-        parent.AddChild(new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(7.4f, 0.16f, 3.4f) },
-            MaterialOverride = hull,
-            Position = new Vector3(0, 0, 1.1f),
-        });
-        parent.AddChild(new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.9f, 0.25f, 1.6f) },
-            MaterialOverride = dark,
-            Position = new Vector3(0, 0.35f, 1.7f),
-        });
-    }
 }

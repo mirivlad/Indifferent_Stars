@@ -30,7 +30,7 @@ public sealed class ApproachPilotTests
             world.Tick(0.05);
         }
         Assert.True(ship.Cruising);
-        Assert.True(world.Warp(ship.Id, (uint)catalog.Planet.Id, 10000).Success);
+        Assert.True(world.Warp(ship.Id, (uint)catalog.Planet.Id).Success);
     }
 
     [Fact]
@@ -103,8 +103,8 @@ public sealed class ApproachPilotTests
         var world = new GameWorld(WorldCatalog.Generate(12345));
         var follower = world.AddPlayer("Follower");
         var leader = world.AddPlayer("Leader");
-        follower.Position = new Vec3d(0, 0, 0);
-        leader.Position = new Vec3d(2000, 0, 0);
+        follower.Position = new Vec3d(0, 100_000, 0);
+        leader.Position = new Vec3d(2000, 100_000, 0);
         leader.Velocity = new Vec3d(50, 0, 0);
         Assert.NotEqual((uint)world.Catalog.Station.Id, follower.Id);
         Assert.False(world.StartApproach(follower.Id, follower.Id, true));

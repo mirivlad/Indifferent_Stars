@@ -20,8 +20,6 @@
   "cruise":"Cruise",
   "cruise_active":"CRUISE",
   "cruise_blocked":"CRUISE BLOCKED — RESET MODE",
-  "context_warp_10":"System warp — 10 km",
-
   "deep_space":"Deep space",
   "planet_surface_distance":"Distance to surface: {0:N1} km",
   "planet_closing_speed":"Closing: {0:+0.0;-0.0;0.0} m/s (+ closer, − farther)",
@@ -36,7 +34,7 @@
   "ready":"READY", "throttle":"THROTTLE", "altitude":"ALT", "scan_short":"SCAN", "warp_short":"WARP", "auto_short":"AUTO", "following":"FOLLOW", "on":"ON", "off":"OFF", "assist_short":"ASSIST", "boost_short":"BOOST", "range":"RANGE", "target_actions":"{0} — SCAN  •  {1} — WARP", "scanner_out":"OUT OF SCANNER RANGE", "scanning":"SCANNING…", "scan_complete":"SCAN COMPLETE", "scan_rejected":"SCAN REJECTED",
   "type_station":"STATION", "type_asteroid":"ASTEROID", "type_planet":"PLANET", "type_star":"STAR", "type_player":"PLAYER", "type_npc":"NPC",
   "connected_welcome":"LINK ESTABLISHED — WELCOME TO {0}", "join_rejected":"JOIN REJECTED", "autopilot_on":"AUTOPILOT ENGAGED", "approach_unavailable":"APPROACH UNAVAILABLE", "undock_approved":"UNDOCKING APPROVED", "dock_approved":"DOCKING CLEARANCE GRANTED", "dock_rejected":"DOCKING REQUEST REJECTED", "no_contacts":"NO CONTACTS IN SENSOR RANGE", "choose_contact":"SELECT A CONTACT FIRST", "no_connection":"NO SERVER CONNECTION", "warp_spooling":"WARP DRIVE SPOOLING — {0}",
-  "context_approach":"Approach", "context_scan":"Scan", "context_warp_1":"Warp to 1 km", "context_dock":"Request docking", "context_warp_500":"Warp to 500 m", "context_warp_5":"Warp to 5 km", "context_follow":"Follow",
+  "context_approach":"Approach", "context_scan":"Scan", "context_dock":"Request docking", "context_follow":"Follow",
   "station_title":"KESTREL REACH — DOCKED", "station_info":"Information: orbital station and traffic control.", "station_comms":"Communications: docking control online.", "station_services":"Services: docking and departure.", "station_trade":"Trade: unavailable at this station.", "undock":"Undock", "you":"YOU",
   "thrust_hint":"thrust", "strafe_hint":"strafe", "roll_hint":"roll", "vertical_hint":"up/down", "forward":"Forward thrust", "reverse":"Reverse thrust", "left":"Strafe left", "right":"Strafe right", "up":"Thrust up", "down":"Thrust down",
   "roll_left":"Roll left", "roll_right":"Roll right", "yaw_left":"Yaw left", "yaw_right":"Yaw right", "pitch_up":"Pitch up", "pitch_down":"Pitch down",
@@ -50,7 +48,7 @@
   "link_online_ping":"LINK ONLINE   {0} ms", "link_failed_text":"LINK FAILED   {0}", "link_connecting_short":"LINK: CONTACTING SERVER…",
   "server_start_hint":"Start the server with:\n  tools/run-server.sh\n\nThen the client reconnects automatically.",
   "system_line":"{0}\nSEED {1}   SHIP #{2}", "tab_hint":"TAB cycles nearby contacts",
-  "scan_hint":"PRESS {0} TO SCAN   •   {1} SHORT WARP",
+  "scan_hint":"PRESS {0} TO SCAN   •   {1} WARP",
   "telemetry_throttle":"THROTTLE {0}{1:F0}%    ALT {2}{3:F0} m",
   "telemetry_status":"SCAN {0:F1} km  WARP {1}  AUTO {2}  ASSIST {3}",
   "target_range_line":"{0}\nRANGE {1:F2} km    ALT {2}{3:F0} m",
@@ -78,5 +76,14 @@
   "context_trade": "Station market",
   "trade_dock_first": "Request docking before trading.",
   "context_attack_unavailable": "Attack — unavailable",
-  "context_mine_unavailable": "Mine — unavailable"
+  "context_mine_unavailable": "Mine — unavailable",
+  "context_warp": "Warp here",
+  "warp_recovery": "Arrival occupied. Returning to a safe area.",
+  "warp_cancelled": "Warp cancelled: arrival is no longer safe.",
+  "warp_arrived": "Warp exit complete.",
+  "warp_stage_1": "WARP CHARGING {0:F0}%",
+  "warp_stage_2": "IN WARP {0:F0}%",
+  "warp_stage_3": "WARP EXIT {0:F0}%",
+  "warp_stage_4": "SAFE RECOVERY {0:F0}%",
+  "warp_engaged": "IN WARP"
 }

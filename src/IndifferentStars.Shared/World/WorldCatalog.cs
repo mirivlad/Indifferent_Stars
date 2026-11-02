@@ -68,7 +68,6 @@ public sealed class SectorDefinition
 
 public sealed class WorldCatalog
 {
-    public const double WarpRange = 21000.0;
     public const double ScanRange = 4200.0;
     /// <summary>Dynamic entities farther than this are not sent to a client.</summary>
     public const double RelevanceRange = 15000.0;

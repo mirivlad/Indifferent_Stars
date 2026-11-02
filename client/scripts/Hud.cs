@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using IndifferentStars.Shared.Protocol;
 
 namespace IndifferentStars.Client;
 
@@ -50,6 +51,14 @@ public sealed partial class Hud : CanvasLayer
     private int _seed;
     private uint _shipId;
     private string _sectorName = "Kestrel Reach Orbit";
+
+    public void SetWarpState(WarpStage stage, float progress)
+    {
+        if (stage == WarpStage.None) return;
+        _speedLabel.Text = Locale.Text("warp_engaged");
+        _warpLabel.Text = Locale.Format("warp_stage_" + (int)stage, progress * 100);
+        _telemetryLabel.Text = _telemetryLabel.Text.Replace(Locale.Text("warp_short") + " " + Locale.Text("ready"), Locale.Text("warp_engaged"));
+    }
 
     public void SetHintsVisible(bool visible) => _controlsLabel.Visible = visible;
 

@@ -1,4 +1,5 @@
 using System;
+using IndifferentStars.Shared.Collision;
 using System.Linq;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
@@ -12,7 +13,7 @@ public sealed class ProtocolTests
     {
         var data = new TheoryData<IProtocolMessage>
         {
-            new HelloMessage(Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666"), "Captain Vega"),
+            new HelloMessage(Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666"), "Captain Vega", SurfaceMesh.Fingerprint),
             new HelloAcceptedMessage(
                 7, "Captain Vega", new Vec3d(10, 20, -30), 1.2f, 20261101,
                 "Vesper — Kestrel Reach", 4200, 21000, 720, 42, 20),
@@ -20,14 +21,15 @@ public sealed class ProtocolTests
             new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true, true),
             new SnapshotMessage(100, 5000, new[]
             {
-                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0), true, true),
+                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0), true, true, WarpStage.Travel, 0.3f, new Vec3d(1000000, 100000, 0)),
                 new EntitySnapshot(5000, EntityKind.Npc, "Dawn Trader", new Vec3d(-400, 80, 1200), 3.1f, 0.1f, new Vec3d(-40, 0, -70), 90),
             }),
             new CommsRequestMessage(3),
             new CommsResultMessage(3, true, "Traffic control online.", "Диспетчер на связи."),
             new ScanRequestMessage(9, 1001),
             new ScanResultMessage(9, 1001, true, "Asteroid KV-1001", "Composition: silicate 40%", "Астероид", "Состав: силикаты 40%"),
-            new WarpRequestMessage(10, 2, 500),
+            new WarpRequestMessage(10, 2),
+            new WarpRequestMessage(11, 0, new Vec3d(1000000, 500, 2000000)),
             new WarpResultMessage(10, 2, true, "Short warp complete", new Vec3d(11000, -1000, -7000), 0.2f, -0.1f, "Варп завершён"),
             new PingMessage(987654321),
             new PongMessage(987654321),
@@ -129,7 +131,7 @@ public sealed class ProtocolTests
     public void OversizedStringsAndSnapshotsAreRejectedOnEncode()
     {
         Assert.Throws<ArgumentException>(() =>
-            ProtocolCodec.Encode(new HelloMessage(Guid.NewGuid(), new string('x', 200))));
+            ProtocolCodec.Encode(new HelloMessage(Guid.NewGuid(), new string('x', 200), SurfaceMesh.Fingerprint)));
 
         var entities = Enumerable.Range(0, ProtocolConstants.MaxEntitiesPerSnapshot + 1)
             .Select(i => new EntitySnapshot((uint)i, EntityKind.Npc, "n", Vec3d.Zero, 0, 0, Vec3d.Zero, 0))

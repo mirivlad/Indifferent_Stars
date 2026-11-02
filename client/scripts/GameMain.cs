@@ -42,6 +42,8 @@ public sealed partial class GameMain : Node3D
     private StationView _stationView = null!;
     private ClientSettings _settings = null!;
     private SettingsMenu _settingsMenu = null!;
+    private WarpEffect _warpEffect = null!;
+    private WarpStage _previousWarp;
     private ShipAudio _audio = null!;
 
     private readonly Dictionary<uint, ShipView> _remoteShips = new();
@@ -60,7 +62,6 @@ public sealed partial class GameMain : Node3D
     private uint _playerId;
     private uint _targetId;
     private bool _hasTarget;
-    private float _warpCooldown;
     private float _scanCooldown;
     private float _marketRetry;
     private readonly bool _trace = System.Environment.GetEnvironmentVariable("IS_TRACE") == "1";
@@ -92,6 +93,8 @@ public sealed partial class GameMain : Node3D
         System.Globalization.CultureInfo.DefaultThreadCurrentUICulture =
             System.Globalization.CultureInfo.InvariantCulture;
 
+        try { CollisionAssets.Validate(); }
+        catch (InvalidOperationException error) { GD.PushError(error.Message); GetTree().Quit(1); return; }
         _settings = ClientSettings.Load();
         GetTree().AutoAcceptQuit = false;
         _flightAssist = _settings.DefaultFlightAssist;
@@ -110,6 +113,8 @@ public sealed partial class GameMain : Node3D
 
         SetupCamera();
         SetupUi();
+        _warpEffect = new WarpEffect();
+        AddChild(_warpEffect);
         RebuildStaticWorld(DefaultSeed);
 
         _hud.SetSystem(_catalog.SystemName, _catalog.Seed, 0);
@@ -224,7 +229,8 @@ public sealed partial class GameMain : Node3D
     {
         var dt = (float)delta;
         _net?.Poll();
-        UpdateRenderOrigin();
+        var frameTime = Time.GetTicksUsec() / 1_000_000.0;
+        UpdateRenderOrigin(frameTime);
 
         var looking = LookingAround && !_settingsMenu.IsOpen;
         if (looking && !_lookCaptured)
@@ -244,7 +250,7 @@ public sealed partial class GameMain : Node3D
         if (_playerShip is not null)
         {
             _playerShip.Boosting = _input.Boost;
-            _playerShip.UpdateVisual(_renderOrigin, dt);
+            _playerShip.UpdateVisual(_renderOrigin, dt, frameTime);
             var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical),
                 Math.Max(Math.Abs(_input.Roll), Math.Max(Math.Abs(_input.Steer), Math.Abs(_input.Pitch)))));
             _audio.SetFlight(_playerShip.Track.Throttle, maneuver,
@@ -282,15 +288,28 @@ public sealed partial class GameMain : Node3D
             }
         }
 
-        UpdateRemoteShips(dt);
+        UpdateRemoteShips(dt, frameTime);
         UpdateTargeting();
         UpdateSector();
         UpdateTactical();
+        var warpStage = _playerShip?.Track.WarpStage ?? WarpStage.None;
+        var warpProgress = _playerShip?.Track.WarpProgress ?? 0;
+        if (_previousWarp != warpStage)
+        {
+            if (warpStage == WarpStage.Recovery)
+                _hud.ShowToast(Locale.Text("warp_recovery"), duration: 8);
+            else if (warpStage == WarpStage.None && _previousWarp != WarpStage.None)
+                _hud.ShowToast(Locale.Text(_previousWarp == WarpStage.Charging ? "warp_cancelled" : "warp_arrived"), duration: 4);
+            _previousWarp = warpStage;
+        }
+        _warpEffect.SetState(warpStage, warpProgress, _mode == ViewMode.Tactical, _settings.Particles);
+        _audio.SetWarp(warpStage, warpProgress);
+        _hud.SetWarpState(warpStage, warpProgress);
         UpdateCamera(dt);
-        _worldBuilder?.Process(delta, _playerShip?.Track.WorldPosition ?? Vec3d.Zero, _renderOrigin);
+        _worldBuilder?.Process(delta, _playerShip?.Track.WorldPosition ?? Vec3d.Zero, _renderOrigin,
+            _playerShip?.Track.HasData == true ? _playerShip.Track.SampledServerSeconds : null);
         _camera.Far = _worldBuilder?.RequiredFarPlane ?? 900_000f;
 
-        _warpCooldown = Mathf.Max(0f, _warpCooldown - dt);
         _scanCooldown = Mathf.Max(0f, _scanCooldown - dt);
         if (_net is not null)
         {
@@ -300,6 +319,7 @@ public sealed partial class GameMain : Node3D
         }
 
         UpdateHud(dt);
+        _hud.SetWarpState(warpStage, warpProgress);
         UpdateCapture(dt);
     }
 
@@ -330,7 +350,7 @@ public sealed partial class GameMain : Node3D
                     RequestScan();
                     break;
                 case "warp":
-                    RequestWarp(_playerShip?.Track.Cruising == true ? (ushort)10000 : (ushort)1000);
+                    RequestWarp();
                     break;
                 case "approach":
                     RequestApproach();
@@ -424,6 +444,7 @@ public sealed partial class GameMain : Node3D
                     _mapDestination = _tactical.WorldPositionAt(mouse.Position);
                     _contactMenu.Clear();
                     _contactMenu.AddItem(Locale.Text("context_move_point"), 9);
+                    _contactMenu.AddItem(Locale.Text("context_warp"), 14);
                     _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
                     _contactMenu.Popup();
                 }
@@ -504,10 +525,8 @@ public sealed partial class GameMain : Node3D
             else if (id == 2) RequestScan();
             else if (id == 3) RequestWarp();
             else if (id == 4) RequestDock();
-            else if (id == 5) RequestWarp(500);
-            else if (id == 6) RequestWarp(5000);
             else if (id == 7) RequestApproach(true);
-            else if (id == 8) RequestWarp(10000);
+            else if (id == 14) _net?.RequestWarp(0, _mapDestination);
             else if (id == 9)
             {
                 _cruise = false;
@@ -530,12 +549,9 @@ public sealed partial class GameMain : Node3D
         _contactMenu.Clear();
         _contactMenu.AddItem(Locale.Text("context_approach"), 1);
         _contactMenu.AddItem(Locale.Text("context_scan"), 2);
-        _contactMenu.AddItem(Locale.Text("context_warp_1"), 3);
+        _contactMenu.AddItem(Locale.Text("context_warp"), 3);
         _contactMenu.AddItem(Locale.Text("context_dock"), 4);
-        _contactMenu.AddItem(Locale.Text("context_warp_500"), 5);
-        _contactMenu.AddItem(Locale.Text("context_warp_5"), 6);
         _contactMenu.AddItem(Locale.Text("context_follow"), 7);
-        _contactMenu.AddItem(Locale.Text("context_warp_10"), 8);
         _contactMenu.AddSeparator();
         _contactMenu.AddItem(Locale.Text("context_comms"), 10);
         _contactMenu.AddItem(Locale.Text("context_trade"), 11);
@@ -608,11 +624,11 @@ public sealed partial class GameMain : Node3D
         _hud.SetQuality(_highQuality);
     }
 
-    private void UpdateRemoteShips(float dt)
+    private void UpdateRemoteShips(float dt, double frameTime)
     {
         var now = Time.GetTicksMsec() / 1000.0;
         foreach (var ship in _remoteShips.Values)
-            ship.UpdateVisual(_renderOrigin, dt);
+            ship.UpdateVisual(_renderOrigin, dt, frameTime);
 
         List<uint>? stale = null;
         foreach (var (id, seenAt) in _remoteSeen)
@@ -668,7 +684,7 @@ public sealed partial class GameMain : Node3D
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
         _tactical.ApproachTargetId = _playerShip?.Track.ApproachTargetId ?? 0;
-        _tactical.ApproachPoint = _playerShip?.Track.ApproachPoint;
+        _tactical.ApproachPoint = _playerShip?.Track.WarpDestination ?? _playerShip?.Track.ApproachPoint;
 
         _tactical.Contacts.Clear();
         foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))
@@ -709,7 +725,7 @@ public sealed partial class GameMain : Node3D
                 var look = _cockpitLook;
                 _camera.GlobalTransform = new Transform3D(basis * new Basis(
                     Quaternion.FromEuler(new Vector3(look.Y, look.X, 0))), camPos);
-                _camera.Fov = 78;
+                _camera.Fov = 78 + _warpEffect.Intensity * 16;
                 break;
             }
             case ViewMode.External:
@@ -730,7 +746,7 @@ public sealed partial class GameMain : Node3D
 
                 _camera.GlobalPosition = position + _chaseOffset;
                 _camera.LookAt(lookAt, up);
-                var targetFov = _playerShip.Boosting ? 82f : 70f;
+                var targetFov = (_playerShip.Boosting ? 82f : 70f) + _warpEffect.Intensity * 20;
                 _camera.Fov = Mathf.Lerp(_camera.Fov, targetFov, 1f - Mathf.Exp(-4f * dt));
                 break;
             }
@@ -757,7 +773,7 @@ public sealed partial class GameMain : Node3D
             assist = track.FlightAssist;
             autopilot = track.ApproachTargetId != 0;
             following = track.ApproachFollowing;
-            _hud.SetTelemetry(speed, throttle, altitude, _input.Boost, _warpCooldown, _scanRange / 1000f,
+            _hud.SetTelemetry(speed, throttle, altitude, _input.Boost, 0, _scanRange / 1000f,
                 autopilot, assist, following, track.Cruising, _cruise, track.CruiseBraking);
         }
 
@@ -796,21 +812,22 @@ public sealed partial class GameMain : Node3D
         {
             if (_playerShip is not null)
                 _cockpit.UpdateFlight(_playerShip.GlobalBasis.Inverse() * _playerShip.Track.Velocity,
-                    _playerShip.GlobalBasis.GetEuler(), _input.Brake, _input.Boost);
+                    _playerShip.GlobalBasis.GetEuler(), _input.Brake, _input.Boost, _playerShip.Track.WarpStage != WarpStage.None);
             _cockpit.UpdateInstruments(speed, throttle, docked,
                 contact?.Name, contact?.Distance ?? 0, contact?.RelativeAltitude ?? 0,
-                contact is not null, assist, autopilot, following);
+                contact is not null, assist, autopilot, following, _playerShip?.Track.WarpStage ?? WarpStage.None);
         }
     }
 
     private Vector3 PlayerPosition() =>
         _playerShip is not null && _playerShip.Track.HasData ? _playerShip.Track.Position : Vector3.Zero;
 
-    private void UpdateRenderOrigin()
+    private void UpdateRenderOrigin(double frameTime)
     {
         if (_playerShip is null || !_playerShip.Track.HasData)
             return;
-        var position = _playerShip.Track.LatestPosition;
+        _playerShip.Track.Sample(frameTime - 0.05, _renderOrigin);
+        var position = _playerShip.Track.WorldPosition;
         var next = RenderFrame.ChooseOrigin(position, _renderOrigin);
         if (next.Equals(_renderOrigin))
             return;

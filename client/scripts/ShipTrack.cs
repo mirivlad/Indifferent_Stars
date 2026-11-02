@@ -28,6 +28,7 @@ public sealed class ShipTrack
 
     public Vector3 Position { get; private set; }
     public Vector3 RenderPosition { get; private set; }
+    public double SampledServerSeconds { get; private set; }
     public Vec3d WorldPosition { get; private set; }
     public Vec3d LatestPosition => _points.Count > 0 ? _points[^1].Position : Vec3d.Zero;
     public float Yaw { get; private set; }
@@ -42,6 +43,9 @@ public sealed class ShipTrack
     public bool DockingGranted { get; private set; }
     public bool FlightAssist { get; private set; }
     public bool ApproachFollowing { get; private set; }
+    public WarpStage WarpStage { get; private set; }
+    public Vec3d? WarpDestination { get; private set; }
+    public float WarpProgress { get; private set; }
     public bool Cruising { get; private set; }
     public Vec3d? ApproachPoint { get; private set; }
     public bool CruiseInhibited { get; private set; }
@@ -60,6 +64,10 @@ public sealed class ShipTrack
         DockingGranted = snapshot.DockingGranted;
         FlightAssist = snapshot.FlightAssist;
         ApproachFollowing = snapshot.ApproachFollowing;
+        var previousWarp = WarpStage;
+        WarpStage = snapshot.WarpStage;
+        WarpProgress = snapshot.WarpProgress;
+        WarpDestination = snapshot.WarpDestination;
         Cruising = snapshot.Cruising;
         ApproachPoint = snapshot.ApproachPoint;
         CruiseInhibited = snapshot.CruiseInhibited;
@@ -76,7 +84,8 @@ public sealed class ShipTrack
             if (last.ServerMs is { } previous)
                 sampleTime = last.Time + (serverTimeMs - previous) / 1000.0;
 
-            if (Vec3d.Distance(position, last.Position) > 2500)
+            if (Vec3d.Distance(position, last.Position) > 2500 &&
+                !(previousWarp != WarpStage.None && WarpStage != WarpStage.None))
             {
                 _points.Clear();
                 sampleTime = receivedAt;
@@ -127,6 +136,8 @@ public sealed class ShipTrack
                 continue;
 
             var t = (float)((renderTime - a.Time) / Math.Max(0.0001, b.Time - a.Time));
+            if (a.ServerMs is { } serverA && b.ServerMs is { } serverB)
+                SampledServerSeconds = (serverA + (serverB - serverA) * (double)t) / 1000.0;
             SetPosition(Vec3d.Lerp(a.Position, b.Position, t), renderOrigin);
             Yaw = LerpAngle(a.Yaw, b.Yaw, t);
             Pitch = Mathf.Lerp(a.Pitch, b.Pitch, t);
@@ -138,6 +149,7 @@ public sealed class ShipTrack
 
         var last = _points[^1];
         var extrapolation = Math.Clamp(renderTime - last.Time, 0, 0.15);
+        if (last.ServerMs is { } lastServerMs) SampledServerSeconds = lastServerMs / 1000.0 + extrapolation;
         SetPosition(last.Position + new Vec3d(last.Velocity.X, last.Velocity.Y, last.Velocity.Z) * extrapolation, renderOrigin);
         Yaw = last.Yaw;
         Pitch = last.Pitch;
@@ -149,6 +161,10 @@ public sealed class ShipTrack
     public void Reset(Vec3d position, float yaw, float pitch)
     {
         _points.Clear();
+        SampledServerSeconds = 0;
+        WarpStage = WarpStage.None;
+        WarpProgress = 0;
+        WarpDestination = null;
         Cruising = false;
         CruiseInhibited = false;
         CruiseBraking = false;
@@ -172,6 +188,7 @@ public sealed class ShipTrack
 
     private void Apply(Point point, Vec3d renderOrigin)
     {
+        if (point.ServerMs is { } serverMs) SampledServerSeconds = serverMs / 1000.0;
         SetPosition(point.Position, renderOrigin);
         Yaw = point.Yaw;
         Pitch = point.Pitch;

@@ -47,7 +47,7 @@ public sealed class FlightModelTests
     {
         var world = NewWorld();
         var ship = world.AddPlayer("Racer");
-        ship.Position = Vec3d.Zero;
+        ship.Position = new Vec3d(0, 100_000, 0);
         ship.Yaw = Math.PI / 2;
         ship.Pitch = 0;
 

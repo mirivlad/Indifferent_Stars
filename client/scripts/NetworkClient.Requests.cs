@@ -7,7 +7,7 @@ namespace IndifferentStars.Client;
 public sealed partial class NetworkClient
 {
     private (uint Id, uint Target, double StartedAt, double LastResendAt)? _pendingScan;
-    private (uint Id, uint Target, ushort Distance, double StartedAt, double LastResendAt)? _pendingWarp;
+    private (uint Id, uint Target, IndifferentStars.Shared.Vec3d? Destination, double StartedAt, double LastResendAt)? _pendingWarp;
     private (uint Id, ushort Commodity, int Quantity, bool Buy, double StartedAt, double LastResendAt)? _pendingTrade;
     private double _lastPingSeconds;
 
@@ -61,15 +61,15 @@ public sealed partial class NetworkClient
         Send(new TradeRequestMessage(id, commodityId, quantity, buy));
     }
 
-    public void RequestWarp(uint targetId, ushort distance = 1000)
+    public void RequestWarp(uint targetId, IndifferentStars.Shared.Vec3d? destination = null)
     {
         if (State != ConnectionState.Connected || _pendingWarp.HasValue)
             return;
 
         var now = NowSeconds();
         var id = _requestSequence++;
-        _pendingWarp = (id, targetId, distance, now, now);
-        Send(new WarpRequestMessage(id, targetId, distance));
+        _pendingWarp = (id, targetId, destination, now, now);
+        Send(new WarpRequestMessage(id, targetId, destination));
     }
 
     private void UpdatePendingRequests()
@@ -106,8 +106,8 @@ public sealed partial class NetworkClient
             }
             else if (now - warp.LastResendAt > 0.4)
             {
-                _pendingWarp = (warp.Id, warp.Target, warp.Distance, warp.StartedAt, now);
-                Send(new WarpRequestMessage(warp.Id, warp.Target, warp.Distance));
+                _pendingWarp = (warp.Id, warp.Target, warp.Destination, warp.StartedAt, now);
+                Send(new WarpRequestMessage(warp.Id, warp.Target, warp.Destination));
             }
         }
 
