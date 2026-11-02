@@ -32,5 +32,46 @@ fi
 RESOLUTION="${IS_RESOLUTION:-1600x900}"
 
 dotnet build client/IndifferentStars.Client.csproj --nologo -v minimal
-"$GODOT" --headless --path client --editor --import
+check_log="$(mktemp /tmp/indifferent-stars-resources-XXXXXX.log)"
+trap 'rm -f -- "$check_log"' EXIT
+verified_message='Client resources verified: models, music, icon, C# client and main scene.'
+verify_client_resources() {
+    "$GODOT" --headless --path client --script res://tools/verify_resources.gd "$@" >"$check_log" 2>&1 &&
+        grep -Fxq "$verified_message" "$check_log" &&
+        ! grep -Eq 'ERROR:|Parse Error' "$check_log"
+}
+if ! verify_client_resources; then
+    import_log="$(mktemp /tmp/indifferent-stars-import-XXXXXX.log)"
+    echo "Importing client resources. Log: $import_log"
+    import_status=0
+    "$GODOT" --headless --path client --editor --import >"$import_log" 2>&1 || import_status=$?
+    if [[ "$import_status" == 0 ]]; then
+        if grep -Eq 'ERROR:|Parse Error' "$import_log"; then
+            cat "$import_log" >&2
+            exit 1
+        fi
+    else
+        # Accept only the observed editor shutdown crash, then independently verify its output.
+        if [[ "$import_status" != 134 && "$import_status" != 139 ]] ||
+            ! grep -Fq 'is_cmdline_mode (editor/editor_node.cpp:' "$import_log" ||
+            ! grep -Fq 'handle_crash: Program crashed with signal 11' "$import_log" ||
+            ! grep -Fq 'loading_editor_layout' "$import_log" ||
+            ! grep -Fq 'ERROR: Parameter "singleton" is null.' "$import_log" ||
+            ! awk '/ERROR:/ && !/ERROR: Parameter "singleton" is null\./ { bad=1 } /SCRIPT ERROR:|Parse Error/ { bad=1 } END { exit bad }' "$import_log"; then
+            cat "$import_log" >&2
+            exit "$import_status"
+        fi
+    fi
+    if ! verify_client_resources -- --record; then
+        cat "$check_log" >&2
+        echo "Client preparation failed. Import log: $import_log" >&2
+        exit 1
+    fi
+    if [[ "$import_status" != 0 ]]; then
+        echo "Warning: Godot's import editor crashed during shutdown; independent runtime resource checks passed. Log: $import_log" >&2
+    fi
+fi
+cat "$check_log"
+rm -f -- "$check_log"
+trap - EXIT
 exec "$GODOT" --path client --resolution "$RESOLUTION" -- "$@"
