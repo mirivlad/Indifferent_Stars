@@ -1,0 +1,41 @@
+{
+  "asset": "station_kestrel",
+  "source": "tools/art/build_station.py",
+  "seed": 20261102,
+  "blender": "5.2.2 LTS",
+  "provenance": "original project geometry, textures and markings; no third-party assets",
+  "license": "distribution license follows the project owner's decision; not yet declared in repository",
+  "model_scale_metres": 55,
+  "docking_point_metres": [
+    0,
+    260,
+    0
+  ],
+  "triangles": 11692,
+  "mesh_nodes": 10,
+  "materials": 6,
+  "texture_size": 1024,
+  "texture_files": [
+    "Hull_base.png",
+    "Hull_normal.png",
+    "Hull_orm.png",
+    "Safety_base.png",
+    "Safety_normal.png",
+    "Safety_orm.png",
+    "Solar_base.png",
+    "Solar_normal.png",
+    "Solar_orm.png",
+    "Structure_base.png",
+    "Structure_normal.png",
+    "Structure_orm.png",
+    "Thermal_base.png",
+    "Thermal_normal.png",
+    "Thermal_orm.png",
+    "Windows_base.png",
+    "Windows_emission.png",
+    "Windows_normal.png",
+    "Windows_orm.png"
+  ],
+  "glb_sha256": "f6c48ab31c7f7767f99724b48b51c752610e61075ac2b510d219c4f8001dcfde",
+  "generator_sha256": "ddbd62e1d7243aad1479464bd36bc9eeffe265a70f320ae472af51331b91dc26"
+}

@@ -1,4 +1,5 @@
 using IndifferentStars.Shared;
+using IndifferentStars.Shared.Collision;
 using IndifferentStars.Shared.World;
 using IndifferentStars.Simulation;
 
@@ -6,6 +7,35 @@ namespace IndifferentStars.Tests;
 
 public sealed class DockingTests
 {
+    [Fact]
+    public void ServiceBerthIsFixedOnTheSpinAxisAndClearOfTheHull()
+    {
+        var catalog = WorldCatalog.Generate(12345);
+        var world = new GameWorld(catalog);
+        var a = world.AddPlayer("Port");
+        var b = world.AddPlayer("Starboard");
+        b.Position = new Vec3d(-500, 400, 0);
+        Assert.True(world.RequestDocking(a.Id, (uint)catalog.Station.Id));
+        Assert.False(world.RequestDocking(b.Id, (uint)catalog.Station.Id));
+        Assert.Equal(catalog.Station.Position + ModelPose.StationDockingOffset, a.DockingPoint);
+        var point = a.DockingPoint;
+        Assert.Equal<Vec3d?>(point, world.BuildSnapshot(a.Id).Single(entity => entity.Id == a.Id).ApproachPoint);
+        Assert.True(world.StartMove(a.Id, new Vec3d(1000, 500, 0)));
+        Assert.True(world.RequestDocking(b.Id, (uint)catalog.Station.Id));
+        Assert.Equal(point, b.DockingPoint);
+        Assert.True(world.StartApproach(b.Id, (uint)catalog.Station.Id, false));
+        Assert.True(world.RequestDocking(a.Id, (uint)catalog.Station.Id));
+        a.Position = a.DockingPoint;
+        a.Velocity = Vec3d.Zero;
+        world.Tick(.05);
+        Assert.True(a.Docked);
+        Assert.False(world.RequestDocking(b.Id, (uint)catalog.Station.Id));
+        Assert.True(world.Undock(a.Id));
+        Assert.True(world.RequestDocking(b.Id, (uint)catalog.Station.Id));
+        foreach (var seconds in new[] { 0.0, 60.0, 400.0 })
+            Assert.True(WorldSurfaces.Body(catalog, catalog.Station, seconds).Distance(a.DockingPoint) > SurfaceMesh.Ship.Radius);
+    }
+
     [Fact]
     public void DockingRequiresPermissionPositionAndLowSpeedAndUndockResumesFlight()
     {

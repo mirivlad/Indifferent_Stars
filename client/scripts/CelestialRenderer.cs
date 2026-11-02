@@ -143,9 +143,9 @@ public sealed class CelestialRenderer
         RequiredFarPlane = Math.Max(400_000f, far * 1.25f);
 
         // Directional light arrives from the star; computed in real system coordinates.
-        var starOffset = _catalog.Star.SystemPosition - observerSystem;
-        var lightDirection = starOffset.Normalized();
-        _sunLight.Basis = Basis.LookingAt(ToVector3(lightDirection), Vector3.Up);
+        var lightDirection = ToVector3((observerSystem - _catalog.Star.SystemPosition).Normalized());
+        var lightUp = Mathf.Abs(lightDirection.Dot(Vector3.Up)) > 0.999f ? Vector3.Forward : Vector3.Up;
+        _sunLight.Basis = Basis.LookingAt(lightDirection, lightUp);
     }
 
     private void BuildStar(CelestialBody star)

@@ -36,6 +36,17 @@ public sealed partial class ShipTrackChecks : Node
             track.Push(Snapshot(2), 20, 1);
             track.Sample(20, Vec3d.Zero);
             Check(track.WorldPosition.X == 2, "Reconnect must accept a restarted server clock.");
+            var queued = new ShipTrack();
+            for(var i=0;i<7;i++) queued.Push(Snapshot(i*5),10.3,(ulong)(500_000+i*50));
+            queued.Sample(10.25,Vec3d.Zero);
+            Check(Math.Abs(queued.WorldPosition.X-25)<.001,
+                "A queued snapshot batch must not permanently add its backlog to input latency.");
+            var paused = new ShipTrack();
+            paused.Push(Snapshot(0),10,500_000);
+            paused.Push(Snapshot(5),11,500_050);
+            paused.Sample(10.975,Vec3d.Zero);
+            Check(Math.Abs(paused.WorldPosition.X-2.5)<.001,
+                "A server pause must restore interpolation instead of leaving a permanently extrapolated timeline.");
             var worldRoot = new Node3D();
             AddChild(worldRoot);
             var builder = new WorldBuilder(worldRoot, WorldCatalog.Generate(20261101), false);
@@ -67,7 +78,7 @@ public sealed partial class ShipTrackChecks : Node
             }
             worldRoot.QueueFree();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            GD.Print("ShipTrack checks passed: batched arrivals, stale packets, warp, reconnect.");
+            GD.Print("ShipTrack checks passed: batched arrivals, stale packets, queued backlog, pause recovery, warp, reconnect.");
             GD.Print("Streaming checks passed: unload, nearby belt, return.");
             GD.Print("Planet approach checks passed: angular growth and true-scale transition.");
             GetTree().Quit();

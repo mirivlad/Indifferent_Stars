@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Numerics;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Collision;
@@ -22,63 +23,107 @@ public static class SurfaceContact
         if (nearest.Length > radius) return null;
         var arcA = Angle(fromA, toA) * a.Radius * scaleA;
         var arcB = Angle(fromB, toB) * b.Radius * scaleB;
+        // A sphere containing the complete moving hull cannot reach this surface.
+        // Include B's entire rotational travel and the narrow-phase safety margin.
+        var localStart = SurfaceMesh.Rotate(relativeStart, Quaternion.Conjugate(fromB)) / scaleB;
+        var reach = a.Radius * scaleA + motion.Length + arcB + RotationTolerance + 1e-6;
+        if (!b.Root.Bounds.Expand(reach / scaleB).Intersects(new Bounds(localStart, localStart))) return null;
+        if (SurfaceQuery.Distance(b, localStart) * scaleB > reach) return null;
         var slices = Math.Max(1, (int)Math.Ceiling((arcA + arcB) / (2 * RotationTolerance)));
-        for (var slice = 0; slice < slices; slice++)
+        var cachedBounds = ArrayPool<Bounds>.Shared.Rent(a.NodeCount);
+        var boundsStamp = ArrayPool<int>.Shared.Rent(a.NodeCount);
+        var cachedTriangles = ArrayPool<Triangle>.Shared.Rent(a.Triangles.Length);
+        var triangleStamp = ArrayPool<int>.Shared.Rent(a.Triangles.Length);
+        Array.Clear(boundsStamp, 0, a.NodeCount);
+        Array.Clear(triangleStamp, 0, a.Triangles.Length);
+        try
         {
-            var begin = (double)slice / slices;
-            var end = (double)(slice + 1) / slices;
-            var mid = (float)((begin + end) * 0.5);
-            var qa = Quaternion.Slerp(fromA, toA, mid);
-            var inverseB = Quaternion.Conjugate(Quaternion.Slerp(fromB, toB, mid));
-            var rotation = inverseB * qa;
-            var offset = SurfaceMesh.Rotate(Vec3d.Lerp(relativeStart, relativeEnd, begin), inverseB) / scaleB;
-            var delta = SurfaceMesh.Rotate(motion / slices, inverseB) / scaleB;
-            var padding = (arcA + arcB) / (2 * slices * scaleB);
-            double? first = null;
-            Vec3d Transform(Vec3d point) => SurfaceMesh.Rotate(point * (scaleA / scaleB), rotation) + offset;
-            Bounds TransformBounds(Bounds bounds)
+            for (var slice = 0; slice < slices; slice++)
             {
-                var low = bounds.Min; var high = bounds.Max;
-                var corner = Transform(low);
-                var result = new Bounds(corner, corner);
-                for (var mask = 1; mask < 8; mask++)
+                var begin = (double)slice / slices;
+                var end = (double)(slice + 1) / slices;
+                var mid = (float)((begin + end) * 0.5);
+                var qa = Quaternion.Slerp(fromA, toA, mid);
+                var inverseB = Quaternion.Conjugate(Quaternion.Slerp(fromB, toB, mid));
+                var rotation = inverseB * qa;
+                var offset = SurfaceMesh.Rotate(Vec3d.Lerp(relativeStart, relativeEnd, begin), inverseB) / scaleB;
+                var delta = SurfaceMesh.Rotate(motion / slices, inverseB) / scaleB;
+                var padding = (arcA + arcB) / (2 * slices * scaleB);
+                double? first = null;
+                Vec3d Transform(Vec3d point) => SurfaceMesh.Rotate(point * (scaleA / scaleB), rotation) + offset;
+                Bounds TransformBounds(Bounds bounds)
                 {
-                    corner = Transform(new Vec3d((mask & 1) == 0 ? low.X : high.X,
-                        (mask & 2) == 0 ? low.Y : high.Y, (mask & 4) == 0 ? low.Z : high.Z));
-                    result = result.Union(new Bounds(corner, corner));
-                }
-                return result.Union(result.Move(delta)).Expand(padding + 1e-6);
-            }
-            void Visit(SurfaceMesh.Node nodeA, Bounds boundsA, SurfaceMesh.Node nodeB)
-            {
-                if (first <= 1e-6 || !boundsA.Intersects(nodeB.Bounds)) return;
-                if (nodeA.Left is not null && (nodeB.Left is null || nodeA.Count >= nodeB.Count))
-                {
-                    Visit(nodeA.Left, TransformBounds(nodeA.Left.Bounds), nodeB);
-                    Visit(nodeA.Right!, TransformBounds(nodeA.Right!.Bounds), nodeB);
-                    return;
-                }
-                if (nodeB.Left is not null)
-                {
-                    Visit(nodeA, boundsA, nodeB.Left);
-                    Visit(nodeA, boundsA, nodeB.Right!);
-                    return;
-                }
-                for (var ia = nodeA.Start; ia < nodeA.Start + nodeA.Count; ia++)
-                {
-                    var source = a.Triangles[ia];
-                    var triangle = new Triangle(Transform(source.A), Transform(source.B), Transform(source.C));
-                    for (var ib = nodeB.Start; ib < nodeB.Start + nodeB.Count; ib++)
+                    var low = bounds.Min; var high = bounds.Max;
+                    var corner = Transform(low);
+                    var result = new Bounds(corner, corner);
+                    for (var mask = 1; mask < 8; mask++)
                     {
-                        var hit = Triangles(triangle, b.Triangles[ib], delta, padding);
-                        if (hit is not null && (first is null || hit < first)) first = hit;
+                        corner = Transform(new Vec3d((mask & 1) == 0 ? low.X : high.X,
+                            (mask & 2) == 0 ? low.Y : high.Y, (mask & 4) == 0 ? low.Z : high.Z));
+                        result = result.Union(new Bounds(corner, corner));
+                    }
+                    return result.Union(result.Move(delta)).Expand(padding + 1e-6);
+                }
+                // Each pose is invariant for this slice, even when BVH pairs revisit A.
+                Bounds NodeBounds(SurfaceMesh.Node node)
+                {
+                    if (boundsStamp[node.Index] != slice + 1)
+                    {
+                        cachedBounds[node.Index] = TransformBounds(node.Bounds);
+                        boundsStamp[node.Index] = slice + 1;
+                    }
+                    return cachedBounds[node.Index];
+                }
+                Triangle TransformedTriangle(int index)
+                {
+                    if (triangleStamp[index] != slice + 1)
+                    {
+                        var source = a.Triangles[index];
+                        cachedTriangles[index] = new Triangle(Transform(source.A), Transform(source.B), Transform(source.C));
+                        triangleStamp[index] = slice + 1;
+                    }
+                    return cachedTriangles[index];
+                }
+                void Visit(SurfaceMesh.Node nodeA, Bounds boundsA, SurfaceMesh.Node nodeB)
+                {
+                    if (first <= 1e-6 || !boundsA.Intersects(nodeB.Bounds)) return;
+                    if (nodeA.Left is not null && (nodeB.Left is null || nodeA.Count >= nodeB.Count))
+                    {
+                        Visit(nodeA.Left, NodeBounds(nodeA.Left), nodeB);
+                        Visit(nodeA.Right!, NodeBounds(nodeA.Right!), nodeB);
+                        return;
+                    }
+                    if (nodeB.Left is not null)
+                    {
+                        Visit(nodeA, boundsA, nodeB.Left);
+                        Visit(nodeA, boundsA, nodeB.Right!);
+                        return;
+                    }
+                    for (var ia = nodeA.Start; ia < nodeA.Start + nodeA.Count; ia++)
+                    {
+                        var triangle = TransformedTriangle(ia);
+                        var triangleBounds = triangle.Bounds;
+                        var sweptBounds = triangleBounds.Union(triangleBounds.Move(delta)).Expand(padding + 1e-6);
+                        for (var ib = nodeB.Start; ib < nodeB.Start + nodeB.Count; ib++)
+                        {
+                            if (!sweptBounds.Intersects(b.TriangleBounds[ib])) continue;
+                            var hit = Triangles(triangle, b.Triangles[ib], delta, padding);
+                            if (hit is not null && (first is null || hit < first)) first = hit;
+                        }
                     }
                 }
+                Visit(a.Root, NodeBounds(a.Root), b.Root);
+                if (first is { } contact) return (slice + contact) / slices;
             }
-            Visit(a.Root, TransformBounds(a.Root.Bounds), b.Root);
-            if (first is { } contact) return (slice + contact) / slices;
+            return null;
         }
-        return null;
+        finally
+        {
+            ArrayPool<Bounds>.Shared.Return(cachedBounds);
+            ArrayPool<int>.Shared.Return(boundsStamp);
+            ArrayPool<Triangle>.Shared.Return(cachedTriangles);
+            ArrayPool<int>.Shared.Return(triangleStamp);
+        }
     }
 
     private static double Angle(Quaternion a, Quaternion b)

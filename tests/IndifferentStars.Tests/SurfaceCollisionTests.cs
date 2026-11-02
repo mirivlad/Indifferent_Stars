@@ -8,6 +8,25 @@ namespace IndifferentStars.Tests;
 
 public sealed class SurfaceCollisionTests
 {
+    [Fact]
+    public void MovingObstacleCannotBeCulledUsingOnlyItsStartingDistance()
+    {
+        Assert.NotNull(SurfaceContact.Sweep(SurfaceMesh.Ship, 1, Vec3d.Zero, Vec3d.Zero,
+            Quaternion.Identity, Quaternion.Identity, SurfaceMesh.Ship, 1,
+            new Vec3d(100,0,0), new Vec3d(-100,0,0), Quaternion.Identity, Quaternion.Identity));
+    }
+
+    [Fact]
+    public void RotatingObstacleCanSweepIntoASmallStationaryHull()
+    {
+        var position = new Vec3d(4.2,2,1.9);
+        double? Sweep(Quaternion rotation) => SurfaceContact.Sweep(SurfaceMesh.Ship, .1,
+            position, position, Quaternion.Identity, Quaternion.Identity,
+            SurfaceMesh.Ship, 1, Vec3d.Zero, Vec3d.Zero, Quaternion.Identity, rotation);
+        Assert.Null(Sweep(Quaternion.Identity));
+        Assert.NotNull(Sweep(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, (float)Math.PI / 2)));
+    }
+
     private static double? StationSweep(double x) => SurfaceContact.Sweep(
         SurfaceMesh.Ship, 1, new Vec3d(x, 100, 0), new Vec3d(x, -100, 0), Quaternion.Identity, Quaternion.Identity,
         SurfaceMesh.Station, 55, Vec3d.Zero, Vec3d.Zero, Quaternion.Identity, Quaternion.Identity);

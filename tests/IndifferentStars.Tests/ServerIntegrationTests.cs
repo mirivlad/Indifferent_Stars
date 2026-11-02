@@ -144,6 +144,9 @@ public sealed class ServerIntegrationTests
             Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer, _ => true));
             Send(pilot, new DockRequestMessage((uint)catalog.Station.Id, false));
             Assert.True(WaitFor<DockResultMessage>(pilot, reply => reply.Accepted)?.Accepted);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
+                entity => entity.Id == welcome!.PlayerId && entity.DockingGranted &&
+                    entity.ApproachPoint is { } point && point.Equals(catalog.Station.Position + ModelPose.StationDockingOffset))));
             uint sequence = 1;
             var docked = WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
                 entity => entity.Id == welcome!.PlayerId && entity.Docked), 30, () =>
@@ -157,6 +160,9 @@ public sealed class ServerIntegrationTests
                     Send(observer, new InputMessage(sequence++, 0, 0, 0, 0, false, false));
                 });
             Assert.NotNull(docked);
+            var dockedAt = Array.Find(docked!.Entities, entity => entity.Id == welcome!.PlayerId)!;
+            Assert.True(IndifferentStars.Shared.Vec3d.Distance(dockedAt.Position,
+                catalog.Station.Position + ModelPose.StationDockingOffset) <= 15);
             Send(pilot, new DockRequestMessage((uint)catalog.Station.Id, true));
             Assert.True(WaitFor<DockResultMessage>(pilot, reply => reply.Undock && reply.Accepted)?.Accepted);
             var dockedShip = Array.Find(docked!.Entities, entity => entity.Id == welcome!.PlayerId)!;
@@ -176,7 +182,8 @@ public sealed class ServerIntegrationTests
                     last = Array.Find(message.Entities, entity => entity.Id == welcome!.PlayerId);
                     return last is { } entity && !entity.Docked && entity.ApproachTargetId == 0 &&
                         entity.Velocity.Length < 3 &&
-                        IndifferentStars.Shared.Vec3d.Distance(entity.Position, catalog.Station.Position) < 180;
+                        WorldSurfaces.Body(catalog, catalog.Station, message.ServerTimeMs / 1000.0)
+                            .Distance(entity.Position) <= SurfaceMesh.Ship.Radius + .5;
                 }, 0.1);
             }
             Assert.True(impact is not null, $"Last observer state: {last}");

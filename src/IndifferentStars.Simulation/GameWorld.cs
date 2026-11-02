@@ -146,6 +146,7 @@ public sealed partial class GameWorld
             return false;
         player.ApproachTargetId = targetId;
         player.ApproachFollowing = follow;
+        player.DockingGranted = false;
         player.ApproachDestination = targetPosition + away * (targetRadius + 500);
         return true;
     }
@@ -156,12 +157,11 @@ public sealed partial class GameWorld
         var station = Catalog.Station;
         if (player is null || player.Docked || player.InWarp || targetId != (uint)station.Id)
             return false;
-        var away = (player.Position - station.Position).Normalized();
-        if (away.LengthSquared < 0.5)
+        if (_players.Values.Any(other => other.Id != playerId && (other.Docked || other.DockingGranted)))
             return false;
         player.DockingGranted = true;
         player.ApproachFollowing = false;
-        player.DockingPoint = station.Position + away * (station.Radius + 100);
+        player.DockingPoint = station.Position + ModelPose.StationDockingOffset;
         player.ApproachDestination = player.DockingPoint;
         player.ApproachTargetId = targetId;
         return true;
@@ -546,7 +546,7 @@ public sealed partial class GameWorld
         ship.FlightAssist,
         ship.ApproachTargetId != 0 && ship.ApproachFollowing,
         ship.Cruising,
-        ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null,
+        ship.DockingGranted ? ship.DockingPoint : ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null,
         ship.CruiseInhibited,
         ship.CruiseBraking,
         ship.WarpStage,
