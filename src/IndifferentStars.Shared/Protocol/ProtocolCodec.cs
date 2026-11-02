@@ -52,6 +52,7 @@ public static class ProtocolCodec
             case HelloMessage hello:
                 WriteGuid(writer, hello.ClientId);
                 WriteString(writer, hello.ClientName, ProtocolConstants.MaxNameBytes);
+                WriteString(writer, hello.GeometryHash, ProtocolConstants.MaxStringBytes);
                 break;
 
             case HelloAcceptedMessage accepted:
@@ -62,7 +63,7 @@ public static class ProtocolCodec
                 writer.Write(accepted.WorldSeed);
                 WriteString(writer, accepted.SystemName, ProtocolConstants.MaxStringBytes);
                 writer.Write(accepted.ScanRange);
-                writer.Write(accepted.WarpRange);
+                writer.Write(accepted.WarpClearance);
                 writer.Write(accepted.MaxSpeed);
                 writer.Write(accepted.ServerTick);
                 writer.Write(accepted.TickRate);
@@ -116,6 +117,10 @@ public static class ProtocolCodec
                     if (entity.ApproachPoint is { } point) WriteVec3(writer, point);
                     writer.Write(entity.CruiseInhibited);
                     writer.Write(entity.CruiseBraking);
+                    writer.Write((byte)entity.WarpStage);
+                    writer.Write(entity.WarpProgress);
+                    writer.Write(entity.WarpDestination.HasValue);
+                    if (entity.WarpDestination is { } warpDestination) WriteVec3(writer, warpDestination);
                 }
                 break;
 
@@ -146,7 +151,8 @@ public static class ProtocolCodec
             case WarpRequestMessage warpRequest:
                 writer.Write(warpRequest.RequestId);
                 writer.Write(warpRequest.TargetId);
-                writer.Write(warpRequest.ArrivalDistance);
+                writer.Write(warpRequest.Destination.HasValue);
+                if (warpRequest.Destination is { } destination) WriteVec3(writer, destination);
                 break;
 
             case WarpResultMessage warpResult:
@@ -154,7 +160,7 @@ public static class ProtocolCodec
                 writer.Write(warpResult.TargetId);
                 writer.Write(warpResult.Success);
                 WriteString(writer, warpResult.Message, ProtocolConstants.MaxStringBytes);
-                WriteVec3(writer, warpResult.NewPosition);
+                WriteVec3(writer, warpResult.Destination);
                 writer.Write(warpResult.Yaw);
                 writer.Write(warpResult.Pitch);
                 WriteString(writer, warpResult.RussianMessage, ProtocolConstants.MaxStringBytes);
@@ -270,7 +276,8 @@ public static class ProtocolCodec
             {
                 MessageType.Hello => new HelloMessage(
                     ReadGuid(reader),
-                    ReadString(reader, ProtocolConstants.MaxNameBytes)),
+                    ReadString(reader, ProtocolConstants.MaxNameBytes),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
                 MessageType.HelloAccepted => new HelloAcceptedMessage(
                     reader.ReadUInt32(),
@@ -322,7 +329,7 @@ public static class ProtocolCodec
                 MessageType.WarpRequest => new WarpRequestMessage(
                     reader.ReadUInt32(),
                     reader.ReadUInt32(),
-                    reader.ReadUInt16()),
+                    ReadOptionalVec3(reader)),
 
                 MessageType.WarpResult => new WarpResultMessage(
                     reader.ReadUInt32(),
@@ -387,6 +394,20 @@ public static class ProtocolCodec
         return true;
     }
 
+    private static WarpStage ReadWarpStage(BinaryReader reader)
+    {
+        var value = (WarpStage)reader.ReadByte();
+        if (!Enum.IsDefined(value)) throw new InvalidDataException("Invalid warp stage.");
+        return value;
+    }
+
+    private static float ReadProgress(BinaryReader reader)
+    {
+        var value = reader.ReadSingle();
+        if (!float.IsFinite(value) || value < 0 || value > 1) throw new InvalidDataException("Invalid warp progress.");
+        return value;
+    }
+
     private static SnapshotMessage ReadSnapshot(BinaryReader reader)
     {
         var tick = reader.ReadUInt64();
@@ -420,7 +441,10 @@ public static class ProtocolCodec
                 reader.ReadBoolean(),
                 ReadOptionalVec3(reader),
                 reader.ReadBoolean(),
-                reader.ReadBoolean());
+                reader.ReadBoolean(),
+                ReadWarpStage(reader),
+                ReadProgress(reader),
+                ReadOptionalVec3(reader));
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

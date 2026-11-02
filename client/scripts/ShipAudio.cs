@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Godot;
+using IndifferentStars.Shared.Protocol;
 
 namespace IndifferentStars.Client;
 
@@ -29,6 +30,8 @@ public sealed partial class ShipAudio : Node
     private double _phase;
     private double _radioTimer = 48;
     private float _load;
+    private float _warpEnergy;
+    private double _warpPhase;
     private bool _previousBrake;
     private bool _stopped;
 
@@ -57,6 +60,17 @@ public sealed partial class ShipAudio : Node
         _effects = MakeCuePlayer("Effects", 160);
         _ui = MakeCuePlayer("UI", 540);
         _radio = MakeCuePlayer("Radio", 760);
+    }
+
+    public void SetWarp(WarpStage stage, float progress)
+    {
+        _warpEnergy = stage switch
+        {
+            WarpStage.Charging => progress,
+            WarpStage.Travel => 1,
+            WarpStage.Exit or WarpStage.Recovery => 1 - progress,
+            _ => 0,
+        };
     }
 
     public void SetFlight(float throttle, float maneuver, bool boosting, bool braking)
@@ -107,6 +121,9 @@ public sealed partial class ShipAudio : Node
             var sample = (float)((Math.Sin(_phase) + 0.22 * Math.Sin(_phase * 2.03)) * (0.025 + _load * 0.07)
                 + Math.Sin(_phase * 4.7) * _maneuver * 0.012
                 + (_boosting ? Math.Sin(_phase * 0.51) * 0.025 : 0));
+            _warpPhase += Math.Tau * (80 + _warpEnergy * 220) / 22050;
+            if (_warpPhase > Math.Tau) _warpPhase -= Math.Tau;
+            sample += (float)(Math.Sin(_warpPhase) * Math.Sin(_warpPhase * 0.503) * _warpEnergy * 0.06);
             frames[i] = new Vector2(sample, sample);
         }
         _enginePlayback.PushBuffer(frames);

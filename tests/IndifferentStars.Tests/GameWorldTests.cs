@@ -75,20 +75,21 @@ public sealed class GameWorldTests
     }
 
     [Fact]
-    public void WarpRequiresRangeAndCooldown()
+    public void WarpIsAnAuthoritativeStateAndRejectsConcurrentRequests()
     {
         var (world, ship) = NewWorldWithPlayer();
-        var stationId = (uint)world.Catalog.Asteroids
-            .OrderBy(a => Vec3d.Distance(a.Position, ship.Position))
-            .First().Id;
+        var stationId = (uint)world.Catalog.Planet.Id;
 
+        ship.Position = new Vec3d(0, 100_000, 0);
+        var before = ship.Position;
         var first = world.Warp(ship.Id, stationId);
         Assert.True(first.Success, first.Message);
-        Assert.True(Vec3d.Distance(first.NewPosition, world.Catalog.Asteroids.First(a => a.Id == (int)stationId).Position) < 5000);
+        Assert.Equal(before, ship.Position);
+        Assert.NotEqual(before, first.Destination);
 
         var second = world.Warp(ship.Id, stationId);
         Assert.False(second.Success);
-        Assert.Contains("recharging", second.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("progress", second.Message, StringComparison.OrdinalIgnoreCase);
 
         Assert.False(world.Warp(123456, stationId).Success);
         Assert.False(world.Warp(ship.Id, 999999).Success);
@@ -118,7 +119,7 @@ public sealed class GameWorldTests
 
         var warp = world.Warp(ship.Id, (uint)planet.Id);
         Assert.False(warp.Success);
-        Assert.Contains("cruise", warp.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1 km", warp.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

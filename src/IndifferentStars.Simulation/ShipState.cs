@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using IndifferentStars.Shared;
+using IndifferentStars.Shared.Protocol;
 
 namespace IndifferentStars.Simulation;
 
@@ -46,7 +47,14 @@ public sealed class ShipState
     public bool DockingGranted { get; set; }
     public bool Docked { get; set; }
     public Vec3d DockingPoint { get; set; }
-    public double LastWarpAtSeconds { get; set; } = -1000;
+    public WarpStage WarpStage { get; set; }
+    public float WarpProgress { get; set; }
+    public Vec3d WarpStart { get; set; }
+    public Vec3d WarpDestination { get; set; }
+    public double WarpStartedAt { get; set; }
+    public Quaternion WarpInitialOrientation { get; set; }
+    public Quaternion WarpOrientation { get; set; }
+    public bool InWarp => WarpStage != WarpStage.None;
     public NpcRoute? Route { get; set; }
 
     public Vec3d Forward

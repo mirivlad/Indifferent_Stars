@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
+using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Client;
 
@@ -26,13 +27,9 @@ public sealed partial class WorldBuilder
             for (var i = 0; i < asteroids.Length; i++)
             {
                 var body = asteroids[i];
-                var random = new Random(unchecked(Catalog.Seed * 397 ^ body.Id));
-                var rotation = new Vector3(
-                    (float)(random.NextDouble() * Math.PI * 2),
-                    body.Rotation,
-                    (float)(random.NextDouble() * Math.PI * 2 - Math.PI));
-                var scale = (float)(body.Radius * 1.08);
-                var basis = Basis.FromEuler(rotation).Scaled(Vector3.One * scale);
+                var rotation = ModelPose.AsteroidRotation(body, Catalog.Seed);
+                var scale = (float)ModelPose.AsteroidScale(body);
+                var basis = new Basis(new Quaternion(rotation.X, rotation.Y, rotation.Z, rotation.W)).Scaled(Vector3.One * scale);
                 multiMesh.SetInstanceTransform(i, new Transform3D(basis, ToVector3(body.Position)));
             }
 
@@ -64,58 +61,6 @@ public sealed partial class WorldBuilder
                 return meshes;
         }
 
-        var fallback = new List<Mesh>();
-        for (var i = 0; i < 3; i++)
-        {
-            fallback.Add(new SphereMesh
-            {
-                Radius = 1.0f,
-                Height = 2.0f,
-                RadialSegments = 9 + i * 2,
-                Rings = 6 + i,
-            });
-        }
-        return fallback.ToArray();
-    }
-
-    private static void BuildFallbackStation(Node3D parent)
-    {
-        var hull = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.55f, 0.58f, 0.62f),
-            Metallic = 0.6f,
-            Roughness = 0.4f,
-        };
-        var dark = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.07f, 0.08f, 0.10f),
-            Metallic = 0.8f,
-            Roughness = 0.35f,
-        };
-        var glow = new StandardMaterial3D
-        {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            AlbedoColor = new Color(0.45f, 0.9f, 1.0f),
-            EmissionEnabled = true,
-            Emission = new Color(0.3f, 0.8f, 1.0f),
-            EmissionEnergyMultiplier = 6.0f,
-        };
-
-        parent.AddChild(new MeshInstance3D
-        {
-            Mesh = new CylinderMesh { TopRadius = 65, BottomRadius = 65, Height = 150, RadialSegments = 32 },
-            MaterialOverride = hull,
-        });
-        parent.AddChild(new MeshInstance3D
-        {
-            Mesh = new TorusMesh { InnerRadius = 165, OuterRadius = 210, Rings = 64, RingSegments = 24 },
-            MaterialOverride = dark,
-        });
-        parent.AddChild(new MeshInstance3D
-        {
-            Mesh = new SphereMesh { Radius = 8, Height = 16, RadialSegments = 12, Rings = 8 },
-            MaterialOverride = glow,
-            Position = new Vector3(0, 110, 0),
-        });
+        throw new InvalidOperationException("Asteroid GLB meshes are required for matching collision geometry.");
     }
 }

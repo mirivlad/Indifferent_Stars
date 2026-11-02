@@ -21,6 +21,7 @@ public sealed partial class ShipTrackChecks : Node
             track.Push(Snapshot(5), 10.1, 500_050);
             track.Push(Snapshot(10), 10.1, 500_100);
             track.Sample(10.075, Vec3d.Zero);
+            Check(Math.Abs(track.SampledServerSeconds - 500.075) < 0.00001, "Station and ship must share the sampled server time.");
             Check(Math.Abs(track.WorldPosition.X - 7.5) < 0.001, "Batched arrivals must retain server sample spacing.");
             track.Push(Snapshot(-100, true), 10.2, 500_050);
             track.Push(Snapshot(-200, true), 10.2, 500_100);
@@ -43,7 +44,11 @@ public sealed partial class ShipTrackChecks : Node
             Check(builder.LoadedAsteroidSectors == 0, "Distant asteroid sectors must unload.");
             builder.Process(0, new Vec3d(0, 0, 35_000), Vec3d.Zero);
             Check(builder.LoadedAsteroidSectors == 1, "Only the nearby belt should load.");
-            builder.Process(0, Vec3d.Zero, Vec3d.Zero);
+            builder.Process(0, Vec3d.Zero, Vec3d.Zero, 123.5);
+            var stationRotation = IndifferentStars.Shared.Collision.ModelPose.StationRotation(builder.Catalog.Station, 123.5);
+            var renderedRotation = builder.StationNode.Quaternion;
+            Check(Math.Abs(renderedRotation.Dot(new Quaternion(stationRotation.X, stationRotation.Y, stationRotation.Z, stationRotation.W))) > 0.99999,
+                "Station rendering must use the same authoritative rotation as collision.");
             Check(builder.LoadedAsteroidSectors == 2, "Returning must reload nearby sectors.");
             var catalog = WorldCatalog.Generate(20261101);
             var celestial = new CelestialRenderer(worldRoot, catalog, false);

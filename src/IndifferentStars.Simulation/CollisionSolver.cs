@@ -3,11 +3,9 @@ using IndifferentStars.Shared;
 
 namespace IndifferentStars.Simulation;
 
-/// <summary>Continuous sphere contacts; all lengths are in metres.</summary>
+/// <summary>Analytic sphere contact for celestial surfaces; all lengths are in metres.</summary>
 public static class CollisionSolver
 {
-    public const double ShipRadius = 10;
-
     public static double? ContactTime(Vec3d start, Vec3d end, Vec3d center, double radius)
     {
         var offset = start - center;
@@ -27,7 +25,7 @@ public static class CollisionSolver
 
     public static void Stop(ShipState ship, Vec3d start, double time)
     {
-        ship.Position = start + (ship.Position - start) * Math.Max(0, time - 1e-6);
+        ship.Position = start + (ship.Position - start) * Math.Max(0, time - 1e-7);
         ship.Velocity = Vec3d.Zero;
         ship.Throttle = 0;
         ship.Boosting = false;

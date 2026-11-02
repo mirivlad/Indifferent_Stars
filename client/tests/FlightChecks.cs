@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Godot;
 using IndifferentStars.Client;
 using IndifferentStars.Shared;
+using IndifferentStars.Shared.Protocol;
 using IndifferentStars.Shared.World;
 using IndifferentStars.Simulation;
 
@@ -104,9 +105,9 @@ public sealed partial class FlightChecks : Node
             for (var i = 0; i < 50 && tactical.TargetId != catalog.Planet.Id; i++) { Tap(Key.Tab); await Pause(0.06); }
             Check(tactical.TargetId == catalog.Planet.Id, "Keyboard targeting must include the known planet.");
             Tap(Key.X);
-            await Pause(2);
+            await Pause(8);
             var navigation = SurfaceNavigation.Measure(catalog.LocalFrameOrigin + pilot.Track.WorldPosition, Vec3d.Zero, catalog.Planet);
-            Check(Math.Abs(navigation.DistanceMetres - catalog.Planet.AtmosphereHeight - 10_000) < 1, "Warp must arrive 10 km above atmosphere.");
+            Check(Math.Abs(navigation.DistanceMetres - catalog.Planet.AtmosphereHeight - WarpFlight.Clearance - IndifferentStars.Shared.Collision.SurfaceMesh.Ship.Radius) < 1, "Warp must arrive with 1 km hull clearance above atmosphere.");
             Check(pilot.Track.Velocity.Length() < 0.1f && !pilot.Track.Cruising, "Warp must stop the ship and cancel cruise.");
             Tap(Key.Home); await Pause(1); await Capture(output, "arrival_tactical");
             Tap(Key.F2); await Pause(1); await Capture(output, "arrival_external");

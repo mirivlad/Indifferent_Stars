@@ -1,4 +1,5 @@
 using System;
+using IndifferentStars.Shared.Collision;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -32,14 +33,14 @@ public sealed class ServerIntegrationTests
             using var pilot = new UdpClient(AddressFamily.InterNetwork);
             using var observer = new UdpClient(AddressFamily.InterNetwork);
             pilot.Connect(server.LocalEndpoint); observer.Connect(server.LocalEndpoint);
-            Send(pilot, new HelloMessage(Guid.NewGuid(), "Cruise pilot"));
+            Send(pilot, new HelloMessage(Guid.NewGuid(), "Cruise pilot", SurfaceMesh.Fingerprint));
             var welcome = WaitFor<HelloAcceptedMessage>(pilot, _ => true);
             Assert.NotNull(welcome);
             Send(pilot, new CommsRequestMessage((uint)catalog.Station.Id));
             var comms = WaitFor<CommsResultMessage>(pilot, reply => reply.Success);
             Assert.NotNull(comms);
             Assert.Contains("диспетчер", comms!.RussianMessage);
-            Send(observer, new HelloMessage(Guid.NewGuid(), "Observer"));
+            Send(observer, new HelloMessage(Guid.NewGuid(), "Observer", SurfaceMesh.Fingerprint));
             Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer, _ => true));
             Send(pilot, new InputMessage(1, 127, 0, 0, 0, false, false, Cruise: true));
             var snapshot = WaitFor<SnapshotMessage>(observer, message =>
@@ -52,11 +53,11 @@ public sealed class ServerIntegrationTests
             Send(pilot, new InputMessage(2, 127, 0, 0, 0, true, false));
             Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => System.Array.Exists(message.Entities,
                 entity => entity.Id == welcome!.PlayerId && !entity.CruiseInhibited && !entity.Cruising && entity.Velocity.Length > 0)));
-            Send(pilot, new WarpRequestMessage(12, (uint)catalog.Planet.Id, 10000));
+            Send(pilot, new WarpRequestMessage(12, (uint)catalog.Planet.Id));
             var rejected = WaitFor<WarpResultMessage>(pilot, message => message.RequestId == 12);
             Assert.NotNull(rejected);
             Assert.False(rejected!.Success);
-            Assert.Contains("cruise", rejected.Message);
+            Assert.Contains("1 km", rejected.Message);
             var destination = new IndifferentStars.Shared.Vec3d(-30_000, 260, 0);
             Send(pilot, new ApproachRequestMessage(0, Waypoint: destination));
             Assert.True(WaitFor<ApproachResultMessage>(pilot, message => message.TargetId == 0)?.Accepted);
@@ -88,7 +89,7 @@ public sealed class ServerIntegrationTests
             using var udp = new UdpClient(AddressFamily.InterNetwork);
             udp.Connect(server.LocalEndpoint);
 
-            Send(udp, new HelloMessage(Guid.NewGuid(), "Integration Trader"));
+            Send(udp, new HelloMessage(Guid.NewGuid(), "Integration Trader", SurfaceMesh.Fingerprint));
             Assert.NotNull(WaitFor<HelloAcceptedMessage>(udp, _ => true));
             var snapshot = WaitFor<SnapshotMessage>(udp, message => message.Tick > 0);
             Assert.NotNull(snapshot);
@@ -136,10 +137,10 @@ public sealed class ServerIntegrationTests
             using var pilot = new UdpClient(AddressFamily.InterNetwork);
             using var observer = new UdpClient(AddressFamily.InterNetwork);
             pilot.Connect(server.LocalEndpoint); observer.Connect(server.LocalEndpoint);
-            Send(pilot, new HelloMessage(Guid.NewGuid(), "Dock pilot"));
+            Send(pilot, new HelloMessage(Guid.NewGuid(), "Dock pilot", SurfaceMesh.Fingerprint));
             var welcome = WaitFor<HelloAcceptedMessage>(pilot, _ => true);
             Assert.NotNull(welcome);
-            Send(observer, new HelloMessage(Guid.NewGuid(), "Observer"));
+            Send(observer, new HelloMessage(Guid.NewGuid(), "Observer", SurfaceMesh.Fingerprint));
             Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer, _ => true));
             Send(pilot, new DockRequestMessage((uint)catalog.Station.Id, false));
             Assert.True(WaitFor<DockResultMessage>(pilot, reply => reply.Accepted)?.Accepted);
@@ -173,11 +174,75 @@ public sealed class ServerIntegrationTests
                 impact = WaitFor<SnapshotMessage>(observer, message =>
                 {
                     last = Array.Find(message.Entities, entity => entity.Id == welcome!.PlayerId);
-                    return last is { } entity && !entity.Docked && entity.Velocity.Length < 0.01 &&
+                    return last is { } entity && !entity.Docked && entity.ApproachTargetId == 0 &&
+                        entity.Velocity.Length < 3 &&
                         IndifferentStars.Shared.Vec3d.Distance(entity.Position, catalog.Station.Position) < 180;
                 }, 0.1);
             }
             Assert.True(impact is not null, $"Last observer state: {last}");
+        }
+        finally
+        {
+            cancellation.Cancel();
+            Assert.True(thread.Join(TimeSpan.FromSeconds(3)));
+        }
+    }
+
+    [Fact]
+    public void TwoClientsObserveUnifiedWarpAndDuplicateRequestsDoNotRestartIt()
+    {
+        var catalog = WorldCatalog.Generate(20261101);
+        var world = new GameWorld(catalog);
+        using var server = new UdpGameServer(new ServerConfig { BindAddress = "127.0.0.1", Port = 0 }, catalog, world);
+        using var cancellation = new CancellationTokenSource();
+        var thread = new Thread(() => server.Run(cancellation.Token)) { IsBackground = true };
+        thread.Start();
+        try
+        {
+            using var pilot = new UdpClient(AddressFamily.InterNetwork);
+            using var observer = new UdpClient(AddressFamily.InterNetwork);
+            pilot.Connect(server.LocalEndpoint); observer.Connect(server.LocalEndpoint);
+            Send(pilot, new HelloMessage(Guid.NewGuid(), "Wrong geometry", "different"));
+            Assert.Contains("Geometry", WaitFor<HelloRejectedMessage>(pilot, _ => true)!.Reason);
+            Send(pilot, new HelloMessage(Guid.NewGuid(), "Warp pilot", SurfaceMesh.Fingerprint));
+            var welcome = WaitFor<HelloAcceptedMessage>(pilot, _ => true)!;
+            Send(observer, new HelloMessage(Guid.NewGuid(), "Observer", SurfaceMesh.Fingerprint));
+            Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer, _ => true));
+            uint sequence = 1;
+            void Heartbeat()
+            {
+                while (pilot.Available > 0)
+                {
+                    IPEndPoint sender = new(IPAddress.Any, 0);
+                    pilot.Receive(ref sender);
+                }
+                Send(pilot, new InputMessage(sequence++, 0, 0, 0, 0, false, false));
+                Send(observer, new InputMessage(sequence++, 0, 0, 0, 0, false, false));
+            }
+            Send(pilot, new ApproachRequestMessage(0, Waypoint: new IndifferentStars.Shared.Vec3d(0, 3000, 0)));
+            Assert.True(WaitFor<ApproachResultMessage>(pilot, reply => reply.Accepted)?.Accepted);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
+                entity => entity.Id == welcome.PlayerId && entity.Position.Y > 1800), 30, Heartbeat));
+            var destination = new IndifferentStars.Shared.Vec3d(0, 10000, 0);
+            var request = new WarpRequestMessage(42, 0, destination);
+            Send(pilot, request);
+            var accepted = WaitFor<WarpResultMessage>(pilot, reply => reply.RequestId == 42);
+            Assert.True(accepted?.Success, accepted?.Message);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
+                entity => entity.Id == welcome.PlayerId && entity.WarpStage == WarpStage.Charging), 3, Heartbeat));
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
+                entity => entity.Id == welcome.PlayerId && entity.WarpStage == WarpStage.Travel && entity.WarpProgress > 0.3), 5, Heartbeat));
+            Send(pilot, request);
+            Assert.Equal(accepted, WaitFor<WarpResultMessage>(pilot, reply => reply.RequestId == 42));
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
+                entity => entity.Id == welcome.PlayerId && entity.WarpStage == WarpStage.Exit), 5, Heartbeat));
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer, message => Array.Exists(message.Entities,
+                entity => entity.Id == welcome.PlayerId && entity.WarpStage == WarpStage.None &&
+                IndifferentStars.Shared.Vec3d.Distance(entity.Position, destination) < 0.01), 3, Heartbeat));
+            Send(pilot, new WarpRequestMessage(43, 0, new IndifferentStars.Shared.Vec3d(0, 5000, 5000)));
+            Assert.True(WaitFor<WarpResultMessage>(pilot, reply => reply.RequestId == 43)?.Success);
+            Send(pilot, request);
+            Assert.False(WaitFor<WarpResultMessage>(pilot, reply => reply.RequestId == 42)?.Success);
         }
         finally
         {

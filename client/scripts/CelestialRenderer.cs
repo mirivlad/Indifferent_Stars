@@ -96,7 +96,9 @@ public sealed class CelestialRenderer
 
             // Future transition: when a player really approaches the body, draw it at true
             // scale in sector coordinates instead of a scaled distant projection.
-            visual.TrueScale = surfaceDistance <= TrueScaleSurfaceDistance;
+            // Keep the stellar disc in the bounded sky projection: a billion-metre
+            // render frustum loses the foreground ship and breaks float plane extraction.
+            visual.TrueScale = body.Kind != CelestialKind.Star && surfaceDistance <= TrueScaleSurfaceDistance;
             visual.SurfaceDistance = surfaceDistance;
 
             Vector3 position;
@@ -203,7 +205,7 @@ public sealed class CelestialRenderer
             // A star is a point of light at one AU. A small artistic gain keeps its
             // photosphere legible as a disc without turning it into a red giant.
             AngularGain = 3.0f,
-            FixedDisplayDistance = 450_000,
+            FixedDisplayDistance = 150_000,
         });
     }
 

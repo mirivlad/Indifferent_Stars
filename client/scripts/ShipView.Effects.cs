@@ -62,6 +62,15 @@ public sealed partial class ShipView
 
     private void UpdateManeuverEffects(float delta, Vec3d renderOrigin, float thrust)
     {
+        if (Track.WarpStage != IndifferentStars.Shared.Protocol.WarpStage.None)
+        {
+            _effectsReady = false;
+            EngineBraking = false;
+            foreach (var (nozzle, _) in _maneuverJets) nozzle.Visible = false;
+            _ionTrail.UpdateTrail(delta, renderOrigin, Track.WorldPosition, Track.WorldPosition, false);
+            _ionTrail.Visible = false;
+            return;
+        }
         var acceleration = Vector3.Zero;
         var angular = Vector3.Zero;
         if (_effectsReady && delta > 0 && delta < 0.25f)
