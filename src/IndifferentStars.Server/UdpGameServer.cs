@@ -32,6 +32,7 @@ public sealed partial class UdpGameServer : IDisposable
     private bool _running = true;
     private double _lastTickSeconds;
     private double _lastSnapshotSeconds;
+    private double _lastSensorsSeconds;
     private double _lastMaintenanceSeconds;
     private double _lastStatsSeconds;
     private double _startedAtSeconds;
@@ -87,6 +88,17 @@ public sealed partial class UdpGameServer : IDisposable
                 _lastMaintenanceSeconds = now;
             }
 
+            if (now - _lastSensorsSeconds >= 1)
+            {
+                foreach (var session in _sessions.Values)
+                {
+                    var contacts = _world.BuildSensorContacts(session.PlayerId);
+                    for (var i = 0; i < contacts.Length; i += SensorContactsMessage.MaxContacts)
+                        Send(session.Endpoint, new SensorContactsMessage(_world.TickCount,
+                            contacts.Skip(i).Take(SensorContactsMessage.MaxContacts).ToArray()));
+                }
+                _lastSensorsSeconds = now;
+            }
             BroadcastActivities(now);
 
             if (now - _lastStatsSeconds >= 30)
@@ -171,6 +183,14 @@ public sealed partial class UdpGameServer : IDisposable
                 }
                 break;
 
+            case TransponderMessage transponder:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var transmitter) && transponder.Sequence > transmitter.TransponderSequence)
+                {
+                    transmitter.TransponderSequence = transponder.Sequence;
+                    transmitter.Ship.TransponderEnabled = transponder.Enabled;
+                    transmitter.LastSeenSeconds = now;
+                }
+                break;
             case ChatSendMessage chat:
                 if(_sessionsByEndpoint.TryGetValue(endpoint,out var author))HandleChat(author,chat,now);
                 break;

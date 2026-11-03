@@ -152,6 +152,7 @@ public sealed partial class GameMain : Node3D
         _net.WelcomeReceived += OnWelcome;
         _net.JoinRejected += OnJoinRejected;
         _net.SnapshotReceived += OnSnapshot;
+        _net.SensorsReceived += OnSensors;
         _net.CommsCompleted += reply =>
         {
             _audio.RadioCue();
@@ -613,7 +614,7 @@ public sealed partial class GameMain : Node3D
         if (_catalog.FindCelestial((int)_targetId) is not null)
             _contactMenu.AddItem(Locale.Text("context_orbit"),24);
         if (_catalog.Find((int)_targetId)?.Kind==BodyKind.Station) _contactMenu.AddItem(Locale.Text("context_dock"), 4);
-        if (_remoteShips.ContainsKey(_targetId)) _contactMenu.AddItem(Locale.Text("context_follow"), 7);
+        if (_remoteShips.ContainsKey(_targetId) || _sensorContacts.ContainsKey(_targetId)) _contactMenu.AddItem(Locale.Text("context_follow"), 7);
         _contactMenu.AddSeparator();
         _contactMenu.AddItem(Locale.Text("context_comms"), 10);
         _contactMenu.AddItem(Locale.Text("context_trade"), 11);
@@ -748,16 +749,15 @@ public sealed partial class GameMain : Node3D
         _tactical.ApproachPoint = _playerShip?.Track.WarpDestination ?? _playerShip?.Track.ApproachPoint;
 
         _tactical.Contacts.Clear();
-        foreach (var ship in _remoteShips.Values.Where(s => s.Track.HasData))
+        foreach (var contact in BuildContacts().Where(c => c.IsShip))
         {
+            var source = _sensorContacts.GetValueOrDefault(contact.Id)?.Source;
             _tactical.Contacts.Add(new TacticalContact
             {
-                Id = ship.Id,
-                Name = ship.DisplayName,
-                Kind = ship.Kind == EntityKind.Player ? "PLAYER" : "NPC",
-                Position = ship.Track.WorldPosition,
-                Color = ship.Kind == EntityKind.Player ? new Color(0.55f, 0.95f, 0.7f) : new Color(1.0f, 0.66f, 0.3f),
-                IsPlayer = ship.Kind == EntityKind.Player,
+                Id = contact.Id, Name = contact.Name, Kind = contact.Type, Position = contact.Position,
+                Color = source is ContactSource.LastKnown or ContactSource.Lost ? new Color(.4f,.45f,.5f) :
+                    source == ContactSource.DistantSignal ? new Color(.9f,.4f,.3f) : new Color(1,.7f,.3f),
+                IsPlayer = false,
             });
         }
 

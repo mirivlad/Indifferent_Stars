@@ -18,6 +18,7 @@ public sealed class ShipState
     public required uint Id { get; init; }
     public required string Name { get; init; }
     public bool IsPlayer { get; init; }
+    public bool TransponderEnabled { get; set; } = true;
     public string Role { get; init; } = "Courier";
 
     public Vec3d Position { get; set; }

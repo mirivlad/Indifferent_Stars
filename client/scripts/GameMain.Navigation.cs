@@ -105,7 +105,7 @@ public sealed partial class GameMain
         if(point.Position is { } position)return position;
         if(_catalog.Find((int)point.TargetId) is { } body)return body.Position;
         if(_catalog.FindCelestial((int)point.TargetId) is { } celestial)return celestial.SystemPosition-_catalog.LocalFrameOrigin;
-        return _remoteShips.TryGetValue(point.TargetId,out var ship)&&ship.Track.HasData?ship.Track.WorldPosition:null;
+        return FindContact(point.TargetId)?.Position;
     }
     private void UpdateNavigation()
     {
@@ -167,6 +167,10 @@ public sealed partial class GameMain
             (_remoteShips.TryGetValue(_targetId,out var actor)&&actor.Track.Activity is { } status?
                 Locale.Text("npc_job_"+status.Occupation.ToString().ToLowerInvariant())+" · "+Locale.Text("npc_phase_"+status.Phase.ToString().ToLowerInvariant())+"\n"+
                 (_catalog.Find((int)status.TargetId)?.Name??_catalog.FindCelestial((int)status.TargetId)?.Name??"")+"\n":"")+
+            (_sensorContacts.TryGetValue(_targetId,out var sensor) ?
+                SensorSource(sensor.Source)+" · "+Math.Max(0, _serverTick * .05 - sensor.ObservedAtMs/1000.0).ToString("F1")+" s\n"+
+                NavigationPanel.Distance(sensor.Velocity.Length)+"/s · "+sensor.Velocity.Normalized()+"\n"+
+                (_catalog.Find((int)sensor.DestinationId)?.Name??"")+"\n" : "")+
             Locale.Text("information_sensors"));
     }
 }

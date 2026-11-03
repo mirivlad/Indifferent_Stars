@@ -39,7 +39,7 @@ public sealed partial class GameWorld
             var celestial = Catalog.FindCelestial((int)targetId);
             if (targetShip?.Id == player.Id) return WarpFail(targetId, "warp_self");
             if (targetShip is not null && (targetShip.InWarp ||
-                Vec3d.Distance(player.Position, targetShip.Position) > WorldCatalog.RelevanceRange))
+                !CanLocate(player, targetShip)))
                 return WarpFail(targetId, "warp_unknown");
             if (targetShip is null && body is null && celestial is null) return WarpFail(targetId, "warp_unknown");
             minimum = celestial is not null ? NavigationLimits.CelestialWarpMinimum(celestial) : NavigationLimits.LocalWarpMinimum;

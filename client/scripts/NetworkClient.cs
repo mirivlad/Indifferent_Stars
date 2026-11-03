@@ -58,6 +58,7 @@ public sealed partial class NetworkClient : IDisposable
     public event Action<HelloAcceptedMessage>? WelcomeReceived;
     public event Action<HelloRejectedMessage>? JoinRejected;
     public event Action<SnapshotMessage>? SnapshotReceived;
+    public event Action<SensorContactsMessage>? SensorsReceived;
     public event Action<CommsResultMessage>? CommsCompleted;
     public event Action<ScanResultMessage>? ScanCompleted;
     public event Action? ScanTimedOut;
@@ -151,6 +152,8 @@ public sealed partial class NetworkClient : IDisposable
                     JoinRejected?.Invoke(rejected);
                     break;
 
+                case SensorContactsMessage sensors:
+                    SensorsReceived?.Invoke(sensors); break;
                 case SnapshotMessage snapshot:
                     if (_pendingRoute is { } pendingNavigation && Welcome is { } joined &&
                         snapshot.Entities.Any(e => e.Id == joined.PlayerId && e.RouteRevision == pendingNavigation.Message.RequestId))

@@ -22,6 +22,19 @@ public sealed partial class GameMain
         float Distance,
         float RelativeAltitude);
 
+    private readonly Dictionary<uint, SensorContact> _sensorContacts = new();
+    private ulong _sensorTick;
+    private void OnSensors(SensorContactsMessage message)
+    {
+        if (message.Tick < _sensorTick) return;
+        _sensorTick = message.Tick;
+        foreach (var contact in message.Contacts) _sensorContacts[contact.Id] = contact;
+    }
+    private ContactRef SensorRef(SensorContact contact, Vec3d player) => new(contact.Id,
+        contact.Name + " · " + SensorSource(contact.Source), "NPC", contact.Position, 8, true,
+        (float)Vec3d.Distance(player, contact.Position), (float)(contact.Position.Y-player.Y));
+    private static string SensorSource(ContactSource source) => Locale.Text("sensor_"+source.ToString().ToLowerInvariant());
+
     private ViewMode _requestedInitialView = ViewMode.External;
     private bool _hasRequestedInitialView;
     private string? _captureDir;
@@ -121,6 +134,7 @@ public sealed partial class GameMain
 
     private void OnWelcome(HelloAcceptedMessage welcome)
     {
+        _sensorContacts.Clear(); _sensorTick = 0;
         _playerId = welcome.PlayerId;
         _scanRange = welcome.ScanRange;
 
@@ -364,12 +378,15 @@ public sealed partial class GameMain
                 (float)(ship.Track.WorldPosition.Y - player.Y));
         }
 
+        if (_sensorContacts.TryGetValue(id, out var sensor)) return SensorRef(sensor, player);
         return null;
     }
 
     private List<ContactRef> BuildContacts()
     {
         var player = PlayerPosition();
+        foreach (var entry in _sensorContacts.ToArray())
+            if (_serverTick * .05 - entry.Value.ObservedAtMs / 1000.0 > 60) _sensorContacts.Remove(entry.Key);
         var contacts = new List<ContactRef>(_catalog.LocalBodies.Count + _remoteShips.Count);
         foreach (var body in _catalog.LocalBodies)
             contacts.Add(MakeContact(body, player));
@@ -390,6 +407,9 @@ public sealed partial class GameMain
                 (float)(ship.Track.WorldPosition.Y - player.Y)));
         }
 
+        foreach (var sensor in _sensorContacts.Values)
+            if (!_remoteShips.TryGetValue(sensor.Id, out var view) || !view.Track.HasData)
+                contacts.Add(SensorRef(sensor, player));
         return contacts;
     }
 

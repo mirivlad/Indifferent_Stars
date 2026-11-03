@@ -103,6 +103,7 @@ public sealed partial class GameWorld
     {
         _inputs.Remove(playerId);
         _accounts.Remove(playerId);
+        _sensorHistory.Remove(playerId);
         return _players.Remove(playerId);
     }
 
@@ -145,7 +146,7 @@ public sealed partial class GameWorld
         var player = GetPlayer(playerId);
         var body = Catalog.Find((int)targetId);
         var targetShip = _players.GetValueOrDefault(targetId) ?? _npcs.FirstOrDefault(n => n.Id == targetId);
-        if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null) || (targetShip is not null && (targetShip.InWarp || Vec3d.Distance(player.Position,targetShip.Position)>WorldCatalog.RelevanceRange)))
+        if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null) || (targetShip is not null && (targetShip.InWarp || !CanLocate(player, targetShip))))
             return false;
         var targetPosition = targetShip?.Position ?? body!.Position;
         var targetRadius = targetShip is null ? body!.Radius : 20;
@@ -339,7 +340,7 @@ public sealed partial class GameWorld
                 var targetShip = ship.ApproachFollowing
                     ? _players.GetValueOrDefault(ship.ApproachTargetId) ?? _npcs.FirstOrDefault(n => n.Id == ship.ApproachTargetId)
                     : null;
-                if (ship.ApproachFollowing && (targetShip is null || targetShip.InWarp || Vec3d.Distance(ship.Position,targetShip.Position)>WorldCatalog.RelevanceRange))
+                if (ship.ApproachFollowing && (targetShip is null || targetShip.InWarp || !CanLocate(ship, targetShip)))
                 {
                     ship.ApproachTargetId = 0;
                     ship.ApproachFollowing = false;
@@ -467,7 +468,7 @@ public sealed partial class GameWorld
         var station = body?.Kind==BodyKind.Station;
         var position = station ? body!.Position : npc?.Position;
         var success = player is not null && position is { } point &&
-            Vec3d.Distance(player.Position, point) <= WorldCatalog.RelevanceRange;
+            (station ? Vec3d.Distance(player.Position, point) <= WorldCatalog.DistantSensorRange : CanLocate(player, npc!));
         var key = !success ? "comms_unavailable" : station ? "comms_station" : "comms_npc";
         var name = station ? body!.Name : npc?.Name ?? "";
         return new CommsResultMessage(targetId, success,

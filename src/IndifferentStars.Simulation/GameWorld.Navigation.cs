@@ -52,7 +52,7 @@ public sealed partial class GameWorld
             return true;
         }
         var other = _players.GetValueOrDefault(stop.TargetId) ?? _npcs.FirstOrDefault(n => n.Id == stop.TargetId);
-        if (other is null || other.InWarp || Vec3d.Distance(ship.Position, other.Position) > WorldCatalog.RelevanceRange) return false;
+        if (other is null || other.InWarp || !CanLocate(ship, other)) return false;
         position = other.Position + (ship.Position - other.Position).Normalized() * 1500;
         return true;
     }

@@ -76,9 +76,11 @@ public sealed class SectorDefinition
 
 public sealed partial class WorldCatalog
 {
-    public const double ScanRange = 4200.0;
-    /// <summary>Dynamic entities farther than this are not sent to a client.</summary>
-    public const double RelevanceRange = 15000.0;
+    public const double ScanRange = 200_000.0;
+    public const double TacticalRange = 3_000_000;
+    public const double DistantSensorRange = 75_000_000;
+    /// <summary>Range of frequent detailed snapshots; sensors are replicated separately.</summary>
+    public const double RelevanceRange = 150_000.0;
     public const double MaxSpeed = 260.0;
     public const double CruiseSpeed = 20_000;
     public const double CruiseClearance = 10_000;

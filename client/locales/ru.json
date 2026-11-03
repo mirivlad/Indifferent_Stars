@@ -1,4 +1,10 @@
 {
+  "sensor_tactical": "Тактический · транспондер выключен",
+  "sensor_transponder": "Транспондер",
+  "sensor_distantsignal": "Неизвестный сигнал",
+  "sensor_lastknown": "Последняя позиция",
+  "sensor_lost": "Контакт потерян",
+
   "map_navigation_bearings":"НАПРАВЛЕНИЯ — НЕ ПОЗИЦИИ НА КАРТЕ",
   "map_body_altitude":"По высоте от корабля: {0:+0.0;-0.0;0.0} км",
   "map_ring_extent":"Кольца: {0:N0}–{1:N0} км от центра планеты",

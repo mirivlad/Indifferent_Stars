@@ -389,8 +389,6 @@ public sealed partial class TacticalView : Control
 
     private void DrawContactLabels(Vector2 center, float scale, Vector2 size)
     {
-        if (ZoomRange >= 1_000_000)
-            return;
         foreach (var contact in Contacts)
         {
             var screen = Project(center, scale, contact.Position);

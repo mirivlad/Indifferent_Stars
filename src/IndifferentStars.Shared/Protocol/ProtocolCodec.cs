@@ -88,6 +88,21 @@ public static class ProtocolCodec
                 writer.Write(input.Cruise);
                 break;
 
+            case TransponderMessage transponder:
+                writer.Write(transponder.Sequence); writer.Write(transponder.Enabled);
+                break;
+            case SensorContactsMessage sensors:
+                writer.Write(sensors.Tick);
+                if (sensors.Contacts.Length > SensorContactsMessage.MaxContacts) throw new ArgumentException("Too many contacts.");
+                writer.Write((byte)sensors.Contacts.Length);
+                foreach (var contact in sensors.Contacts)
+                {
+                    writer.Write(contact.Id); WriteString(writer, contact.Name, ProtocolConstants.MaxNameBytes);
+                    WriteVec3(writer, contact.Position); WriteVec3(writer, contact.Velocity);
+                    writer.Write((byte)contact.Source); writer.Write(contact.ObservedAtMs);
+                    writer.Write(contact.Transponder); writer.Write(contact.DestinationId);
+                }
+                break;
             case SnapshotMessage snapshot:
                 writer.Write(snapshot.Tick);
                 writer.Write(snapshot.ServerTimeMs);
@@ -347,6 +362,8 @@ public static class ProtocolCodec
                     reader.ReadBoolean()),
 
                 MessageType.Snapshot => ReadSnapshot(reader),
+                MessageType.SensorContacts => ReadSensors(reader),
+                MessageType.Transponder => new TransponderMessage(reader.ReadUInt32(), reader.ReadBoolean()),
 
                 MessageType.ChatSend => new ChatSendMessage(reader.ReadUInt32(),reader.ReadUInt16(),ReadString(reader,RadioChannels.MaxTextBytes)),
                 MessageType.ChatLine => ReadChatLine(reader),
@@ -438,6 +455,23 @@ public static class ProtocolCodec
         version = data[2];
         type = (MessageType)data[3];
         return true;
+    }
+
+    private static SensorContactsMessage ReadSensors(BinaryReader reader)
+    {
+        var tick = reader.ReadUInt64();
+        var count = reader.ReadByte();
+        if (count > SensorContactsMessage.MaxContacts) throw new InvalidDataException("Too many contacts.");
+        var contacts = new SensorContact[count];
+        for (var i = 0; i < count; i++)
+        {
+            var id = reader.ReadUInt32(); var name = ReadString(reader, ProtocolConstants.MaxNameBytes);
+            var position = ReadVec3(reader); var velocity = ReadVec3(reader);
+            var source = (ContactSource)reader.ReadByte();
+            if (!Enum.IsDefined(source)) throw new InvalidDataException("Invalid contact source.");
+            contacts[i] = new(id, name, position, velocity, source, reader.ReadUInt64(), reader.ReadBoolean(), reader.ReadUInt32());
+        }
+        return new(tick, contacts);
     }
 
     private static WarpStage ReadWarpStage(BinaryReader reader)

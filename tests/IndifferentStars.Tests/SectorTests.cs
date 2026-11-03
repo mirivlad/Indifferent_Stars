@@ -27,7 +27,7 @@ public sealed class SectorTests
         var world = new GameWorld(WorldCatalog.Generate(4321));
         var near = world.AddPlayer("Near");
         var far = world.AddPlayer("Far");
-        far.Position = world.Catalog.Sectors[1].Center;
+        far.Position = near.Position + new Vec3d(WorldCatalog.RelevanceRange + 1, 0, 0);
 
         var nearView = world.BuildSnapshot(near.Id);
         Assert.Contains(nearView, entity => entity.Id == near.Id);

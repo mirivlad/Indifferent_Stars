@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 20;
+    public const byte Version = 21;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -51,6 +51,8 @@ public enum MessageType : byte
     RouteResult = 28,
     OrbitRequest = 29,
     OrbitResult = 30,
+    SensorContacts = 31,
+    Transponder = 32,
 }
 
 public enum EntityKind : byte

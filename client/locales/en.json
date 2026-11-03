@@ -1,4 +1,10 @@
 {
+  "sensor_tactical": "Tactical · transponder off",
+  "sensor_transponder": "Transponder",
+  "sensor_distantsignal": "Unknown signal",
+  "sensor_lastknown": "Last known",
+  "sensor_lost": "Contact lost",
+
   "map_navigation_bearings":"BEARINGS — NOT POSITIONS ON THE MAP",
   "map_body_altitude":"Height relative to ship: {0:+0.0;-0.0;0.0} km",
   "map_ring_extent":"Rings: {0:N0}–{1:N0} km from planet centre",
