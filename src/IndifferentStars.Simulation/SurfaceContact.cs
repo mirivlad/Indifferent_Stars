@@ -273,9 +273,10 @@ public static class SurfaceContact
     {
         var q = Quaternion.Normalize(to * Quaternion.Conjugate(from));
         if (q.W < 0) q = new Quaternion(-q.X,-q.Y,-q.Z,-q.W);
-        var sine = Math.Sqrt(Math.Max(0,1-(double)q.W*q.W));
-        if (sine < 1e-7) return Vec3d.Zero;
-        return new Vec3d(q.X,q.Y,q.Z) * (2*Math.Acos(Math.Clamp(q.W,-1,1))/sine);
+        var vector = new Vec3d(q.X,q.Y,q.Z);
+        var sine = vector.Length;
+        if (sine < 1e-12) return Vec3d.Zero;
+        return vector * (2*Math.Atan2(sine,q.W)/sine);
     }
 
     private static Vec3d ContactPoint(Triangle a, Triangle b)

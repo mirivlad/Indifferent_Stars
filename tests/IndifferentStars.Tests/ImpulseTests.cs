@@ -41,6 +41,16 @@ public sealed class ImpulseTests
         CollisionSolver.Resolve(a,b,Vec3d.Zero,new(-1,0,0),Vec3d.Zero);
         Assert.True(a.Velocity.X<0);Assert.Equal(Vec3d.Zero,b.Velocity);Assert.Equal(Vec3d.Zero,b.AngularVelocity);
     }
+    [Theory]
+    [InlineData(.000001)]
+    [InlineData(.0001)]
+    [InlineData(.01)]
+    public void SmallAngularMotionSurvivesFloatQuaternionRounding(double angle)
+    {
+        var rotation=Quaternion.CreateFromAxisAngle(Vector3.UnitY,(float)angle);
+        var motion=SurfaceContact.AngularMotion(Quaternion.Identity,rotation);
+        Assert.InRange(motion.Y,angle-1e-8,angle+1e-8);
+    }
     [Fact]
     public void DetailedContactProvidesSurfacePointAndOutwardNormal()
     {
