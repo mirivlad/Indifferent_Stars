@@ -20,6 +20,9 @@ public sealed partial class ShipView : Node3D
     private readonly List<Vector3> _mainNozzles = new();
     private readonly List<(Vector3 Position, Vector3 Exhaust)> _maneuverSockets = new();
     private Node3D? _modelRoot;
+    private ImpactEffects _impacts = null!;
+    private uint _lastImpact;
+    public event Action<ImpactState>? ImpactOccurred;
     private float _glowPhase;
     private float _visualThrottle;
     private float _visualBoost;
@@ -52,6 +55,16 @@ public sealed partial class ShipView : Node3D
 
         GlobalTransform = new Transform3D(new Basis(Track.Orientation), Track.RenderPosition);
 
+        if(Track.Impact is { } impact && impact.Sequence!=_lastImpact)
+        {
+            _lastImpact=impact.Sequence;
+            if(Track.WarpStage==WarpStage.None)
+            {
+                _impacts.Trigger(impact,renderOrigin,_particles);
+                ImpactOccurred?.Invoke(impact);
+            }
+        }
+        _impacts.Step(delta,renderOrigin,_particles && Track.WarpStage==WarpStage.None);
         _glowPhase += delta * 6;
         var warp = Track.WarpStage != WarpStage.None;
         if (_modelRoot is not null)
@@ -210,6 +223,7 @@ public sealed partial class ShipView : Node3D
             }
         }
         BuildManeuverEffects();
+        _impacts=new ImpactEffects(IsPlayer);AddChild(_impacts);
     }
 
     private Transform3D ModelTransform(Node3D marker)

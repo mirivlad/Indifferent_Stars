@@ -86,5 +86,6 @@
   "warp_stage_3": "WARP EXIT {0:F0}%",
   "warp_stage_4": "SAFE RECOVERY {0:F0}%",
   "warp_engaged": "IN WARP",
-  "scan_timeout": "Scanner response timed out. Please try again."
+  "scan_timeout": "Scanner response timed out. Please try again.",
+  "impact_hit": "HULL IMPACT"
 }

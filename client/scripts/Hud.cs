@@ -41,6 +41,13 @@ public sealed partial class Hud : CanvasLayer
     private float _toastDuration;
     private float _scanTime;
     private float _pulse;
+    private float _impactStrength;
+    private ShaderMaterial _impactMaterial = null!;
+    public void ShowImpact(float speed)
+    {
+        _impactStrength=Mathf.Max(_impactStrength,Mathf.Clamp(Mathf.Log(1+speed)/4.6f,0,1));
+        if(speed>5)ShowToast(Locale.Text("impact_hit"),Warm,1.5f);
+    }
     private string _modeKey = "external";
     private string _modeSubtitle = "";
     private ClientSettings? _settings;
@@ -86,6 +93,9 @@ public sealed partial class Hud : CanvasLayer
         BuildScanPanel();
         BuildToast();
         BuildOverlay();
+        _impactMaterial=new ShaderMaterial {Shader=GD.Load<Shader>("res://assets/shaders/impact_flash.gdshader")};
+        var flash=new ColorRect {Name="ImpactFlash",Material=_impactMaterial,MouseFilter=Control.MouseFilterEnum.Ignore};
+        flash.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);_root.AddChild(flash);
 
         _modeLabel = MakeLabel(Locale.Text("external"), 15, Cyan);
         Place(_modeLabel, 0.5f, 0, new Vector2(-130, 22), new Vector2(260, 24));
@@ -98,6 +108,8 @@ public sealed partial class Hud : CanvasLayer
     public override void _Process(double delta)
     {
         _pulse += (float)delta;
+        _impactStrength*=Mathf.Exp(-(float)delta*8);
+        _impactMaterial.SetShaderParameter("strength",_impactStrength);
         if (_toastTime > 0)
         {
             _toastTime -= (float)delta;

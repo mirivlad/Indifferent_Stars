@@ -121,6 +121,12 @@ public static class ProtocolCodec
                     writer.Write(entity.WarpProgress);
                     writer.Write(entity.WarpDestination.HasValue);
                     if (entity.WarpDestination is { } warpDestination) WriteVec3(writer, warpDestination);
+                    writer.Write(entity.Impact is not null);
+                    if (entity.Impact is { } impact)
+                    {
+                        writer.Write(impact.Sequence); WriteVec3(writer, impact.Point); WriteVec3(writer, impact.Normal);
+                        writer.Write(impact.NormalSpeed); writer.Write(impact.TangentialSpeed);
+                    }
                 }
                 break;
 
@@ -444,10 +450,22 @@ public static class ProtocolCodec
                 reader.ReadBoolean(),
                 ReadWarpStage(reader),
                 ReadProgress(reader),
-                ReadOptionalVec3(reader));
+                ReadOptionalVec3(reader),
+                ReadImpact(reader));
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
+    }
+
+    private static ImpactState? ReadImpact(BinaryReader reader)
+    {
+        if (!reader.ReadBoolean()) return null;
+        var impact = new ImpactState(reader.ReadUInt32(), ReadVec3(reader), ReadVec3(reader), reader.ReadSingle(), reader.ReadSingle());
+        if (!impact.Point.IsFinite || !impact.Normal.IsFinite || impact.Normal.Length < .99 || impact.Normal.Length > 1.01 ||
+            !float.IsFinite(impact.NormalSpeed) || impact.NormalSpeed < 0 ||
+            !float.IsFinite(impact.TangentialSpeed) || impact.TangentialSpeed < 0)
+            throw new InvalidDataException("Invalid impact state.");
+        return impact;
     }
 
     private static void WriteMarketState(BinaryWriter writer, MarketState state)

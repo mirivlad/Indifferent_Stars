@@ -138,6 +138,11 @@ public sealed partial class GameMain
                 staleView.QueueFree();
 
             _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality);
+            _playerShip.ImpactOccurred += impact =>
+            {
+                _impactShake=Mathf.Max(_impactShake,Mathf.Clamp(Mathf.Log(1+impact.NormalSpeed)/4.6f,0,1));
+                _hud.ShowImpact(impact.NormalSpeed);
+            };
             _playerShip.SetEngineEffects(_settings.EngineEffects);
             _playerShip.SetParticles(_settings.Particles);
             _dynamicRoot.AddChild(_playerShip);

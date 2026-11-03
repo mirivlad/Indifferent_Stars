@@ -37,8 +37,8 @@ public sealed partial class SurfaceFlightChecks : Node3D
                 pilot.Orientation = rotation;
                 world.Tick(0.05);
                 if (collision) Check(pilot.Position.Y > -30 * stationSize &&
-                    (pilot.Velocity - Vec3d.Cross(new Vec3d(0, ModelPose.StationSpin, 0), pilot.Position - catalog.Station.Position)).Length < .001,
-                    "The visible metal must stop the hull relative to the rotating surface.");
+                    pilot.Impact is { } hit && Vec3d.Dot(pilot.Velocity - Vec3d.Cross(new Vec3d(0,ModelPose.StationSpin,0),hit.Point-catalog.Station.Position),hit.Normal)>0,
+                    $"The visible metal must rebound the hull and report an authoritative impact: x={x}, p={pilot.Position}, v={pilot.Velocity}, impact={pilot.Impact}.");
                 else Check(pilot.Position.Y < -39 * stationSize && pilot.Velocity.Y < -1599 * stationSize, "Empty ring space must remain traversable.");
                 var root = new Node3D(); AddChild(root);
                 var builder = new WorldBuilder(root, catalog, true) { SimulationTime = world.TimeSeconds };

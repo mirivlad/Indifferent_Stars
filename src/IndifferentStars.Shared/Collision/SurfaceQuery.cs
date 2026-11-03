@@ -66,7 +66,7 @@ public static class SurfaceQuery
         return t >= 0 && t <= 1 ? t : null;
     }
 
-    private static Vec3d Closest(Triangle t, Vec3d p)
+    public static Vec3d Closest(Triangle t, Vec3d p)
     {
         var ab = t.B - t.A; var ac = t.C - t.A; var ap = p - t.A;
         var d1 = Vec3d.Dot(ab, ap); var d2 = Vec3d.Dot(ac, ap);

@@ -38,6 +38,7 @@ foreach(var (name, local) in cases)
         ship.Position = SurfaceMesh.Rotate(point,rotation);
         ship.Orientation = rotation;
         ship.Velocity = Vec3d.Zero;
+        ship.AngularVelocity = Vec3d.Zero;
         world.ApplyInput(ship.Id,InputState.None);
     });
 }

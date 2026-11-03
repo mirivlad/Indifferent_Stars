@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 13;
+    public const byte Version = 14;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -102,6 +102,8 @@ public sealed record InputMessage(
     public MessageType Type => MessageType.Input;
 }
 
+public sealed record ImpactState(uint Sequence, Vec3d Point, Vec3d Normal, float NormalSpeed, float TangentialSpeed);
+
 public sealed record EntitySnapshot(
     uint Id,
     EntityKind Kind,
@@ -123,7 +125,8 @@ public sealed record EntitySnapshot(
     bool CruiseBraking = false,
     WarpStage WarpStage = WarpStage.None,
     float WarpProgress = 0,
-    Vec3d? WarpDestination = null)
+    Vec3d? WarpDestination = null,
+    ImpactState? Impact = null)
 {
 }
 

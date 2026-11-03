@@ -21,7 +21,7 @@ public sealed class ProtocolTests
             new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true, true),
             new SnapshotMessage(100, 5000, new[]
             {
-                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0), true, true, WarpStage.Travel, 0.3f, new Vec3d(1000000, 100000, 0)),
+                new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0), true, true, WarpStage.Travel, 0.3f, new Vec3d(1000000, 100000, 0), new ImpactState(17,new Vec3d(1,2,3),Vec3d.Up,120,34)),
                 new EntitySnapshot(5000, EntityKind.Npc, "Dawn Trader", new Vec3d(-400, 80, 1200), 3.1f, 0.1f, new Vec3d(-40, 0, -70), 90),
             }),
             new CommsRequestMessage(3),
@@ -93,6 +93,21 @@ public sealed class ProtocolTests
         Assert.Equal(expected.CargoUsed, actual.CargoUsed);
         Assert.Equal(expected.CargoCapacity, actual.CargoCapacity);
         Assert.Equal(expected.Entries, actual.Entries);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void InvalidImpactStateIsRejected(int invalid)
+    {
+        var impact=new ImpactState(1,invalid==0?new Vec3d(double.NaN,0,0):Vec3d.Zero,
+            invalid==1?Vec3d.Zero:Vec3d.Up,invalid==2?float.NaN:20,10);
+        var packet=ProtocolCodec.Encode(new SnapshotMessage(1,1,new[]
+        {
+            new EntitySnapshot(1,EntityKind.Player,"Impact",Vec3d.Zero,0,0,Vec3d.Zero,0,System.Numerics.Quaternion.Identity,Impact:impact),
+        }));
+        Assert.False(ProtocolCodec.TryDecode(packet,out _,out _));
     }
 
     [Fact]

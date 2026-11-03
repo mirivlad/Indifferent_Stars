@@ -35,6 +35,7 @@ public sealed class ShipTrack
     public float Pitch { get; private set; }
     public Quaternion Orientation { get; private set; } = Quaternion.Identity;
     public float Throttle { get; private set; }
+    public ImpactState? Impact { get; private set; }
     public bool HasData => _points.Count > 0;
     public string Name { get; private set; } = string.Empty;
     public EntityKind Kind { get; private set; }
@@ -59,6 +60,7 @@ public sealed class ShipTrack
             return false;
         if (_points.Count == 1 && _points[0].ServerMs is null)
             _points.Clear();
+        Impact = snapshot.Impact;
         Name = snapshot.Name;
         Kind = snapshot.Kind;
         ApproachTargetId = snapshot.ApproachTargetId;

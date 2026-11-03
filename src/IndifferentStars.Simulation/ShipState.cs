@@ -22,6 +22,11 @@ public sealed class ShipState
 
     public Vec3d Position { get; set; }
     public Vec3d Velocity { get; set; }
+    public Vec3d AngularVelocity { get; set; }
+    public double MassKg => 20_000 * (IsPlayer ? 1 : Math.Pow(IndifferentStars.Shared.Collision.ModelPose.NpcScale,3));
+    public ImpactState? Impact { get; set; }
+    public double ImpactAt { get; set; } = -100;
+    public uint ImpactSequence { get; set; }
     public Quaternion Orientation { get; set; } = Quaternion.Identity;
     public double Yaw
     {

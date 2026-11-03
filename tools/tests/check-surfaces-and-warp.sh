@@ -6,6 +6,7 @@ GODOT="${GODOT_BIN:-godot-dotnet}"
 PORT="${IS_TEST_PORT:-17893}"
 CHECK_DIR="${IS_CHECK_DIR:-$(mktemp -d /tmp/indifferent-third-flight-XXXXXX)}"
 mkdir -p "$CHECK_DIR"
+export XDG_DATA_HOME="$CHECK_DIR/user-data"
 SERVER_PID=""
 cleanup() {
     if [[ -n "$SERVER_PID" ]]; then
@@ -51,4 +52,9 @@ rg 'WARP FRAME TELEMETRY|WARP CHECKS PASSED' "$CHECK_DIR/WarpChecks.log"
 IS_CAMERA_CAPTURE="$CHECK_DIR/camera" timeout 80 "$GODOT" --path client res://tests/CameraChecks.tscn --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/CameraChecks.log" 2>&1
 check_log "$CHECK_DIR/CameraChecks.log"
 rg 'CAMERA CHECKS PASSED' "$CHECK_DIR/CameraChecks.log"
+for scene in ImpactChecks ScanRecoveryChecks; do
+    IS_IMPACT_CAPTURE="$CHECK_DIR/impacts" timeout 45 "$GODOT" --path client "res://tests/$scene.tscn" --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/$scene.log" 2>&1
+    check_log "$CHECK_DIR/$scene.log"
+    rg 'CHECKS PASSED' "$CHECK_DIR/$scene.log"
+done
 echo "Third Flight checks passed. Screenshots and logs: $CHECK_DIR"

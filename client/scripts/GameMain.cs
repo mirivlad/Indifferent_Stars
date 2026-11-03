@@ -67,6 +67,8 @@ public sealed partial class GameMain : Node3D
     private uint _targetId;
     private bool _hasTarget;
     private float _scanCooldown;
+    private float _impactShake;
+    private float _impactPhase;
     private float _marketRetry;
     private readonly bool _trace = System.Environment.GetEnvironmentVariable("IS_TRACE") == "1";
     private Vec3d _traceLast;
@@ -311,6 +313,13 @@ public sealed partial class GameMain : Node3D
         _audio.SetWarp(warpStage, warpProgress);
         _hud.SetWarpState(warpStage, warpProgress);
         UpdateCamera(dt);
+        _impactShake*=Mathf.Exp(-dt*6);_impactPhase+=dt;
+        if(_mode!=ViewMode.Tactical && _impactShake>.001f)
+        {
+            var wobble=new Vector3(Mathf.Sin(_impactPhase*71),Mathf.Sin(_impactPhase*93),Mathf.Sin(_impactPhase*47));
+            _camera.Basis*=new Basis(Quaternion.FromEuler(wobble*_impactShake*.012f));
+            _camera.Position+=_camera.Basis*wobble*_impactShake*.025f;
+        }
         _worldBuilder?.Process(delta, _playerShip?.Track.WorldPosition ?? Vec3d.Zero, _renderOrigin,
             _playerShip?.Track.HasData == true ? _playerShip.Track.SampledServerSeconds : null);
         _camera.Far = _worldBuilder?.RequiredFarPlane ?? 900_000f;

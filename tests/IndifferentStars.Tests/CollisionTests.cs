@@ -10,7 +10,7 @@ public sealed class CollisionTests
     [Theory]
     [InlineData(500)]
     [InlineData(20000)]
-    public void StationStopsFastShipWithoutTunneling(double speed)
+    public void StationReboundsFastShipWithoutTunneling(double speed)
     {
         var world = new GameWorld(WorldCatalog.Generate(12345));
         var ship = world.AddPlayer("Impact");
@@ -20,7 +20,8 @@ public sealed class CollisionTests
         world.Tick(0.05);
         Assert.InRange(ship.Position.Z, start.Z - 24, start.Z);
         var surfaceVelocity = Vec3d.Cross(new Vec3d(0, ModelPose.StationSpin, 0), ship.Position);
-        Assert.True(Vec3d.Distance(surfaceVelocity, ship.Velocity) < 1e-8);
+        Assert.True(ship.Velocity.Z-surfaceVelocity.Z>1);
+        Assert.NotNull(ship.Impact);
         Assert.False(ship.Cruising);
     }
 
@@ -41,7 +42,7 @@ public sealed class CollisionTests
             ship.Velocity = -Vec3d.Up * 20000;
             world.Tick(0.05);
             Assert.True(Vec3d.Distance(ship.Position, center) >= radius - 0.01);
-            Assert.Equal(Vec3d.Zero, ship.Velocity);
+            Assert.True(Vec3d.Dot(ship.Velocity,(ship.Position-center).Normalized())>0);
         }
     }
 
@@ -60,8 +61,22 @@ public sealed class CollisionTests
         Assert.InRange(a.Position.X, -6, -3);
         Assert.InRange(b.Position.X, 3, 6);
         Assert.True(Vec3d.Distance(a.Position, b.Position) > 1);
-        Assert.Equal(Vec3d.Zero, a.Velocity);
-        Assert.Equal(Vec3d.Zero, b.Velocity);
+        Assert.True(a.Velocity.X<0);
+        Assert.True(b.Velocity.X>0);
+    }
+
+    [Fact]
+    public void ShipCanDepartAfterAStationContact()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(12345));
+        var ship = world.AddPlayer("Escape");
+        ship.Position = new Vec3d(0,0,3.18*ModelPose.StationScale+18);
+        ship.Velocity = new Vec3d(0,0,-500);
+        world.Tick(.05);
+        var before=ship.Position;
+        ship.Velocity = new Vec3d(0,0,40);
+        world.Tick(.05);
+        Assert.True(ship.Position.Z>before.Z+.5,"A separating hull must not be trapped at contact t=0.");
     }
 
     [Fact]
@@ -84,6 +99,7 @@ public sealed class CollisionTests
         Assert.Equal(0u, ship.ApproachTargetId);
         Assert.False(ship.Docked);
         var surfaceVelocity = Vec3d.Cross(new Vec3d(0, ModelPose.StationSpin, 0), ship.Position);
-        Assert.True(Vec3d.Distance(surfaceVelocity, ship.Velocity) < 1e-8);
+        Assert.True(ship.Velocity.Z-surfaceVelocity.Z>1);
+        Assert.NotNull(ship.Impact);
     }
 }

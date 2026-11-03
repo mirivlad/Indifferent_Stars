@@ -20,6 +20,33 @@ namespace IndifferentStars.Tests;
 public sealed class ServerIntegrationTests
 {
     [Fact]
+    public void TwoClientsObserveTheSameImpactAndThePilotCanDepart()
+    {
+        var catalog=WorldCatalog.Generate(2026);var world=new GameWorld(catalog);
+        using var server=new UdpGameServer(new ServerConfig {BindAddress="127.0.0.1",Port=0},catalog,world);
+        using var cancellation=new CancellationTokenSource();
+        var thread=new Thread(()=>server.Run(cancellation.Token)){IsBackground=true};thread.Start();
+        try
+        {
+            using var pilot=new UdpClient(AddressFamily.InterNetwork);using var observer=new UdpClient(AddressFamily.InterNetwork);
+            pilot.Connect(server.LocalEndpoint);observer.Connect(server.LocalEndpoint);
+            Send(pilot,new HelloMessage(Guid.NewGuid(),"Impact pilot",SurfaceMesh.Fingerprint));
+            var welcome=WaitFor<HelloAcceptedMessage>(pilot,_=>true);Assert.NotNull(welcome);
+            Send(observer,new HelloMessage(Guid.NewGuid(),"Observer",SurfaceMesh.Fingerprint));
+            Assert.NotNull(WaitFor<HelloAcceptedMessage>(observer,_=>true));
+            uint sequence=0;
+            void Down()=>Send(pilot,new InputMessage(++sequence,127,0,0,0,false,false));
+            var seen=WaitFor<SnapshotMessage>(observer,s=>s.Entities.Any(e=>e.Id==welcome.PlayerId&&e.Impact is not null),10,Down);
+            Assert.NotNull(seen);var observed=seen.Entities.Single(e=>e.Id==welcome.PlayerId);
+            var own=WaitFor<SnapshotMessage>(pilot,s=>s.Entities.Any(e=>e.Id==welcome.PlayerId&&e.Impact?.Sequence==observed.Impact!.Sequence));
+            Assert.NotNull(own);Assert.Equal(observed.Impact,own.Entities.Single(e=>e.Id==welcome.PlayerId).Impact);
+            void Up()=>Send(pilot,new InputMessage(++sequence,-127,0,0,0,false,false));
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer,s=>s.Entities.Any(e=>e.Id==welcome.PlayerId&&IndifferentStars.Shared.Vec3d.Distance(e.Position,observed.Position)>10),4,Up));
+        }
+        finally{cancellation.Cancel();Assert.True(thread.Join(TimeSpan.FromSeconds(3)));}
+    }
+
+    [Fact]
     public void TwoClientsObserveCruiseSafetyAndAuthoritativeWaypoints()
     {
         var catalog = WorldCatalog.Generate(2026);
@@ -181,7 +208,7 @@ public sealed class ServerIntegrationTests
                 {
                     last = Array.Find(message.Entities, entity => entity.Id == welcome!.PlayerId);
                     return last is { } entity && !entity.Docked && entity.ApproachTargetId == 0 &&
-                        entity.Velocity.Length < 3 &&
+                        entity.Impact is { NormalSpeed: > 0 } &&
                         WorldSurfaces.Body(catalog, catalog.Station, message.ServerTimeMs / 1000.0)
                             .Distance(entity.Position) <= SurfaceMesh.Ship.Radius + .5;
                 }, 0.1);

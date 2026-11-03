@@ -31,6 +31,20 @@ public static class WorldSurfaces
         SurfaceContact.Sweep(fromA.Mesh, fromA.Scale, fromA.Position, toA.Position, fromA.Rotation, toA.Rotation,
             fromB.Mesh, fromB.Scale, fromB.Position, toB.Position, fromB.Rotation, toB.Rotation);
 
+    public static SurfaceHit? ContactHit(SurfacePose fromA, SurfacePose toA, SurfacePose fromB, SurfacePose toB) =>
+        SurfaceContact.SweepHit(fromA.Mesh, fromA.Scale, fromA.Position, toA.Position, fromA.Rotation, toA.Rotation,
+            fromB.Mesh, fromB.Scale, fromB.Position, toB.Position, fromB.Rotation, toB.Rotation, skipSeparating: true);
+
+    public static SurfaceHit? SphereHit(SurfacePose from, SurfacePose to, Vec3d center, double radius)
+    {
+        var time = SphereContact(from,to,center,radius);
+        if (time is not { } t) return null;
+        var position = Vec3d.Lerp(from.Position,to.Position,t);
+        var normal = (position-center).Normalized();
+        if (t<=1e-6 && Vec3d.Dot(to.Position-from.Position,normal)>=0) return null;
+        return new SurfaceHit(t,center+normal*radius,normal);
+    }
+
     public static double? SphereContact(SurfacePose from, SurfacePose to, Vec3d center, double radius)
     {
         var travel = to.Position - from.Position;

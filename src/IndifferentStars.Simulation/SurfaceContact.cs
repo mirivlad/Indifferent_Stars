@@ -6,6 +6,8 @@ using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Simulation;
 
+public readonly record struct SurfaceHit(double Time, Vec3d Point, Vec3d Normal);
+
 public static class SurfaceContact
 {
     // Rotating surfaces are bounded to at most 5 cm deviation from each midpoint pose.
@@ -13,7 +15,13 @@ public static class SurfaceContact
 
     public static double? Sweep(SurfaceMesh a, double scaleA, Vec3d startA, Vec3d endA, Quaternion fromA, Quaternion toA,
         SurfaceMesh b, double scaleB, Vec3d startB, Vec3d endB, Quaternion fromB, Quaternion toB)
+        => SweepHit(a, scaleA, startA, endA, fromA, toA, b, scaleB, startB, endB, fromB, toB)?.Time;
+
+    public static SurfaceHit? SweepHit(SurfaceMesh a, double scaleA, Vec3d startA, Vec3d endA, Quaternion fromA, Quaternion toA,
+        SurfaceMesh b, double scaleB, Vec3d startB, Vec3d endB, Quaternion fromB, Quaternion toB, bool skipSeparating = false)
     {
+        var angularA = skipSeparating ? AngularMotion(fromA, toA) : Vec3d.Zero;
+        var angularB = skipSeparating ? AngularMotion(fromB, toB) : Vec3d.Zero;
         var relativeStart = startA - startB;
         var relativeEnd = endA - endB;
         var radius = a.Radius * scaleA + b.Radius * scaleB;
@@ -50,6 +58,7 @@ public static class SurfaceContact
                 var delta = SurfaceMesh.Rotate(motion / slices, inverseB) / scaleB;
                 var padding = (arcA + arcB) / (2 * slices * scaleB);
                 double? first = null;
+                SurfaceHit? firstHit = null;
                 Vec3d Transform(Vec3d point) => SurfaceMesh.Rotate(point * (scaleA / scaleB), rotation) + offset;
                 Bounds TransformBounds(Bounds bounds)
                 {
@@ -145,15 +154,32 @@ public static class SurfaceContact
                         {
                             var candidate = BoxInterval(triangleBounds, b.TriangleBounds[ib], delta);
                             if (candidate is null || first is { } earlier && candidate.Value.Enter > earlier) continue;
-                            var hit = Triangles(triangle, b.Triangles[ib], delta, padding,
+                            var hit = TriangleContact(triangle, b.Triangles[ib], delta, padding,
                                 candidate.Value.Enter, Math.Min(candidate.Value.Exit, first ?? 1));
-                            if (hit is not null && (first is null || hit < first)) first = hit;
+                            if (hit is not { } contact || first is not null && contact.Time >= first) continue;
+                            var shift = delta * contact.Time;
+                            var moved = new Triangle(triangle.A + shift, triangle.B + shift, triangle.C + shift);
+                            var point = ContactPoint(moved, b.Triangles[ib]);
+                            var normal = contact.Normal;
+                            var time = (slice + contact.Time) / slices;
+                            var centerB = Vec3d.Lerp(startB, endB, time);
+                            var worldPoint = centerB + SurfaceMesh.Rotate(point * scaleB, Quaternion.Conjugate(inverseB));
+                            var worldNormal = SurfaceMesh.Rotate(normal, Quaternion.Conjugate(inverseB)).Normalized();
+                            if (skipSeparating && time <= 1e-6)
+                            {
+                                var centerA = Vec3d.Lerp(startA, endA, time);
+                                var velocityA = endA - startA + Vec3d.Cross(angularA, worldPoint - centerA);
+                                var velocityB = endB - startB + Vec3d.Cross(angularB, worldPoint - centerB);
+                                if (Vec3d.Dot(velocityA - velocityB, worldNormal) >= -1e-9) continue;
+                            }
+                            first = contact.Time;
+                            firstHit = new SurfaceHit(time, worldPoint, worldNormal);
                         }
                     }
                 }
                 var rootBounds = NodeBounds(a.Root);
                 Visit(a.Root, rootBounds, b.Root, BoxInterval(rootBounds, b.Root.Bounds, delta));
-                if (first is { } contact) return (slice + contact) / slices;
+                if (firstHit is not null) return firstHit;
             }
             return null;
         }
@@ -198,6 +224,9 @@ public static class SurfaceContact
     }
 
     private static double? Triangles(Triangle a, Triangle b, Vec3d motion, double padding, double enter, double exit)
+        => TriangleContact(a, b, motion, padding, enter, exit)?.Time;
+
+    private static SurfaceHit? TriangleContact(Triangle a, Triangle b, Vec3d motion, double padding, double enter, double exit)
     {
         Span<Vec3d> ea = stackalloc Vec3d[] { a.B - a.A, a.C - a.B, a.A - a.C };
         Span<Vec3d> eb = stackalloc Vec3d[] { b.B - b.A, b.C - b.B, b.A - b.C };
@@ -213,6 +242,7 @@ public static class SurfaceContact
         foreach (var y in eb) axes[k++] = Vec3d.Cross(x, y);
         foreach (var edge in ea) axes[k++] = Vec3d.Cross(na, edge);
         foreach (var edge in eb) axes[k++] = Vec3d.Cross(nb, edge);
+        var normal = Vec3d.Zero;
         foreach (var axis in axes)
         {
             var length = axis.Length;
@@ -231,9 +261,51 @@ public static class SurfaceContact
             var near = (minB - maxA - margin) / speed;
             var far = (maxB - minA + margin) / speed;
             if (near > far) (near, far) = (far, near);
+            if (near >= enter - 1e-10) normal = axis / length * (speed < 0 ? 1 : -1);
             enter = Math.Max(enter, near); exit = Math.Min(exit, far);
             if (enter > exit) return null;
         }
-        return exit > 1e-9 ? enter : null;
+        if (exit <= 1e-9) return null;
+        if (enter <= 1e-8 || normal.LengthSquared < .5) normal = nb.Normalized();
+        return new SurfaceHit(enter, Vec3d.Zero, normal);
     }
+    public static Vec3d AngularMotion(Quaternion from, Quaternion to)
+    {
+        var q = Quaternion.Normalize(to * Quaternion.Conjugate(from));
+        if (q.W < 0) q = new Quaternion(-q.X,-q.Y,-q.Z,-q.W);
+        var sine = Math.Sqrt(Math.Max(0,1-(double)q.W*q.W));
+        if (sine < 1e-7) return Vec3d.Zero;
+        return new Vec3d(q.X,q.Y,q.Z) * (2*Math.Acos(Math.Clamp(q.W,-1,1))/sine);
+    }
+
+    private static Vec3d ContactPoint(Triangle a, Triangle b)
+    {
+        Span<Vec3d> av = stackalloc Vec3d[] {a.A,a.B,a.C};
+        Span<Vec3d> bv = stackalloc Vec3d[] {b.A,b.B,b.C};
+        var best = double.PositiveInfinity;
+        var result = b.A;
+        for (var i=0;i<3;i++)
+        {
+            var point = SurfaceQuery.Closest(b,av[i]);
+            var distance = (point-av[i]).LengthSquared;
+            if (distance<best) {best=distance;result=point;}
+            point = SurfaceQuery.Closest(a,bv[i]);
+            distance = (point-bv[i]).LengthSquared;
+            if (distance<best) {best=distance;result=bv[i];}
+            for (var j=0;j<3;j++)
+            {
+                var da=av[(i+1)%3]-av[i]; var db=bv[(j+1)%3]-bv[j]; var r=av[i]-bv[j];
+                var aa=da.LengthSquared;var bb=db.LengthSquared;var ab=Vec3d.Dot(da,db);
+                var ar=Vec3d.Dot(da,r);var br=Vec3d.Dot(db,r);var denominator=aa*bb-ab*ab;
+                var u=denominator>1e-20?Math.Clamp((ab*br-bb*ar)/denominator,0,1):0;
+                var v=bb>1e-20?Math.Clamp((ab*u+br)/bb,0,1):0;
+                u=aa>1e-20?Math.Clamp((ab*v-ar)/aa,0,1):0;
+                point=bv[j]+db*v;
+                distance=(av[i]+da*u-point).LengthSquared;
+                if(distance<best){best=distance;result=point;}
+            }
+        }
+        return result;
+    }
+
 }

@@ -1,0 +1,7 @@
+Passed!  - Failed:     0, Passed:   117, Skipped:     0, Total:   117, Duration: 1 m 9 s - IndifferentStars.Tests.dll (net10.0)
+SURFACE GEOMETRY CHECKS PASSED: all visible GLB triangles match server surfaces.
+SURFACE FLIGHT CHECKS PASSED: authoritative ring passage, rim contact and solar-panel contact.
+WARP FRAME TELEMETRY: frames=617, p95=20.70 ms, viewport=(1600, 900), scale=1, MSAA=Msaa2X.
+WARP CHECKS PASSED: free map point, charging/travel/exit, all views, authoritative route, no cooldown/cruise/range, 1 km arrival, bounded FOV, AU-scale origin and camera.
+CAMERA CHECKS PASSED: wheel bounds, middle orbit, safe arc, menus, F1/F2/F3, cockpit eye, warp, cruise and rebasing.
+IMPACT CHECKS PASSED: two clients, same event, sparks, playing audio, F1/F2/F3 and departure; speed=76.46, sliding=21.17.

@@ -351,60 +351,18 @@ public sealed partial class GameWorld
             FlightModel.StepNpc(npc, dt);
 
         var ships = _players.Values.Concat(_npcs).OrderBy(ship => ship.Id).ToArray();
-        void Stop(ShipState ship, double hit)
-        {
-            var before = starts[ship.Id];
-            var rotation = Quaternion.Slerp(before.Orientation, ship.Orientation, (float)hit);
-            CollisionSolver.Stop(ship, before.Position, hit);
-            ship.Orientation = rotation;
-        }
         foreach (var ship in ships)
         {
-            if (ship.Docked || warping.Contains(ship.Id)) continue;
-            var before = starts[ship.Id];
-            var from = WorldSurfaces.Ship(ship, before.Position, before.Orientation);
-            var to = WorldSurfaces.Ship(ship, ship.Position, ship.Orientation);
-            double? first = null;
-            StaticBody? contactBody = null;
-            void Hit(double? time, StaticBody? body = null)
+            if (ship.Docked || warping.Contains(ship.Id)) { ship.AngularVelocity=Vec3d.Zero; continue; }
+            var speed=ship.AngularVelocity.Length;
+            if (speed>1e-5)
             {
-                if (time is null || first is not null && time >= first) return;
-                first = time;
-                contactBody = body;
-            }
-            foreach (var body in _collisionBodies)
-                Hit(WorldSurfaces.Contact(from, to, BodySurface(body, TimeSeconds),
-                    BodySurface(body, TimeSeconds + dt)), body);
-            Hit(WorldSurfaces.SphereContact(from, to, Catalog.CelestialOffset(Catalog.Planet), Catalog.Planet.Radius));
-            Hit(WorldSurfaces.SphereContact(from, to, Catalog.CelestialOffset(Catalog.Star), Catalog.Star.Radius));
-            if (first is { } hit)
-            {
-                Stop(ship, hit);
-                if (contactBody?.Kind == BodyKind.Station)
-                {
-                    var atContact = ModelPose.StationRotation(contactBody, TimeSeconds + dt * hit);
-                    var atEnd = ModelPose.StationRotation(contactBody, TimeSeconds + dt);
-                    var carried = atEnd * Quaternion.Conjugate(atContact);
-                    var previous = ship.Position;
-                    ship.Position = contactBody.Position + SurfaceMesh.Rotate(previous - contactBody.Position, carried);
-                    ship.Orientation = Quaternion.Normalize(carried * ship.Orientation);
-                    ship.Velocity = Vec3d.Cross(new Vec3d(0, ModelPose.StationSpin, 0), ship.Position - contactBody.Position);
-                }
+                var axis=ship.AngularVelocity/speed;
+                ship.Orientation=Quaternion.Normalize(Quaternion.CreateFromAxisAngle(new Vector3((float)axis.X,(float)axis.Y,(float)axis.Z),(float)(speed*dt))*ship.Orientation);
+                ship.AngularVelocity*=Math.Exp(-2.5*dt);
             }
         }
-        for (var i = 0; i < ships.Length; i++)
-        for (var j = i + 1; j < ships.Length; j++)
-        {
-            var a = ships[i]; var b = ships[j];
-            if (warping.Contains(a.Id) || warping.Contains(b.Id)) continue;
-            var sa = starts[a.Id]; var sb = starts[b.Id];
-            var hit = WorldSurfaces.Contact(WorldSurfaces.Ship(a, sa.Position, sa.Orientation),
-                WorldSurfaces.Ship(a, a.Position, a.Orientation), WorldSurfaces.Ship(b, sb.Position, sb.Orientation),
-                WorldSurfaces.Ship(b, b.Position, b.Orientation));
-            if (hit is not { } time) continue;
-            if (!a.Docked) Stop(a, time);
-            if (!b.Docked) Stop(b, time);
-        }
+        ResolveCollisions(ships,starts,warping,dt);
 
         TickCount++;
         TimeSeconds += dt;
@@ -530,7 +488,7 @@ public sealed partial class GameWorld
     /// <summary>Promotes a sector-local position into real system coordinates (double precision).</summary>
     private Vec3d ToSystemPosition(Vec3d local) => Catalog.LocalFrameOrigin + local;
 
-    private static EntitySnapshot ToSnapshot(ShipState ship) => new(
+    private EntitySnapshot ToSnapshot(ShipState ship) => new(
         ship.Id,
         ship.IsPlayer ? EntityKind.Player : EntityKind.Npc,
         ship.Name,
@@ -551,7 +509,8 @@ public sealed partial class GameWorld
         ship.CruiseBraking,
         ship.WarpStage,
         ship.WarpProgress,
-        ship.InWarp ? ship.WarpDestination : null);
+        ship.InWarp ? ship.WarpDestination : null,
+        !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null);
 
     private static string DescribeVessel(ShipState npc, string language)
     {
