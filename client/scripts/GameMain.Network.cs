@@ -319,7 +319,7 @@ public sealed partial class GameMain
 
     private void RequestScan()
     {
-        if (_scanCooldown > 0)
+        if (_scanCooldown > 0 || _net?.IsScanPending == true)
             return;
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {

@@ -34,7 +34,7 @@ public sealed partial class NetworkClient
 
     public void RequestScan(uint targetId)
     {
-        if (State != ConnectionState.Connected)
+        if (State != ConnectionState.Connected || _pendingScan.HasValue)
             return;
 
         var now = NowSeconds();
@@ -90,6 +90,7 @@ public sealed partial class NetworkClient
             if (now - scan.StartedAt > 2.0)
             {
                 _pendingScan = null;
+                ScanTimedOut?.Invoke();
             }
             else if (now - scan.LastResendAt > 0.3)
             {

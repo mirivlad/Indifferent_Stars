@@ -155,6 +155,7 @@ public sealed partial class GameMain : Node3D
             _hud.ShowToast(_settings.Language == "ru" ? reply.RussianMessage : reply.Message, duration: 8);
         };
         _net.ScanCompleted += OnScanCompleted;
+        _net.ScanTimedOut += () => _hud.ShowScanResult(Locale.Text("scan_rejected"), Locale.Text("scan_timeout"), false);
         _net.WarpCompleted += OnWarpCompleted;
         _net.ApproachCompleted += OnApproachCompleted;
         _net.DockCompleted += OnDockCompleted;

@@ -59,6 +59,7 @@ public sealed partial class NetworkClient : IDisposable
     public event Action<SnapshotMessage>? SnapshotReceived;
     public event Action<CommsResultMessage>? CommsCompleted;
     public event Action<ScanResultMessage>? ScanCompleted;
+    public event Action? ScanTimedOut;
     public event Action<WarpResultMessage>? WarpCompleted;
     public event Action<ApproachResultMessage>? ApproachCompleted;
     public event Action<DockResultMessage>? DockCompleted;
@@ -163,8 +164,8 @@ public sealed partial class NetworkClient : IDisposable
                     CommsCompleted?.Invoke(reply);
                     break;
                 case ScanResultMessage scan:
-                    if (_pendingScan is { } pending && pending.Id == scan.RequestId)
-                        _pendingScan = null;
+                    if (_pendingScan is not { } pending || pending.Id != scan.RequestId) break;
+                    _pendingScan = null;
                     ScanCompleted?.Invoke(scan);
                     break;
 

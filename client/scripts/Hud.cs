@@ -233,7 +233,7 @@ public sealed partial class Hud : CanvasLayer
     public void ShowScanResult(string title, string body, bool success)
     {
         _scanPanel.Visible = true;
-        _scanTime = 16;
+        _scanTime = success ? 16 : 3;
         _scanTitle.Text = title.ToUpperInvariant();
         _scanTitle.AddThemeColorOverride("font_color", success ? Green : Red);
         _scanBody.Text = body;
