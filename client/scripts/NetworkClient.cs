@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using Godot;
@@ -151,6 +152,9 @@ public sealed partial class NetworkClient : IDisposable
                     break;
 
                 case SnapshotMessage snapshot:
+                    if (_pendingRoute is { } pendingNavigation && Welcome is { } joined &&
+                        snapshot.Entities.Any(e => e.Id == joined.PlayerId && e.RouteRevision == pendingNavigation.Message.RequestId))
+                    { _pendingRoute = null; RouteCompleted?.Invoke(new RouteResultMessage(pendingNavigation.Message.RequestId,true)); }
                     LastSnapshotTick = snapshot.Tick;
                     LastSnapshotReceivedAtSeconds = packet.ReceivedAt;
                     LastSnapshotAgeSeconds = Math.Max(0, Time.GetTicksUsec() / 1_000_000.0 - packet.ReceivedAt);
@@ -181,6 +185,10 @@ public sealed partial class NetworkClient : IDisposable
                     WarpCompleted?.Invoke(warp);
                     break;
 
+                case RouteResultMessage route:
+                    if (_pendingRoute is { } pendingRoute && pendingRoute.Message.RequestId == route.RequestId)
+                    { _pendingRoute=null; RouteCompleted?.Invoke(route); }
+                    break;
                 case ApproachResultMessage approach:
                     ApproachCompleted?.Invoke(approach);
                     break;

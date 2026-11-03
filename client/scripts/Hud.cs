@@ -13,33 +13,22 @@ public sealed partial class Hud : CanvasLayer
     private static readonly Color Red = new(1.0f, 0.42f, 0.38f);
     private static readonly Color Dim = new(0.55f, 0.63f, 0.72f);
 
+    public event Action<string>? NoticeRaised;
+    public string ServerAddress { get; set; } = "";
     private Control _root = null!;
     private Panel _connectionPanel = null!;
     private Label _connectionLabel = null!;
-    private Label _titleLabel = null!;
     private Label _systemLabel = null!;
     private Label _modeLabel = null!;
-    private Label _targetLabel = null!;
-    private Label _targetDetailLabel = null!;
-    private Label _sensorHeader = null!;
     private Label _speedLabel = null!;
     private Label _telemetryLabel = null!;
     private Label _warpLabel = null!;
     private ProgressBar _throttleBar = null!;
-    private Label _toastLabel = null!;
-    private Panel _toastPanel = null!;
-    private Panel _scanPanel = null!;
-    private Label _scanTitle = null!;
-    private Label _scanBody = null!;
     private ReticleControl _reticle = null!;
     private Control _overlay = null!;
     private Label _overlayLabel = null!;
     private Label _overlayHint = null!;
-    private Label _controlsLabel = null!;
 
-    private float _toastTime;
-    private float _toastDuration;
-    private float _scanTime;
     private float _pulse;
     private float _impactStrength;
     private ShaderMaterial _impactMaterial = null!;
@@ -49,15 +38,10 @@ public sealed partial class Hud : CanvasLayer
         if(speed>5)ShowToast(Locale.Text("impact_hit"),Warm,1.5f);
     }
     private string _modeKey = "external";
-    private string _modeSubtitle = "";
-    private ClientSettings? _settings;
     private ConnectionState _connectionState = ConnectionState.Connecting;
     private string _connectionText = "";
     private int _ping = -1;
     private string _systemName = "Vesper — Kestrel Reach";
-    private int _seed;
-    private uint _shipId;
-    private string _sectorName = "Kestrel Reach Orbit";
 
     public void SetWarpState(WarpStage stage, float progress)
     {
@@ -66,9 +50,6 @@ public sealed partial class Hud : CanvasLayer
         _warpLabel.Text = Locale.Format("warp_stage_" + (int)stage, progress * 100);
         _telemetryLabel.Text = _telemetryLabel.Text.Replace(Locale.Text("warp_short") + " " + Locale.Text("ready"), Locale.Text("warp_engaged"));
     }
-
-    public void SetHintsVisible(bool visible) => _controlsLabel.GetParent<Control>().Visible = visible;
-    public void ReserveRadioSpace(float height) => _controlsLabel.GetParent<Control>().Position -= new Vector2(0,height);
 
     public void SetFlightDirections(Vector2? nose, Vector2? point)
     {
@@ -88,11 +69,7 @@ public sealed partial class Hud : CanvasLayer
         _root.AddChild(_reticle);
 
         BuildTopLeft();
-        BuildTopRight();
-        BuildBottomLeft();
         BuildTelemetry();
-        BuildScanPanel();
-        BuildToast();
         BuildOverlay();
         _impactMaterial=new ShaderMaterial {Shader=GD.Load<Shader>("res://assets/shaders/impact_flash.gdshader")};
         var flash=new ColorRect {Name="ImpactFlash",Material=_impactMaterial,MouseFilter=Control.MouseFilterEnum.Ignore};
@@ -111,22 +88,6 @@ public sealed partial class Hud : CanvasLayer
         _pulse += (float)delta;
         _impactStrength*=Mathf.Exp(-(float)delta*8);
         _impactMaterial.SetShaderParameter("strength",_impactStrength);
-        if (_toastTime > 0)
-        {
-            _toastTime -= (float)delta;
-            var alpha = Mathf.Clamp(_toastTime / Mathf.Min(0.5f, _toastDuration), 0, 1);
-            _toastPanel.Modulate = new Color(1, 1, 1, alpha);
-            if (_toastTime <= 0)
-                _toastPanel.Visible = false;
-        }
-
-        if (_scanTime > 0)
-        {
-            _scanTime -= (float)delta;
-            if (_scanTime <= 0)
-                _scanPanel.Visible = false;
-        }
-
         if (_overlay.Visible)
             _overlayLabel.Modulate = new Color(1, 1, 1, 0.65f + 0.35f * Mathf.Sin(_pulse * 2.2f));
     }
@@ -140,7 +101,7 @@ public sealed partial class Hud : CanvasLayer
             state == ConnectionState.Connected ? Green : state == ConnectionState.Rejected ? Red : Warm);
         _connectionLabel.Text = state switch
         {
-            ConnectionState.Connected => Locale.Format("link_online_ping", ping),
+            ConnectionState.Connected => $"{ServerAddress}  ·  {ping} ms",
             ConnectionState.Rejected => Locale.Format("link_failed_text", text).ToUpperInvariant(),
             _ => Locale.Text("link_connecting_short"),
         };
@@ -158,46 +119,29 @@ public sealed partial class Hud : CanvasLayer
     /// <summary>Re-applies static text after the client language changes.</summary>
     public void RefreshLanguage()
     {
-        _titleLabel.Text = Locale.Text("game_title");
         _modeLabel.Text = Locale.Text(_modeKey);
-        _sensorHeader.Text = Locale.Text("sensor_contact");
         RenderSystem();
-        if (_settings is not null)
-            SetControls(_settings);
         SetConnection(_connectionState, _connectionText, _ping);
     }
 
-    public void SetSystem(string systemName, int seed, uint shipId)
+    public void SetSystem(string systemName)
     {
         _systemName = systemName;
-        _seed = seed;
-        _shipId = shipId;
-        _titleLabel.Text = Locale.Text("game_title");
-        RenderSystem();
-    }
-
-    public void SetSector(string sectorName)
-    {
-        _sectorName = sectorName;
         RenderSystem();
     }
 
     private void RenderSystem()
     {
-        _systemLabel.Text =
-            Locale.Format("system_line", _systemName.ToUpperInvariant(), _seed, _shipId) + "\n" +
-            Locale.Format("sector_line", _sectorName.ToUpperInvariant());
+        _systemLabel.Text = _systemName;
     }
 
     public void SetMode(string modeKey, string subtitle)
     {
         _modeKey = modeKey;
-        _modeSubtitle = subtitle;
         _modeLabel.Text = Locale.Text(modeKey);
         _reticle.Visible = modeKey != "tactical";
         _reticle.ReticleColor = modeKey == "cockpit" ? new Color(1.0f, 0.75f, 0.4f, 0.7f) : new Color(0.55f, 0.85f, 1.0f, 0.72f);
         _reticle.QueueRedraw();
-        _targetDetailLabel.Text = subtitle;
     }
 
     public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following, bool cruising, bool cruiseRequested, bool cruiseBraking)
@@ -214,116 +158,36 @@ public sealed partial class Hud : CanvasLayer
         _warpLabel.Text = cruiseBraking ? Locale.Text("cruise_braking") : cruising ? Locale.Text("cruise_active") : cruiseRequested ? Locale.Text("cruise_pending") : boosting ? Locale.Text("boost_short") : "";
     }
 
-    public void SetTarget(string? name, string type, float distanceMeters, float relativeAltitude, bool inRange, bool hasTarget)
-    {
-        if (!hasTarget)
-        {
-            _targetLabel.Text = Locale.Text("no_target");
-            _targetLabel.AddThemeColorOverride("font_color", Dim);
-            _targetDetailLabel.Text = Locale.Text("tab_hint");
-            return;
-        }
+    public void SetScanPending(string targetName) => NoticeRaised?.Invoke(Locale.Text("scanning")+": "+targetName);
 
-        _targetLabel.Text = name?.ToUpperInvariant() ?? Locale.Text("unknown_target");
-        _targetLabel.AddThemeColorOverride("font_color", inRange ? Green : Red);
-        var alt = relativeAltitude >= 0 ? "+" : "";
-        var typeKey = "type_" + type.ToLowerInvariant();
-        var typeText = Locale.Text(typeKey).ToUpperInvariant();
-        _targetDetailLabel.Text =
-            Locale.Format("target_range_line", typeText, distanceMeters / 1000f, alt, relativeAltitude) + "\n" +
-            (inRange ? Locale.Format("scan_hint", "F", "X") : Locale.Text("scanner_out"));
-    }
-
-    public void SetScanPending(string targetName)
-    {
-        _scanPanel.Visible = true;
-        _scanTime = 5;
-        _scanTitle.Text = Locale.Text("scanning");
-        _scanTitle.AddThemeColorOverride("font_color", Warm);
-        _scanBody.Text = targetName;
-    }
-
-    public void ShowScanResult(string title, string body, bool success)
-    {
-        _scanPanel.Visible = true;
-        _scanTime = success ? 16 : 3;
-        _scanTitle.Text = title.ToUpperInvariant();
-        _scanTitle.AddThemeColorOverride("font_color", success ? Green : Red);
-        _scanBody.Text = body;
-    }
+    public void ShowScanResult(string title, string body, bool success) => NoticeRaised?.Invoke(title+"\n"+body);
 
     public void ShowToast(string text, Color? color = null, float duration = 4.0f)
     {
-        _toastPanel.Visible = true;
-        _toastLabel.Text = text;
-        _toastLabel.AddThemeColorOverride("font_color", color ?? Cyan);
-        _toastTime = duration;
-        _toastDuration = duration;
-        _toastPanel.Modulate = Colors.White;
+        NoticeRaised?.Invoke(text);
     }
 
     public void SetQuality(bool high) => ShowToast(Locale.Text(high ? "quality_high" : "quality_low"), Dim, 2.5f);
 
-    public void SetControls(ClientSettings settings)
-    {
-        _settings = settings;
-        string K(string action) => OS.GetKeycodeString(settings.Keys[action]);
-        _controlsLabel.Text =
-            $"[{K("forward")}/{K("reverse")}] {Locale.Text("thrust_hint")}   [{K("left")}/{K("right")}] {Locale.Text("strafe_hint")}\n" +
-            $"[{K("roll_left")}/{K("roll_right")}] {Locale.Text("roll_hint")}  [{K("up")}/{K("down")}] {Locale.Text("vertical_hint")}  [{K("cruise")}] {Locale.Text("cruise")}  [{K("assist")}] {Locale.Text("assist_short")}\n" +
-            $"[{K("target")}] {Locale.Text("target")}  [{K("scan")}] {Locale.Text("scan")}  [{K("approach")}] {Locale.Text("approach")}  [{K("dock")}] {Locale.Text("dock")}\n" +
-            $"[{K("view_2d")}/{K("view_3d")}/{K("view_cockpit")}] {Locale.Text("view_2d")} / {Locale.Text("view_3d")} / {Locale.Text("view_cockpit")}   [{K("menu")}] {Locale.Text("menu")}";
-    }
-
     private void BuildTopLeft()
     {
         _connectionPanel = CreatePanel();
-        Place(_connectionPanel, 0, 0, new Vector2(24, 24), new Vector2(430, 154));
+        Place(_connectionPanel, 0, 0, new Vector2(24, 16), new Vector2(360, 66));
         _root.AddChild(_connectionPanel);
+        _connectionPanel.AddThemeStyleboxOverride("panel",new StyleBoxEmpty());
 
         _connectionLabel = MakeLabel(Locale.Text("link_connecting_short"), 13, Warm);
-        Place(_connectionLabel, 0, 0, new Vector2(16, 12), new Vector2(398, 20));
+        Place(_connectionLabel, 0, 0, new Vector2(0, 0), new Vector2(360, 20));
         _connectionPanel.AddChild(_connectionLabel);
 
-        _titleLabel = MakeLabel(Locale.Text("game_title"), 19, Cyan);
-        Place(_titleLabel, 0, 0, new Vector2(16, 36), new Vector2(398, 26));
-        _connectionPanel.AddChild(_titleLabel);
-
-        _systemLabel = MakeLabel("VESPER\n" + Locale.Text("seed") + " —", 13, Dim);
-        Place(_systemLabel, 0, 0, new Vector2(16, 64), new Vector2(398, 76));
+        _systemLabel = MakeLabel("VESPER", 18, new Color(.04f,.06f,.08f));
+        _systemLabel.AddThemeColorOverride("font_shadow_color",Colors.Transparent);
+        var plate = new Panel();
+        plate.AddThemeStyleboxOverride("panel",new StyleBoxFlat {BgColor=Colors.White});
+        Place(plate,0,0,new Vector2(0,26),new Vector2(360,36));
+        _connectionPanel.AddChild(plate);
+        Place(_systemLabel, 0, 0, new Vector2(8, 28), new Vector2(344, 32));
         _connectionPanel.AddChild(_systemLabel);
-    }
-
-    private void BuildTopRight()
-    {
-        var panel = CreatePanel();
-        Place(panel, 1, 0, new Vector2(-464, 24), new Vector2(440, 154));
-        _root.AddChild(panel);
-
-        var header = MakeLabel(Locale.Text("sensor_contact"), 12, Dim);
-        Place(header, 0, 0, new Vector2(16, 10), new Vector2(408, 18));
-        panel.AddChild(header);
-        _sensorHeader = header;
-
-        _targetLabel = MakeLabel(Locale.Text("no_target"), 19, Dim);
-        Place(_targetLabel, 0, 0, new Vector2(16, 30), new Vector2(408, 28));
-        panel.AddChild(_targetLabel);
-
-        _targetDetailLabel = MakeLabel(Locale.Text("tab_hint"), 13, Dim);
-        _targetDetailLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        Place(_targetDetailLabel, 0, 0, new Vector2(16, 62), new Vector2(408, 80));
-        panel.AddChild(_targetDetailLabel);
-    }
-
-    private void BuildBottomLeft()
-    {
-        var panel = CreatePanel();
-        Place(panel, 0, 1, new Vector2(24, -154), new Vector2(500, 130));
-        _root.AddChild(panel);
-
-        _controlsLabel = MakeLabel(Locale.Text("game_title"), 13, Dim);
-        Place(_controlsLabel, 0, 0, new Vector2(16, 12), new Vector2(468, 106));
-        panel.AddChild(_controlsLabel);
     }
 
     private void BuildTelemetry()
@@ -357,36 +221,6 @@ public sealed partial class Hud : CanvasLayer
         _telemetryLabel = MakeLabel(Locale.Text("game_title"), 13, Dim);
         Place(_telemetryLabel, 0, 0, new Vector2(16, 70), new Vector2(438, 50));
         panel.AddChild(_telemetryLabel);
-    }
-
-    private void BuildScanPanel()
-    {
-        _scanPanel = CreatePanel();
-        Place(_scanPanel, 0.5f, 0, new Vector2(-340, 200), new Vector2(680, 180));
-        _scanPanel.Visible = false;
-        _root.AddChild(_scanPanel);
-
-        _scanTitle = MakeLabel("SCAN", 17, Green);
-        Place(_scanTitle, 0, 0, new Vector2(18, 12), new Vector2(644, 24));
-        _scanPanel.AddChild(_scanTitle);
-
-        _scanBody = MakeLabel("", 14, new Color(0.8f, 0.87f, 0.94f));
-        _scanBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        Place(_scanBody, 0, 0, new Vector2(18, 42), new Vector2(644, 128));
-        _scanPanel.AddChild(_scanBody);
-    }
-
-    private void BuildToast()
-    {
-        _toastPanel = CreatePanel();
-        Place(_toastPanel, 0.5f, 0.5f, new Vector2(-300, 110), new Vector2(600, 42));
-        _toastPanel.Visible = false;
-        _root.AddChild(_toastPanel);
-
-        _toastLabel = MakeLabel("", 15, Cyan);
-        _toastLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        Place(_toastLabel, 0, 0, new Vector2(8, 9), new Vector2(584, 24));
-        _toastPanel.AddChild(_toastLabel);
     }
 
     private void BuildOverlay()

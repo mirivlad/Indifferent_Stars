@@ -8,7 +8,8 @@ namespace IndifferentStars.Client;
 public sealed partial class RadioChat : CanvasLayer
 {
     private sealed record Line(DateTimeOffset Time,uint SenderId,string Sender,string Text,bool Npc);
-    private readonly ushort[] _channels={RadioChannels.Local,RadioChannels.System,RadioChannels.General};
+    public const ushort Notifications = 0;
+    private readonly ushort[] _channels={RadioChannels.Local,RadioChannels.System,RadioChannels.General,Notifications};
     private readonly Dictionary<ushort,List<Line>> _history=new();
     private readonly Dictionary<ushort,int> _unread=new();
     private TabBar _tabs=null!;
@@ -25,7 +26,7 @@ public sealed partial class RadioChat : CanvasLayer
         Name="RadioChat";Layer=12;
         var root=new Control {MouseFilter=Control.MouseFilterEnum.Ignore};root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);AddChild(root);
         var panel=new PanelContainer {Name="RadioPanel",MouseFilter=Control.MouseFilterEnum.Stop};
-        panel.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);panel.Position=new Vector2(24,-268);panel.Size=new Vector2(500,244);root.AddChild(panel);
+        panel.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);panel.Position=new Vector2(24,-268);panel.Size=new Vector2(550,244);root.AddChild(panel);
         panel.AddThemeStyleboxOverride("panel",new StyleBoxFlat {BgColor=new Color(.008f,.018f,.03f,.91f),BorderColor=new Color(.14f,.31f,.40f,.8f),
             BorderWidthLeft=1,BorderWidthRight=1,BorderWidthTop=1,BorderWidthBottom=1,ContentMarginLeft=10,ContentMarginRight=10,ContentMarginTop=7,ContentMarginBottom=8});
         var box=new VBoxContainer();box.AddThemeConstantOverride("separation",4);panel.AddChild(box);
@@ -41,7 +42,7 @@ public sealed partial class RadioChat : CanvasLayer
         _input.FocusEntered+=()=>TypingChanged?.Invoke(true);_input.FocusExited+=()=>TypingChanged?.Invoke(false);
         _input.TextSubmitted+=_=>Submit();_send.Pressed+=Submit;
         _input.GuiInput+=input=>{if(input is InputEventKey {Pressed:true,Keycode:Key.Escape}){_input.AcceptEvent();EndTyping();}};
-        _tabs.TabChanged+=_=>{_unread[SelectedChannel]=0;RefreshLanguage();Render(true);};
+        _tabs.TabChanged+=_=>{_unread[SelectedChannel]=0;RefreshLanguage();Render(true);_input.Editable=SelectedChannel!=Notifications;_send.Disabled=SelectedChannel==Notifications;EndTyping();};
         RefreshLanguage();
     }
     private static string Title(ushort id)=>Locale.Text("chat_channel_"+id);
@@ -50,18 +51,19 @@ public sealed partial class RadioChat : CanvasLayer
         _heading.Text=Locale.Text("radio_heading");_input.PlaceholderText=Locale.Text("chat_placeholder");_send.Text=Locale.Text("chat_send");
         for(var i=0;i<_channels.Length;i++)_tabs.SetTabTitle(i,Title(_channels[i])+(_unread[_channels[i]]>0?$" ({_unread[_channels[i]]})":""));
     }
-    public void BeginTyping()=>_input.GrabFocus();
+    public void BeginTyping(){if(SelectedChannel==Notifications)_tabs.CurrentTab=0;_input.GrabFocus();}
     public void EndTyping()=>_input.ReleaseFocus();
     private void Submit()
     {
+        if(SelectedChannel==Notifications)return;
         var text=_input.Text.Trim();
         if(text.Length==0){EndTyping();return;}
-        if(!RadioChannels.ValidText(text)){Notice(SelectedChannel,Locale.Text("chat_error_2"));return;}
+        if(!RadioChannels.ValidText(text)){Notice(Notifications,Locale.Text("chat_error_2"));return;}
         _input.Text="";SendRequested?.Invoke(SelectedChannel,text);EndTyping();
     }
     public void Receive(ChatLineMessage line)=>Append(line.ChannelId,DateTimeOffset.FromUnixTimeMilliseconds(line.Timestamp),line.Sender,line.Text,false,line.SenderId);
     public void Radio(string sender,string text,uint senderId=0)=>Append(RadioChannels.Local,DateTimeOffset.Now,sender,text,true,senderId);
-    public void Notice(ushort channel,string text)=>Append(channel,DateTimeOffset.Now,Locale.Text("radio_heading"),text,true);
+    public void Notice(ushort channel,string text)=>Append(channel,DateTimeOffset.Now,Locale.Text(channel==Notifications?"notifications_sender":"radio_heading"),text,true);
     private void Append(ushort channel,DateTimeOffset time,string sender,string text,bool npc,uint senderId=0)
     {
         if(!_history.TryGetValue(channel,out var history))return;

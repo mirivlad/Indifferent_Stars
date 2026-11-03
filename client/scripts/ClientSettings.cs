@@ -7,7 +7,6 @@ namespace IndifferentStars.Client;
 public sealed class ClientSettings
 {
     private const string Path = "user://settings.cfg";
-    public bool HudHints { get; set; } = true;
     public bool DefaultFlightAssist { get; set; }
     public string MusicDirectory { get; set; } = "";
     public string Language { get; set; } = "ru";
@@ -41,7 +40,7 @@ public sealed class ClientSettings
         ["yaw_left"] = Key.Left, ["yaw_right"] = Key.Right, ["pitch_up"] = Key.Up, ["pitch_down"] = Key.Down,
         ["cruise"] = Key.V, ["boost"] = Key.Shift, ["brake"] = Key.Space, ["assist"] = Key.Z,
         ["view_2d"] = Key.F1, ["view_3d"] = Key.F2, ["view_cockpit"] = Key.F3,
-        ["quality"] = Key.F4, ["target"] = Key.Tab, ["scan"] = Key.F, ["warp"] = Key.X,
+        ["quality"] = Key.F4, ["cursor"] = Key.Tab, ["scan"] = Key.F, ["warp"] = Key.X,
         ["approach"] = Key.G, ["dock"] = Key.H, ["map_system"] = Key.M, ["map_ship"] = Key.Home,
         ["menu"] = Key.Escape,
     };
@@ -53,7 +52,6 @@ public sealed class ClientSettings
         if (file.Load(Path) != Error.Ok) return settings;
         settings.Language = file.GetValue("general", "language", settings.Language).AsString();
         if (settings.Language is not ("ru" or "en")) settings.Language = "ru";
-        settings.HudHints = file.GetValue("general", "hud_hints", true).AsBool();
         settings.DefaultFlightAssist = file.GetValue("input", "default_assist", false).AsBool();
         settings.MusicDirectory = file.GetValue("audio", "music_directory", "").AsString();
         settings.Server = file.GetValue("network", "server", settings.Server).AsString();
@@ -86,7 +84,6 @@ public sealed class ClientSettings
     public Error Save()
     {
         var file = new ConfigFile();
-        file.SetValue("general", "hud_hints", HudHints);
         file.SetValue("input", "default_assist", DefaultFlightAssist);
         file.SetValue("audio", "music_directory", MusicDirectory);
         file.SetValue("general", "language", Language);

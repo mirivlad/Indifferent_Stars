@@ -137,7 +137,6 @@ public sealed partial class SettingsMenu : CanvasLayer
             language.AddChild(button);
         }
         var network = Tab(tabs, "network");
-        AddToggle(network, "hud_hints", _settings.HudHints, value => _settings.HudHints = value);
         AddToggle(network, "default_assist", _settings.DefaultFlightAssist, value => _settings.DefaultFlightAssist = value);
         AddEntry(network, "server", _settings.Server, value => _settings.Server = value);
         AddEntry(network, "callsign", _settings.Callsign, value => _settings.Callsign = value);

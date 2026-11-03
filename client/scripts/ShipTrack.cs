@@ -36,6 +36,10 @@ public sealed class ShipTrack
     public Quaternion Orientation { get; private set; } = Quaternion.Identity;
     public float Throttle { get; private set; }
     public ImpactState? Impact { get; private set; }
+    public uint RouteRevision { get; private set; }
+    public byte RouteIndex { get; private set; }
+    public bool RouteActive { get; private set; }
+    public bool Boosting { get; private set; }
     public bool HasData => _points.Count > 0;
     public string Name { get; private set; } = string.Empty;
     public EntityKind Kind { get; private set; }
@@ -60,6 +64,8 @@ public sealed class ShipTrack
             return false;
         if (_points.Count == 1 && _points[0].ServerMs is null)
             _points.Clear();
+        Boosting = snapshot.Boosting;
+        RouteRevision = snapshot.RouteRevision; RouteIndex = snapshot.RouteIndex; RouteActive = snapshot.RouteActive;
         Impact = snapshot.Impact;
         Name = snapshot.Name;
         Kind = snapshot.Kind;

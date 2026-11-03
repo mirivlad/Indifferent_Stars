@@ -10,6 +10,15 @@ public sealed partial class NetworkClient
     private (uint Id, uint Target, IndifferentStars.Shared.Vec3d? Destination, double StartedAt, double LastResendAt)? _pendingWarp;
     private (uint Id, ushort Commodity, int Quantity, bool Buy, double StartedAt, double LastResendAt)? _pendingTrade;
     private double _lastPingSeconds;
+    private (RouteRequestMessage Message, double Started, double Sent)? _pendingRoute;
+    public event Action<RouteResultMessage>? RouteCompleted;
+    public bool IsRoutePending => _pendingRoute.HasValue;
+    public uint RequestRoute(NavigationPoint[] points, bool enabled)
+    {
+        var request = new RouteRequestMessage(_requestSequence++,points,enabled);
+        var now = NowSeconds(); _pendingRoute = (request,now,now); Send(request); return request.RequestId;
+    }
+
 
     public bool IsScanPending => _pendingScan.HasValue;
     public bool IsWarpPending => _pendingWarp.HasValue;
@@ -78,6 +87,11 @@ public sealed partial class NetworkClient
             return;
 
         var now = NowSeconds();
+        if (_pendingRoute is { } route)
+        {
+            if (now-route.Started>3) { _pendingRoute=null; RouteCompleted?.Invoke(new RouteResultMessage(route.Message.RequestId,false)); }
+            else if(now-route.Sent>.3) { _pendingRoute=(route.Message,route.Started,now); Send(route.Message); }
+        }
         _lastPingSeconds += 0.05;
         if (_lastPingSeconds >= 1.0)
         {

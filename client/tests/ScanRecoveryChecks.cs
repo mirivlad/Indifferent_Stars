@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq;
 using System.Collections.Concurrent;
 using System.Reflection;
@@ -22,7 +24,7 @@ public sealed partial class ScanRecoveryChecks : Node
             await Until(()=> {pilot=game.FindChildren("Ship_*","Node3D",true,false).OfType<ShipView>().FirstOrDefault(s=>s.IsPlayer&&s.Track.HasData);return pilot is not null;},10,"Connection required.");
             var net=Field<NetworkClient>(game,"_net");
             var hud=Field<Hud>(game,"_hud");
-            var scan=Field<Panel>(hud,"_scanPanel");
+            var notices=new List<string>();hud.NoticeRaised+=notices.Add;
             ScanResultMessage? reply=null;var replies=0;net.ScanCompleted+=r=>{reply=r;replies++;};
             var catalog=WorldCatalog.Generate(GameMain.DefaultSeed);
             net.RequestScan((uint)catalog.Station.Id);
@@ -39,11 +41,11 @@ public sealed partial class ScanRecoveryChecks : Node
             await Pause(.1);
             Check(replies==count,"Duplicate scan replies must not restart notifications.");
             await Pause(3.5);
-            Check(!scan.Visible,"Rejected scan notification must expire within four seconds.");
+            Check(notices.Any(n=>n.Contains(Locale.Text("scan_rejected"))),"Rejected scan must remain in notifications.");
             hud.SetScanPending("Lost response");
             typeof(NetworkClient).GetField("_pendingScan",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(net,(999u,0u,-10d,-10d));
-            await Pause(.1);Check(Field<Label>(hud,"_scanTitle").Text==Locale.Text("scan_rejected").ToUpperInvariant(),"Timeout title must be localized.");Check(!net.IsScanPending,"Timed-out scan must release the pending request.");
-            await Pause(3.5);Check(!scan.Visible,"Timeout notification must expire.");
+            await Pause(.1);Check(notices.Any(n=>n.Contains(Locale.Text("scan_timeout"))),"Timeout must reach notification history.");Check(!net.IsScanPending,"Timed-out scan must release the pending request.");
+            await Pause(3.5);Check(notices.Count(n=>n.Contains(Locale.Text("scan_timeout")))==1,"Timeout notification must not repeat.");
             GD.Print("SCAN RECOVERY CHECKS PASSED: success, rejection, continued input and bounded notification.");
             await game.QuitGracefully();
         }

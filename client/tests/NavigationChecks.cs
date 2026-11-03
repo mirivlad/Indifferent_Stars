@@ -51,9 +51,6 @@ public sealed partial class NavigationChecks : Node3D
             var map = new TacticalView { Catalog = catalog, PlayerId = 10000, PlayerPosition = position, PlayerAltitude = (float)y };
             layer.AddChild(map); map.Visible = true;
             await Pause(0.15);
-            Check(map.TryPickNavigationTarget(new Vector2(50, 220), out var planetId) && planetId == catalog.Planet.Id, "Planet bearing panel must remain selectable.");
-            Check(map.TryPickNavigationTarget(new Vector2(50, 315), out var starId) && starId == catalog.Star.Id, "Star bearing panel must remain selectable.");
-            Check(!map.TryPickNavigationTarget(map.Size / 2, out _), "The navigation panel must not occupy the coordinate plot.");
             var starLocal = catalog.Star.SystemPosition - catalog.LocalFrameOrigin;
             var planetLocal = catalog.Planet.SystemPosition - catalog.LocalFrameOrigin;
             Check(map.ScreenPosition(starLocal).DistanceTo(map.ScreenPosition(planetLocal)) > map.Size.X * 1000,

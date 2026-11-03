@@ -42,8 +42,9 @@ public sealed partial class RadioChecks : Node
             await Until(()=>_other.State==ConnectionState.Connected,5,"Second client required.");
             var position=pilot!.Track.WorldPosition;var orientation=pilot.Track.Orientation;
             var target=Field<uint>(game,"_targetId");
+            Input.MouseMode=Input.MouseModeEnum.Captured;
             SetKey(Key.Tab,true);SetKey(Key.Tab,false);await Pause(.1);
-            Check(!radio.IsTyping && Field<uint>(game,"_targetId")!=target,"Tab must cycle flight targets rather than focus chat.");
+            Check(!radio.IsTyping && Field<uint>(game,"_targetId")==target && Input.MouseMode==Input.MouseModeEnum.Visible,"Tab must release cursor without changing target or focusing chat.");
             var mouseMode=Input.MouseMode;
             SetKey(Key.Alt,true);await Pause(.1);
             Check(Input.MouseMode==Input.MouseModeEnum.Captured,"Alt must begin camera look.");

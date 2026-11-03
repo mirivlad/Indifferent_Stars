@@ -27,10 +27,7 @@ public sealed partial class TacticalView : Control
     private static readonly Color GridColor = new(0.25f, 0.45f, 0.6f, 0.10f);
     private static readonly Color RingColor = new(0.3f, 0.55f, 0.72f, 0.22f);
     private static readonly Color TextDim = new(0.52f, 0.64f, 0.74f, 0.85f);
-    private static readonly Color PlayerColor = new(0.55f, 0.88f, 1.0f);
-    private static readonly Rect2 NavigationPanel = new(22, 172, 450, 216);
-    private static readonly Rect2 PlanetNavigationRow = new(22, 198, 450, 96);
-    private static readonly Rect2 StarNavigationRow = new(22, 298, 450, 48);
+    private static readonly Color PlayerColor = new(0.2f, 1.0f, 0.4f);
 
     public WorldCatalog? Catalog { get; set; }
     public Vec3d PlayerPosition { get; set; }
@@ -47,6 +44,7 @@ public sealed partial class TacticalView : Control
     private Vec3d _center = Vec3d.Zero;
     private Vec3d _targetCenter = Vec3d.Zero;
     private bool _centerInitialized;
+    public List<Vec3d> RoutePoints { get; } = new();
     public List<TacticalContact> Contacts { get; } = new();
 
     private readonly List<LabelItem> _labels = new(64);
@@ -92,49 +90,18 @@ public sealed partial class TacticalView : Control
         DrawPlayer(center, scale);
         DrawScale(scale, size);
         FlushLabels();
-        DrawPlanetNavigation();
-    }
-
-    private void DrawPlanetNavigation()
-    {
-        if (Catalog is null) return;
-        var navigation = SurfaceNavigation.Measure(Catalog.LocalFrameOrigin + PlayerPosition, PlayerVelocity, Catalog.Planet);
-        DrawRect(NavigationPanel, new Color(0.008f, 0.02f, 0.035f, 0.97f));
-        Text(Locale.Text("map_navigation_bearings"), new Vector2(30, 190), 12, PlayerColor);
-        Bearing(Catalog.Planet, new Vector2(44, 217));
-        Text(Catalog.Planet.Name, new Vector2(66, 216), 15, PlayerColor);
-        Text(Locale.Format("planet_surface_distance", navigation.DistanceMetres / 1000), new Vector2(66, 239), 14, PlayerColor);
-        Text(Locale.Format("planet_closing_speed", navigation.ClosingMetresPerSecond), new Vector2(66, 262), 12, TextDim);
-        Text(Altitude(Catalog.Planet), new Vector2(66, 284), 12, TextDim);
-        Bearing(Catalog.Star, new Vector2(44, 317));
-        var starDistance = Vec3d.Distance(Catalog.LocalFrameOrigin + PlayerPosition, Catalog.Star.SystemPosition) - Catalog.Star.Radius;
-        Text(Catalog.Star.Name + " · " + FormatDistance(starDistance), new Vector2(66, 315), 14, new Color(1, 0.72f, 0.36f));
-        Text(Altitude(Catalog.Star), new Vector2(66, 338), 12, TextDim);
-        Text(Locale.Format("map_ring_extent", Catalog.Planet.Radius * Catalog.Planet.RingInnerRadii / 1000,
-            Catalog.Planet.Radius * Catalog.Planet.RingOuterRadii / 1000), new Vector2(30, 370), 12, TextDim);
-
-        string Altitude(CelestialBody body) => Locale.Format("map_body_altitude",
-            (body.SystemPosition.Y - Catalog.LocalFrameOrigin.Y - PlayerPosition.Y) / 1000);
-        void Text(string text, Vector2 at, int size, Color color) =>
-            DrawString(ThemeDB.FallbackFont, at, text, HorizontalAlignment.Left, -1, size, color);
-        void Bearing(CelestialBody body, Vector2 at)
+        var previous = Project(center,scale,PlayerPosition);
+        for(var i=0;i<RoutePoints.Count;i++)
         {
-            var offset = body.SystemPosition - Catalog.LocalFrameOrigin - PlayerPosition;
-            var horizontal = new Vector2((float)offset.X, (float)offset.Z);
-            var direction = horizontal.LengthSquared() > 1 ? horizontal.Normalized() : new Vector2(0, offset.Y < 0 ? 1 : -1);
-            var right = direction.Orthogonal();
-            DrawLine(at - direction * 9, at + direction * 9, PlayerColor, 1.5f);
-            DrawColoredPolygon(new[] { at + direction * 12, at + direction * 3 + right * 5, at + direction * 3 - right * 5 }, PlayerColor);
+            var next=Project(center,scale,RoutePoints[i]);
+            DrawLine(previous,next,PlayerColor,1.5f);
+            if(new Rect2(Vector2.Zero,size).HasPoint(next))
+            {
+                DrawArc(next,7,0,Mathf.Tau,20,PlayerColor,1.5f);
+                DrawString(ThemeDB.FallbackFont,next+new Vector2(9,-9),(i+1).ToString(),HorizontalAlignment.Left,-1,13,PlayerColor);
+            }
+            previous=next;
         }
-    }
-
-    public bool TryPickNavigationTarget(Vector2 screen, out uint targetId)
-    {
-        targetId = 0;
-        if (Catalog is null || !NavigationPanel.HasPoint(screen)) return false;
-        if (PlanetNavigationRow.HasPoint(screen)) targetId = (uint)Catalog.Planet.Id;
-        else if (StarNavigationRow.HasPoint(screen)) targetId = (uint)Catalog.Star.Id;
-        return true;
     }
 
     private void DrawScale(float scale, Vector2 size)
@@ -338,8 +305,7 @@ public sealed partial class TacticalView : Control
 
     private static string FormatDistance(double metres)
     {
-        if (metres >= 1_000_000_000) return Locale.Format("map_distance_au", metres / 149_597_870_700.0);
-        return Locale.Format("map_distance_km", metres / 1000.0);
+        return NavigationPanel.Distance(metres);
     }
 
     private void DrawBody(StaticBody body, Vector2 center, float scale, Color color, string kind)
@@ -404,14 +370,14 @@ public sealed partial class TacticalView : Control
     {
         var mapCenter = center;
         center = Project(center, scale, PlayerPosition);
-        if (center.X < -40 || center.Y < -40 || center.X > Size.X + 40 || center.Y > Size.Y + 40)
+        if (center.X < 12 || center.Y < 12 || center.X > Size.X - 12 || center.Y > Size.Y - 12)
         {
             DrawOffscreenArrow(center, mapCenter, PlayerColor, Locale.Text("you"));
             return;
         }
         if (ZoomRange >= 100_000_000)
         {
-            DrawCircle(center, 4, PlayerColor);
+            DrawRect(new Rect2(center-new Vector2(4,4),new Vector2(8,8)),PlayerColor);
             DrawLabel(Locale.Text("you"), center + new Vector2(8, -6), PlayerColor, 11);
             return;
         }

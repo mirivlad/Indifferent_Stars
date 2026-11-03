@@ -102,7 +102,7 @@ public sealed partial class GameMain
         if (_cruiseStopping && (_playerShip?.Track.Velocity.Length() ?? 0) < 0.1f) _cruiseStopping = false;
         if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true || (_playerShip is not null && _playerShip.Track.WarpStage != WarpStage.None))
             return InputState.None with { FlightAssist = _flightAssist };
-        if (_radio.IsTyping || _mode == ViewMode.Tactical)
+        if (_radio.IsTyping || _navigation.IsTyping || _navigation.IsModal || _mode == ViewMode.Tactical)
             return InputState.None with { Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
@@ -131,6 +131,8 @@ public sealed partial class GameMain
         var createShip = _playerShip is null || _playerShip.Id != welcome.PlayerId;
         if (createShip)
         {
+            _routePoints.Clear(); _confirmedRoute.Clear();
+            _routeRevision=0; _confirmedRevision=0; _routeIndex=0; _routeEnabled=false;
             if (_playerShip is not null)
                 _playerShip.QueueFree();
 
@@ -159,10 +161,9 @@ public sealed partial class GameMain
         _targetId = (uint)_catalog.Station.Id;
         _hasTarget = true;
 
-        _hud.SetSystem(welcome.SystemName, welcome.WorldSeed, welcome.PlayerId);
+        _hud.SetSystem(welcome.SystemName);
         var spawnSector = _catalog.SectorAt(welcome.Spawn);
         _sectorId = spawnSector.Id;
-        _hud.SetSector(spawnSector.Name);
         _hud.ShowToast(Locale.Format("connected_welcome", _catalog.SystemName.ToUpperInvariant()), new Color(0.45f, 0.95f, 0.65f), 4f);
         GD.Print($"Connected as ship #{welcome.PlayerId} '{welcome.PlayerName}'.");
 
@@ -295,31 +296,6 @@ public sealed partial class GameMain
     {
         if (_hasTarget && FindContact(_targetId) is null)
             _hasTarget = false;
-    }
-
-    private void CycleTarget()
-    {
-        var contacts = BuildContacts()
-            .Where(c => c.Id != _playerId)
-            .OrderBy(c => c.Distance)
-            .ToList();
-        // Nearby asteroid contacts must not crowd known celestial destinations out of keyboard targeting.
-        contacts = contacts.Take(48)
-            .Concat(contacts.Where(contact => _catalog.FindCelestial((int)contact.Id) is not null))
-            .DistinctBy(contact => contact.Id)
-            .ToList();
-
-        if (contacts.Count == 0)
-        {
-            _hud.ShowToast(Locale.Text("no_contacts"), new Color(1f, 0.7f, 0.4f), 2.5f);
-            _hasTarget = false;
-            return;
-        }
-
-        var index = contacts.FindIndex(c => c.Id == _targetId);
-        var next = index >= 0 ? contacts[(index + 1) % contacts.Count] : contacts[0];
-        _targetId = next.Id;
-        _hasTarget = true;
     }
 
     private void RequestScan()

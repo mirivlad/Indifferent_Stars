@@ -63,7 +63,7 @@ public sealed partial class GameMain : Node3D
     private Input.MouseModeEnum _beforeLook;
     private bool _lookCaptured;
     private bool LookingAround => _mode != ViewMode.Tactical &&
-        _radio?.IsTyping != true && (_settings.Pressed("camera_look") || Input.IsMouseButtonPressed(MouseButton.Middle));
+        _radio?.IsTyping != true && _navigation?.IsTyping != true && _navigation?.IsModal != true && (_settings.Pressed("camera_look") || Input.IsMouseButtonPressed(MouseButton.Middle));
     private bool _quitting;
     private uint _playerId;
     private uint _targetId;
@@ -125,9 +125,8 @@ public sealed partial class GameMain : Node3D
         AddChild(_warpEffect);
         RebuildStaticWorld(DefaultSeed);
 
-        _hud.SetSystem(_catalog.SystemName, _catalog.Seed, 0);
+        _hud.SetSystem(_catalog.SystemName);
         _hud.SetMode("external", Locale.Text("link_connecting_short"));
-        _hud.SetTarget(null, "", 0, 0, false, false);
 
         _settingsMenu = new SettingsMenu(_settings, ApplySettings, StartConnection, () => { _ = QuitGracefully(); });
         AddChild(_settingsMenu);
@@ -149,6 +148,7 @@ public sealed partial class GameMain : Node3D
         _serverHost = split[0];
         _serverPort = split.Length > 1 && int.TryParse(split[1], out var port) && port is > 0 and <= 65535 ? port : 7777;
         _playerName = string.IsNullOrWhiteSpace(_settings.Callsign) ? "Captain" : _settings.Callsign.Trim();
+        _hud.ServerAddress = _settings.Server;
         _net = new NetworkClient(_serverHost, _serverPort, _playerName);
         _net.WelcomeReceived += OnWelcome;
         _net.JoinRejected += OnJoinRejected;
@@ -163,12 +163,13 @@ public sealed partial class GameMain : Node3D
             _radio.Radio(sender,text,reply.TargetId);
         };
         _net.ChatReceived += _radio.Receive;
-        _net.ChatRejected += result => _radio.Notice(result.ChannelId,Locale.Text("chat_error_"+(int)result.Error));
-        _net.ChatTimedOut += channel => _radio.Notice(channel,Locale.Text("chat_timeout"));
+        _net.ChatRejected += result => _radio.Notice(RadioChat.Notifications,Locale.Text("chat_error_"+(int)result.Error));
+        _net.ChatTimedOut += channel => _radio.Notice(RadioChat.Notifications,Locale.Text("chat_timeout"));
         _net.ScanCompleted += OnScanCompleted;
         _net.ScanTimedOut += () => _hud.ShowScanResult(Locale.Text("scan_rejected"), Locale.Text("scan_timeout"), false);
         _net.WarpCompleted += OnWarpCompleted;
         _net.ApproachCompleted += OnApproachCompleted;
+        ConnectNavigation();
         _net.DockCompleted += OnDockCompleted;
         _net.MarketReceived += OnMarketReceived;
         _net.TradeCompleted += OnTradeCompleted;
@@ -224,9 +225,8 @@ public sealed partial class GameMain : Node3D
             ship.SetParticles(_settings.Particles);
         }
         _audio.SetMusicDirectory(_settings.MusicDirectory);
-        _hud.SetHintsVisible(_settings.HudHints);
-        _hud.SetControls(_settings);
         _hud.RefreshLanguage();
+        _navigation.RefreshLanguage();
         _radio.RefreshLanguage();
         _stationView?.RefreshLanguage();
         BuildContactMenu();
@@ -268,12 +268,12 @@ public sealed partial class GameMain : Node3D
         _net?.Update(delta, _input);
         if (_playerShip is not null)
         {
-            _playerShip.Boosting = _input.Boost;
+            _playerShip.Boosting = _input.Boost || _playerShip.Track.Boosting;
             _playerShip.UpdateVisual(_renderOrigin, dt, frameTime);
             var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical),
                 Math.Max(Math.Abs(_input.Roll), Math.Max(Math.Abs(_input.Steer), Math.Abs(_input.Pitch)))));
             _audio.SetFlight(_playerShip.Track.Throttle, maneuver,
-                _input.Boost || _playerShip.Track.Cruising, _input.Brake || _playerShip.EngineBraking);
+                _playerShip.Boosting || _playerShip.Track.Cruising, _input.Brake || _playerShip.EngineBraking);
             if (_trace && _playerShip.Track.HasData)
             {
                 var p = _playerShip.Track.WorldPosition;
@@ -344,14 +344,27 @@ public sealed partial class GameMain : Node3D
                 _serverTick = _net.LastSnapshotTick;
         }
 
+        UpdateNavigation();
         UpdateHud(dt);
         _hud.SetWarpState(warpStage, warpProgress);
         UpdateCapture(dt);
     }
 
+    public override void _Input(InputEvent input)
+    {
+        if (input is not InputEventKey { Pressed: true, Echo: false } key ||
+            key.Keycode != _settings.Keys["cursor"] || _settingsMenu.IsOpen || _radio.IsTyping || _navigation.IsModal) return;
+        var typing = _navigation.IsTyping;
+        GetViewport().GuiGetFocusOwner()?.ReleaseFocus();
+        Input.MouseMode = typing || _mode == ViewMode.Tactical || Input.MouseMode == Input.MouseModeEnum.Captured
+            ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
+        _mouseTurn = Vector2.Zero; _mouseTurnAt = 0;
+        GetViewport().SetInputAsHandled();
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (_settingsMenu.IsOpen || _radio.IsTyping) return;
+        if (_settingsMenu.IsOpen || _radio.IsTyping || _navigation.IsTyping || _navigation.IsModal) return;
         if(@event is InputEventKey {Pressed:true,Echo:false,Keycode:Key.Enter})
         {
             _radio.BeginTyping();GetViewport().SetInputAsHandled();return;
@@ -373,9 +386,6 @@ public sealed partial class GameMain : Node3D
                 case "quality":
                     ToggleQuality();
                     break;
-                case "target":
-                    CycleTarget();
-                    break;
                 case "scan":
                     RequestScan();
                     break;
@@ -383,7 +393,7 @@ public sealed partial class GameMain : Node3D
                     RequestWarp();
                     break;
                 case "approach":
-                    RequestApproach();
+                    ToggleAutopilot();
                     break;
                 case "dock":
                     RequestDock();
@@ -447,11 +457,10 @@ public sealed partial class GameMain : Node3D
                 _tactical.ZoomAt(mouse.Position, 1 / 0.65);
             else if (mouse.ButtonIndex is MouseButton.Left or MouseButton.Right)
             {
-                if (_tactical.TryPickNavigationTarget(mouse.Position, out var navigationId) && navigationId == 0) return;
                 var contact = BuildContacts().Where(c => c.Id != _playerId && _tactical.ZoomRange < 100_000_000)
                     .Select(c => (Contact: c, Distance: _tactical.ScreenPosition(new Vec3d(c.Position.X, c.Position.Y, c.Position.Z)).DistanceTo(mouse.Position)))
                     .Where(c => c.Distance < 20).OrderBy(c => c.Distance).FirstOrDefault();
-                var selectedId = navigationId != 0 ? navigationId : contact.Contact.Id;
+                var selectedId = contact.Contact.Id;
                 var selectedDistance = selectedId == 0 ? float.MaxValue : contact.Distance;
                 if (_tactical.ZoomRange >= 100_000_000)
                 {
@@ -480,7 +489,7 @@ public sealed partial class GameMain : Node3D
                 {
                     _mapDestination = _tactical.WorldPositionAt(mouse.Position);
                     _contactMenu.Clear();
-                    _contactMenu.AddItem(Locale.Text("context_move_point"), 9);
+                    _contactMenu.AddItem(Locale.Text("route_add"), 23);
                     _contactMenu.AddItem(Locale.Text("context_warp"), 14);
                     _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
                     _contactMenu.Popup();
@@ -542,10 +551,12 @@ public sealed partial class GameMain : Node3D
 
     private void SetupUi()
     {
-        _hud = new Hud { Name = "Hud" };
+        _hud = new Hud { Name = "Hud", ServerAddress = _settings.Server };
         AddChild(_hud);
-        _radio=new RadioChat();AddChild(_radio);_hud.ReserveRadioSpace(260);
-        _radio.SendRequested+=(channel,text)=>{if(_net?.SendChat(channel,text)!=true)_radio.Notice(channel,Locale.Text("no_connection"));};
+        _radio=new RadioChat();AddChild(_radio);
+        _hud.NoticeRaised += text => _radio.Notice(RadioChat.Notifications,text);
+        SetupNavigation();
+        _radio.SendRequested+=(channel,text)=>{if(_net?.SendChat(channel,text)!=true)_radio.Notice(RadioChat.Notifications,Locale.Text("no_connection"));};
         _radio.TypingChanged+=typing=>
         {
             if(typing){_beforeChat=_lookCaptured?_beforeLook:Input.MouseMode;Input.MouseMode=Input.MouseModeEnum.Visible;}
@@ -560,7 +571,11 @@ public sealed partial class GameMain : Node3D
         _contactMenu = new PopupMenu();
         _contactMenu.IdPressed += id =>
         {
-            if (id == 10) _net?.RequestComms(_targetId);
+            if (id == 20) ShowObjectInformation();
+            else if (id == 21) { _hasTarget=true; }
+            else if (id == 22) AddRoutePoint(new NavigationPoint(_targetId));
+            else if (id == 23) AddRoutePoint(new NavigationPoint(0,_mapDestination));
+            else if (id == 10) _net?.RequestComms(_targetId);
             else if (id == 11)
             {
                 if (_playerShip?.Track.Docked == true) _stationView.Visible = true;
@@ -572,12 +587,7 @@ public sealed partial class GameMain : Node3D
             else if (id == 4) RequestDock();
             else if (id == 7) RequestApproach(true);
             else if (id == 14) _net?.RequestWarp(0, _mapDestination);
-            else if (id == 9)
-            {
-                _cruise = false;
-                _cruiseStopping = false;
-                _net?.RequestApproach(0, waypoint: _mapDestination);
-            }
+
         };
         AddChild(_contactMenu);
         BuildContactMenu();
@@ -592,6 +602,10 @@ public sealed partial class GameMain : Node3D
     private void BuildContactMenu()
     {
         _contactMenu.Clear();
+        _contactMenu.AddItem(Locale.Text("object_information"),20);
+        _contactMenu.AddItem(Locale.Text("target_lock"),21);
+        _contactMenu.AddItem(Locale.Text("route_add"),22);
+        _contactMenu.AddSeparator();
         _contactMenu.AddItem(Locale.Text("context_approach"), 1);
         _contactMenu.AddItem(Locale.Text("context_scan"), 2);
         _contactMenu.AddItem(Locale.Text("context_warp"), 3);
@@ -708,7 +722,6 @@ public sealed partial class GameMain : Node3D
             return;
 
         _sectorId = id;
-        _hud.SetSector(name);
         if (_net?.State == ConnectionState.Connected)
             _hud.ShowToast(Locale.Format("sector_entered", name.ToUpperInvariant()),
                 new Color(0.55f, 0.85f, 1.0f), 3.5f);
@@ -820,7 +833,7 @@ public sealed partial class GameMain : Node3D
             assist = track.FlightAssist;
             autopilot = track.ApproachTargetId != 0;
             following = track.ApproachFollowing;
-            _hud.SetTelemetry(speed, throttle, altitude, _input.Boost, 0, _scanRange / 1000f,
+            _hud.SetTelemetry(speed, throttle, altitude, _playerShip.Boosting, 0, _scanRange / 1000f,
                 autopilot, assist, following, track.Cruising, _cruise, track.CruiseBraking);
         }
 
@@ -830,16 +843,6 @@ public sealed partial class GameMain : Node3D
             contact = FindContact(_targetId);
             if (contact is null)
                 _hasTarget = false;
-        }
-
-        if (contact is { } selected)
-        {
-            _hud.SetTarget(selected.Name, selected.Type, selected.Distance, selected.RelativeAltitude,
-                selected.Distance <= _scanRange, true);
-        }
-        else
-        {
-            _hud.SetTarget(null, "", 0, 0, false, false);
         }
 
         Vector2? velocityPoint = null;
