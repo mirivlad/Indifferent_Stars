@@ -16,7 +16,13 @@ func _initialize() -> void:
 		FileAccess.get_sha256("res://project.godot"),
 		FileAccess.get_sha256("res://.godot/mono/temp/bin/Debug/IndifferentStars.Client.dll"),
 	]
-	for source: String in IMPORTS:
+	var imports := IMPORTS.duplicate()
+	var music_files := ResourceLoader.list_directory("res://assets/music")
+	music_files.sort()
+	for name: String in music_files:
+		if name.to_lower().ends_with(".mp3"):
+			imports["res://assets/music/" + name] = "AudioStream"
+	for source: String in imports:
 		var config := ConfigFile.new()
 		if config.load(source + ".import") != OK:
 			fail("Missing import configuration: " + source)
@@ -36,7 +42,7 @@ func _initialize() -> void:
 			fail("Imported resource checksum mismatch: " + source)
 			return
 		var resource := ResourceLoader.load(source)
-		if resource == null or not resource.is_class(IMPORTS[source]):
+		if resource == null or not resource.is_class(imports[source]):
 			fail("Cannot load imported resource: " + source)
 			return
 		fingerprints.append(source + ":" + source_md5 + ":" + target_md5 + ":" + FileAccess.get_sha256(source + ".import"))

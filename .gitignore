@@ -14,13 +14,6 @@ export_presets.cfg.bak
 logs/
 *.log
 
-# Keep unused local music drafts out of the repository.
-client/assets/music/*
-!client/assets/music/The Endless Silence.mp3
-!client/assets/music/A Speck Among Stars.mp3
-!client/assets/music/The Endless Silence.mp3.import
-!client/assets/music/A Speck Among Stars.mp3.import
-
 # OS / editor noise
 .DS_Store
 .vscode/

@@ -9,11 +9,11 @@ namespace IndifferentStars.Client;
 /// <summary>Audio persists while the ship changes representations.</summary>
 public sealed partial class ShipAudio : Node
 {
-    private static readonly string[] MusicPaths =
-    {
-        "res://assets/music/The Endless Silence.mp3",
-        "res://assets/music/A Speck Among Stars.mp3",
-    };
+    public static string[] GetBundledMusicPaths() => ResourceLoader.ListDirectory("res://assets/music")
+        .Where(name => name.EndsWith(".mp3",StringComparison.OrdinalIgnoreCase))
+        .OrderBy(name => name,StringComparer.Ordinal)
+        .Select(name => "res://assets/music/"+name).ToArray();
+    private string[] _bundledTracks = Array.Empty<string>();
 
     private AudioStreamPlayer _music = null!;
     private AudioStreamPlayer _engine = null!;
@@ -46,6 +46,7 @@ public sealed partial class ShipAudio : Node
         }
         _music = new AudioStreamPlayer { Name = "AmbientMusic", Bus = "Music", VolumeDb = -12 };
         AddChild(_music);
+        _bundledTracks = GetBundledMusicPaths();
         _music.Finished += PlayNext;
         PlayNext();
         _engine = new AudioStreamPlayer
@@ -195,7 +196,7 @@ public sealed partial class ShipAudio : Node
     {
         if (_stopped) return;
         AudioStream? stream = null;
-        var paths = _customTracks.Length > 0 ? _customTracks : MusicPaths;
+        var paths = _customTracks.Length > 0 ? _customTracks : _bundledTracks;
         for (var attempt = 0; attempt < paths.Length && stream is null; attempt++)
         {
             var path = paths[_track % paths.Length];

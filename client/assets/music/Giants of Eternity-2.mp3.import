@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://7p6a5p0jwmor"
+path="res://.godot/imported/Giants of Eternity-2.mp3-e7c53b9070a0ea695eb1246a8446dac1.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Giants of Eternity-2.mp3"
+dest_files=["res://.godot/imported/Giants of Eternity-2.mp3-e7c53b9070a0ea695eb1246a8446dac1.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://lmdjtyrkcqiw"
+path="res://.godot/imported/Kestrel Reach.mp3-def721d75c967040db309a5e6c1fbb4e.mp3str"
+
+[deps]
+
+source_file="res://assets/music/Kestrel Reach.mp3"
+dest_files=["res://.godot/imported/Kestrel Reach.mp3-def721d75c967040db309a5e6c1fbb4e.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

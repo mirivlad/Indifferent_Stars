@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://burf8g2khler"
+path="res://.godot/imported/No Mercy in the Void (Armada Take 2).mp3-aae2f3ebda2539c1e99f3627a51406f8.mp3str"
+
+[deps]
+
+source_file="res://assets/music/No Mercy in the Void (Armada Take 2).mp3"
+dest_files=["res://.godot/imported/No Mercy in the Void (Armada Take 2).mp3-aae2f3ebda2539c1e99f3627a51406f8.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
