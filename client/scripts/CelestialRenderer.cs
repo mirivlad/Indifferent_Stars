@@ -239,6 +239,8 @@ public sealed class CelestialRenderer
             };
             atmosphereMaterial.SetShaderParameter("atmosphere_color", new Color(0.38f, 0.60f, 1.0f));
             atmosphereMaterial.SetShaderParameter("strength", 1.15f);
+            atmosphereMaterial.SetShaderParameter("sun_direction", holder.Basis.Inverse() *
+                ToVector3((_catalog.Star.SystemPosition - planet.SystemPosition).Normalized()));
             holder.AddChild(new MeshInstance3D
             {
                 Name = "Atmosphere",

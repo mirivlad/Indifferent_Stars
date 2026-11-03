@@ -51,7 +51,11 @@ public sealed partial class GameMain : Node3D
     private ViewMode _mode = ViewMode.External;
     private bool _highQuality = true;
     private bool _cameraSnap = true;
-    private Vector3 _chaseOffset;
+    private Quaternion _chaseRotation = Quaternion.Identity;
+    private float _cameraDistance = new Vector3(1, 9, 34).Length();
+    private float _targetCameraDistance = new Vector3(1, 9, 34).Length();
+    public const float MinimumCameraDistance = 24;
+    public const float MaximumCameraDistance = 650;
     private Vector2 _cameraOrbit;
     private Vector2 _cockpitLook;
     private Input.MouseModeEnum _beforeLook;
@@ -378,6 +382,13 @@ public sealed partial class GameMain : Node3D
                 if (Input.MouseMode == Input.MouseModeEnum.Captured) Input.MouseMode = Input.MouseModeEnum.Visible;
                 else _settingsMenu.ShowMenu(true);
             }
+        }
+        else if (@event is InputEventMouseButton zoom && zoom.Pressed && _mode == ViewMode.External &&
+            zoom.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        {
+            _targetCameraDistance = Mathf.Clamp(_targetCameraDistance *
+                (zoom.ButtonIndex == MouseButton.WheelUp ? 1 / 1.15f : 1.15f), MinimumCameraDistance, MaximumCameraDistance);
+            GetViewport().SetInputAsHandled();
         }
         else if (@event is InputEventMouseMotion look && LookingAround)
         {
@@ -731,20 +742,22 @@ public sealed partial class GameMain : Node3D
             case ViewMode.External:
             {
                 var orbit = basis * new Basis(Quaternion.FromEuler(new Vector3(_cameraOrbit.Y, _cameraOrbit.X, 0)));
-                var desiredOffset = orbit * new Vector3(1, 9, 34);
+                var targetRotation = orbit.GetRotationQuaternion();
                 var lookAt = position;
                 if (_cameraSnap)
                 {
-                    _chaseOffset = desiredOffset;
+                    _chaseRotation = targetRotation;
                     _cameraSnap = false;
                 }
                 else
                 {
                     var lerp = 1f - Mathf.Exp(-7.5f * dt);
-                    _chaseOffset = _chaseOffset.Lerp(desiredOffset, lerp);
+                    _chaseRotation = _chaseRotation.Slerp(targetRotation, lerp).Normalized();
                 }
 
-                _camera.GlobalPosition = position + _chaseOffset;
+                _cameraDistance = Mathf.Lerp(_cameraDistance, _targetCameraDistance, 1f - Mathf.Exp(-10f * dt));
+                var offset = new Basis(_chaseRotation) * new Vector3(1, 9, 34).Normalized() * _cameraDistance;
+                _camera.GlobalPosition = position + offset;
                 _camera.LookAt(lookAt, up);
                 var targetFov = (_playerShip.Boosting ? 82f : 70f) + _warpEffect.Intensity * 20;
                 _camera.Fov = Mathf.Lerp(_camera.Fov, targetFov, 1f - Mathf.Exp(-4f * dt));

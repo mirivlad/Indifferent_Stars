@@ -1,0 +1,2 @@
+POLISH TELEMETRY high=True frames=300 p95_ms=20.382 draw_calls=46 video_bytes=487771668 texture_bytes=427020868
+POLISH TELEMETRY high=False frames=300 p95_ms=20.450 draw_calls=30 video_bytes=487771668 texture_bytes=427020868

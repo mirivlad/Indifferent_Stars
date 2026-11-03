@@ -54,6 +54,8 @@ public sealed partial class WarpChecks : Node
             SetKey(Key.Space, false);
             Check(_pilot.Track.WorldPosition.Y > ModelPose.StationDockingOffset.Y + 1500,
                 "Departure must clear nearby surfaces.");
+            for(var i=0;i<80;i++) _game._UnhandledInput(new InputEventMouseButton {ButtonIndex=MouseButton.WheelDown,Pressed=true});
+            await Pause(1.2);
             Tap(Key.F1);
             var map = _game.FindChildren("*", "Control", true, false).OfType<TacticalView>().First();
             map.ZoomAt(map.Size * 0.5f, 3);
@@ -71,6 +73,8 @@ public sealed partial class WarpChecks : Node
                 "The server must publish the chosen point.");
             Tap(Key.F2);
             await Pause(0.8);
+            Check(Mathf.Abs(_game.GetNode<Camera3D>("ViewCamera").GlobalPosition.DistanceTo(_pilot.GlobalPosition)-GameMain.MaximumCameraDistance)<.1f,
+                "Charging and view switches must preserve far zoom.");
             await Capture("01_warp_charge");
             await Until(() => _pilot.Track.WarpStage == WarpStage.Travel && _pilot.Track.WarpProgress > 0.2, 4, "Travel must follow charging.");
             Check(_game.GetNode<Camera3D>("ViewCamera").Fov < 110, "Warp FOV must remain bounded.");
@@ -106,6 +110,8 @@ public sealed partial class WarpChecks : Node
                 "Planet arrival must keep 1 km clearance for the whole hull.");
             await Pause(0.5);
             await Capture("07_planet_arrival");
+            for(var i=0;i<80;i++) _game._UnhandledInput(new InputEventMouseButton {ButtonIndex=MouseButton.WheelUp,Pressed=true});
+            await Pause(1.2);
             Tap(Key.F1);
             for (var i = 0; i < 60 && map.TargetId != catalog.Star.Id; i++) { Tap(Key.Tab); await Pause(0.04); }
             Check(map.TargetId == catalog.Star.Id, "Known star must be selectable.");
@@ -117,7 +123,7 @@ public sealed partial class WarpChecks : Node
                 await Pause(0.05);
                 Check(_pilot.GlobalPosition.Length() < 15000, "AU warp must rebase around the rendered ship.");
                 var cameraDistance = _game.GetNode<Camera3D>("ViewCamera").GlobalPosition.DistanceTo(_pilot.GlobalPosition);
-                Check(cameraDistance > SurfaceMesh.Ship.Radius + 1 && cameraDistance < 40,
+                Check(Mathf.Abs(cameraDistance-GameMain.MinimumCameraDistance)<.1f,
                     "The camera must stay with the AU-scale warp ship.");
             }
             await Capture("08_au_transit");
