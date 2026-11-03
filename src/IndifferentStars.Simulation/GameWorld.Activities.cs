@@ -32,12 +32,17 @@ public sealed partial class GameWorld
         var population=new SeedStream(Catalog.Seed,Catalog.SystemIndex,"npc-population");uint id=5000;
         foreach(var station in Catalog.Stations)
         {
-            var count=population.Range(2,4);
+            var count=Catalog.WorkerCount(station);
             for(var i=0;i<count;i++)
             {
-                var job=i==0?station.Purpose switch {StationPurpose.Mining=>NpcOccupation.Miner,StationPurpose.Research=>NpcOccupation.Surveyor,_=>NpcOccupation.Courier}
-                    :i==1&&station.Purpose is StationPurpose.Trade or StationPurpose.Freight?NpcOccupation.Patrol:NpcOccupation.Courier;
-                var spawn=station.Position+new Vec3d(Math.Cos(i*2.1)*3200,3000+i*350,Math.Sin(i*2.1)*3200);
+                var job=station.Purpose switch
+                {
+                    StationPurpose.Mining when i<2 => NpcOccupation.Miner,
+                    StationPurpose.Research when i%2==0 => NpcOccupation.Surveyor,
+                    _ when i==1 || i==5 => NpcOccupation.Patrol,
+                    _ => NpcOccupation.Courier,
+                };
+                var spawn=station.Position+new Vec3d(Math.Cos(i*2.4)*(2200+i*180),2400+i*400,Math.Sin(i*2.4)*(2200+i*180));
                 var ship=new ShipState {Id=id++,Name=$"{names.Name()} {Catalog.SystemIndex+1}/{id-5000}",Role=job.ToString(),Position=spawn,
                     Work=new NpcWork {Occupation=job,HomeStationId=station.Id,TargetId=station.Id,Goal=spawn,Phase=NpcPhase.Waiting,Until=population.Between(1,12)}};
                 _npcs.Add(ship);
@@ -51,7 +56,16 @@ public sealed partial class GameWorld
     {
         var work=ship.Work!;ship.Docked=false;ship.DockingGranted=false;ship.DockingStationId=0;
         work.TargetId=target;work.Goal=point;work.Phase=NpcPhase.Travelling;
-        ship.NavigationRoute=new[]{new NavigationPoint(0,point)};ship.RouteIndex=0;ship.RouteActive=true;
+        var home=Catalog.Find(work.HomeStationId)!;
+        var departure=ship.Position;
+        var local=ship.Position-home.Position;
+        var departureHeight=home.Radius+WorldCatalog.CruiseClearance+2000;
+        var leaving=Vec3d.Distance(ship.Position,home.Position)<departureHeight && local.Y<departureHeight;
+        if(leaving) departure=new Vec3d(ship.Position.X,home.Position.Y+departureHeight,ship.Position.Z);
+        ship.NavigationRoute=leaving
+            ? new[]{new NavigationPoint(0,departure),new NavigationPoint(0,point)}
+            : new[]{new NavigationPoint(0,point)};
+        ship.RouteIndex=0;ship.RouteActive=true;
         ship.CruiseBraking=false;
         ship.RouteWarping=false;ship.RouteAdvanceAfterWarp=false;ship.RouteCruiseSeconds=0;ship.ApproachFollowing=false;
         var label=Catalog.Find(target)?.Name??Catalog.FindCelestial(target)?.Name??Catalog.SystemName;
@@ -68,7 +82,9 @@ public sealed partial class GameWorld
         }
         else if(work.Occupation==NpcOccupation.Miner)
         {
-            var targets=Catalog.Asteroids.Where(a=>a.Id>=3000&&DepositRemaining(a.Id)>0).ToArray();
+            var home=Catalog.Find(work.HomeStationId)!;
+            var targets=Catalog.Asteroids.Where(a=>a.Id>=3000&&DepositRemaining(a.Id)>0)
+                .OrderBy(a=>Vec3d.Distance(a.Position,home.Position)).Take(40).ToArray();
             if(targets.Length==0){WaitOutside(ship,60);return;}
             var body=targets[random.Range(0,targets.Length)];
             Journey(ship,body.Id,body.Position+Vec3d.Up*(BodySurface(body,TimeSeconds).Radius+1500));

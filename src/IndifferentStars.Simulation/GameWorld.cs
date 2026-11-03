@@ -72,6 +72,8 @@ public sealed partial class GameWorld
     public bool MeasureTimings { get; set; }
     public double RouteMilliseconds { get; private set; }
     public double CruiseSafetyMilliseconds { get; private set; }
+    public double StaticCollisionMilliseconds { get; private set; }
+    public double DynamicCollisionMilliseconds { get; private set; }
     public double CollisionMilliseconds { get; private set; }
     public double InputTimeoutSeconds { get; set; } = 0.6;
 

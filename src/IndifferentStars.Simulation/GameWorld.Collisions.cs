@@ -10,6 +10,8 @@ namespace IndifferentStars.Simulation;
 
 public sealed partial class GameWorld
 {
+    public Dictionary<int,double> CollisionBodyHotspots { get; } = new();
+    public Dictionary<uint,double> CollisionHotspots { get; } = new();
     private void ResolveCollisions(ShipState[] ships,Dictionary<uint,(Vec3d Position,Quaternion Orientation)> starts,HashSet<uint> warping,double dt)
     {
         void AtContact(ShipState ship,double time)
@@ -28,6 +30,7 @@ public sealed partial class GameWorld
             ship.ImpactAt=TimeSeconds;
             ship.Impact=new ImpactState(++ship.ImpactSequence,hit.Point,hit.Normal,(float)speed,(float)sliding);
         }
+        var staticStarted = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         foreach(var ship in ships)
         {
             if(ship.Docked||warping.Contains(ship.Id))continue;
@@ -41,7 +44,16 @@ public sealed partial class GameWorld
                 first=hit;contactBody=body;
             }
             foreach(var body in CollisionCandidates(before.Position,ship.Position,from.Radius))
+            {
+                var started = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
                 Hit(WorldSurfaces.ContactHit(from,to,BodySurface(body,TimeSeconds),BodySurface(body,TimeSeconds+dt)),body);
+                if(MeasureTimings)
+                {
+                    var elapsed=System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                    CollisionHotspots[ship.Id] = CollisionHotspots.GetValueOrDefault(ship.Id) + elapsed;
+                    CollisionBodyHotspots[body.Id] = CollisionBodyHotspots.GetValueOrDefault(body.Id) + elapsed;
+                }
+            }
             foreach(var celestial in Catalog.Celestials)
                 Hit(WorldSurfaces.SphereHit(from,to,Catalog.CelestialOffset(celestial),celestial.Radius));
             if(first is not { } impact)continue;
@@ -59,6 +71,8 @@ public sealed partial class GameWorld
             }
             Record(ship,impact,response.NormalSpeed,response.TangentialSpeed);
         }
+        if (MeasureTimings) StaticCollisionMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(staticStarted).TotalMilliseconds;
+        var dynamicStarted = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         for(var i=0;i<ships.Length;i++)for(var j=i+1;j<ships.Length;j++)
         {
             var a=ships[i];var b=ships[j];
@@ -77,5 +91,6 @@ public sealed partial class GameWorld
             Record(a,hit,response.NormalSpeed,response.TangentialSpeed);
             Record(b,hit with {Normal=-hit.Normal},response.NormalSpeed,response.TangentialSpeed);
         }
+        if (MeasureTimings) DynamicCollisionMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(dynamicStarted).TotalMilliseconds;
     }
 }

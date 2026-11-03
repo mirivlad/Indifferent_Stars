@@ -92,6 +92,14 @@ public sealed partial class WorldCatalog
     /// <summary>Altitude of the station above the planet surface, in metres.</summary>
     public const double StationOrbitAltitude = 1_400_000.0;
 
+    public int ActivityLevel => new SeedStream(Seed, SystemIndex, "civilian-activity").Range(1, 4);
+    public int WorkerCount(StaticBody station) => station.Purpose switch
+    {
+        StationPurpose.Trade => 4 + ActivityLevel * 2,
+        StationPurpose.Freight => 3 + ActivityLevel,
+        StationPurpose.Mining => 2 + ActivityLevel,
+        _ => 1 + ActivityLevel,
+    };
     public int SystemIndex { get; init; }
     public int GeneratorVersion => GalaxyLayout.GeneratorVersion;
     public IReadOnlyList<CelestialBody> AdditionalCelestials { get; init; } = Array.Empty<CelestialBody>();

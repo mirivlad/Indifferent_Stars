@@ -20,6 +20,21 @@ public sealed class NpcActivityTests
         Assert.Equal(a.Npcs.Select(n=>n.Position),b.Npcs.Select(n=>n.Position));
     }
     [Fact]
+    public void TrafficDensityFollowsStationPurposeAndSystemProfile()
+    {
+        var levels=new HashSet<int>();
+        for (var system=0;system<12;system++)
+        {
+            var catalog=WorldCatalog.Generate(20261101,system); levels.Add(catalog.ActivityLevel);
+            var world=new GameWorld(catalog);
+            foreach (var station in catalog.Stations)
+                Assert.Equal(catalog.WorkerCount(station),world.Npcs.Count(n=>n.Work!.HomeStationId==station.Id));
+            Assert.True(catalog.WorkerCount(catalog.Station)>catalog.WorkerCount(catalog.Stations.First(s=>s.Purpose==StationPurpose.Research)));
+            Assert.All(world.Npcs,n=>Assert.Contains(catalog.Stations,s=>Vec3d.Distance(s.Position,n.Position)<10_000));
+        }
+        Assert.Equal(3,levels.Count);
+    }
+    [Fact]
     public void CourierMovesActualStockBetweenStationsWithoutCreatingCargo()
     {
         var world=new GameWorld(WorldCatalog.Generate(20261101));

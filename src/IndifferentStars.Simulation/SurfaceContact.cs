@@ -30,7 +30,14 @@ public static class SurfaceContact
             ? relativeStart + motion * Math.Clamp(-Vec3d.Dot(relativeStart, motion) / motion.LengthSquared, 0, 1) : relativeStart;
         if (nearest.Length > radius) return null;
         var arcA = Angle(fromA, toA) * a.Radius * scaleA;
-        var arcB = Angle(fromB, toB) * b.Radius * scaleB;
+        var spinB = AngularMotion(fromB, toB);
+        var axisB = spinB.Normalized();
+        // Only material within the swept observer sphere can touch it. Rotation
+        // preserves distance to its axis, so remote station arms need not set the
+        // subdivision count for a hull near the docking axis.
+        double AxisDistance(Vec3d position) => Vec3d.Cross(position, axisB).Length;
+        var observerRadius = Math.Max(AxisDistance(relativeStart), AxisDistance(relativeEnd)) + a.Radius * scaleA + RotationTolerance;
+        var arcB = spinB.Length * Math.Min(b.Radius * scaleB, observerRadius);
         // A sphere containing the complete moving hull cannot reach this surface.
         // Include B's entire rotational travel and the narrow-phase safety margin.
         var localStart = SurfaceMesh.Rotate(relativeStart, Quaternion.Conjugate(fromB)) / scaleB;

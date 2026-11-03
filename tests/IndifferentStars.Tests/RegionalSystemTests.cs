@@ -62,8 +62,8 @@ public sealed class RegionalSystemTests
             var c=WorldCatalog.Generate(20261101);var w=new GameWorld(c);var ship=w.AddPlayer("Collision");
             var body=asteroid?c.Sectors.First(s=>s.Id=="resource-1").Bodies.First():c.AdditionalStations.Last();
             var surface=WorldSurfaces.Body(c,body,0);var direction=new Vec3d(1,.35,.2).Normalized();
-            ship.Position=body.Position+direction*(surface.Radius+100);ship.Velocity=-direction*5000;
-            w.Tick(.5);
+            ship.Position=body.Position+direction*(surface.Radius+100);ship.Velocity=-direction*100_000;
+            w.Tick(.05);
             Assert.NotNull(ship.Impact);Assert.True(surface.Distance(ship.Position)>0);
             Assert.True(Vec3d.Distance(ship.Position,body.Position)<surface.Radius+200);
         }
