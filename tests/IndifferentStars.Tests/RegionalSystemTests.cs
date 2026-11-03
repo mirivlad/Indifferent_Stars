@@ -10,7 +10,7 @@ public sealed class RegionalSystemTests
     public void ResourcesAndStationsAreDistributedAndBodiesHaveUniqueIds()
     {
         var a=WorldCatalog.Generate(20261101);var b=WorldCatalog.Generate(20261102);
-        Assert.Equal(4,a.Stations.Count);Assert.Equal(2,a.Bands.Count);
+        Assert.InRange(a.Stations.Count,4,6);Assert.Equal(2,a.Bands.Count);
         Assert.Contains(a.Stations,s=>s.Purpose==StationPurpose.Mining);
         Assert.Contains(a.Stations,s=>s.Purpose==StationPurpose.Research);
         Assert.Contains(a.Stations,s=>s.Purpose==StationPurpose.Freight);

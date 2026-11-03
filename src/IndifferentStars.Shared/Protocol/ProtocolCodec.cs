@@ -130,6 +130,8 @@ public static class ProtocolCodec
                     }
                     writer.Write(entity.RouteRevision); writer.Write(entity.RouteIndex); writer.Write(entity.RouteActive); writer.Write(entity.Boosting);
                     writer.Write(entity.OrbitTargetId); writer.Write(entity.OrbitAltitude); writer.Write(entity.OrbitRetrograde); writer.Write(entity.OrbitEstablished); writer.Write(entity.DockingStationId);
+                    writer.Write(entity.Activity is not null);
+                    if(entity.Activity is { } activity){writer.Write((byte)activity.Occupation);writer.Write((byte)activity.Phase);writer.Write(activity.TargetId);}
                 }
                 break;
 
@@ -137,7 +139,7 @@ public static class ProtocolCodec
                 writer.Write(chat.RequestId);writer.Write(chat.ChannelId);WriteString(writer,chat.Text,RadioChannels.MaxTextBytes);break;
             case ChatLineMessage chat:
                 writer.Write(chat.MessageId);writer.Write(chat.RequestId);writer.Write(chat.ChannelId);writer.Write(chat.SenderId);
-                WriteString(writer,chat.Sender,ProtocolConstants.MaxNameBytes);WriteString(writer,chat.Text,RadioChannels.MaxTextBytes);writer.Write(chat.Timestamp);break;
+                WriteString(writer,chat.Sender,ProtocolConstants.MaxNameBytes);WriteString(writer,chat.Text,RadioChannels.MaxTextBytes);writer.Write(chat.Timestamp);WriteString(writer,chat.RussianText,RadioChannels.MaxTextBytes);writer.Write(chat.SignalPosition.HasValue);if(chat.SignalPosition is { } signal)WriteVec3(writer,signal);break;
             case ChatAckMessage ack: writer.Write(ack.MessageId);break;
             case ChatRejectedMessage chatRejected:
                 writer.Write(chatRejected.RequestId);writer.Write(chatRejected.ChannelId);writer.Write((byte)chatRejected.Error);break;
@@ -494,7 +496,7 @@ public static class ProtocolCodec
                 ReadRouteIndex(reader),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
-                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean(), reader.ReadUInt32());
+                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean(), reader.ReadUInt32(), ReadNpcStatus(reader));
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
@@ -507,10 +509,19 @@ public static class ProtocolCodec
     private static ChatLineMessage ReadChatLine(BinaryReader reader)
     {
         var line=new ChatLineMessage(reader.ReadUInt64(),reader.ReadUInt32(),reader.ReadUInt16(),reader.ReadUInt32(),
-            ReadString(reader,ProtocolConstants.MaxNameBytes),ReadString(reader,RadioChannels.MaxTextBytes),reader.ReadInt64());
-        if(!RadioChannels.BuiltIn(line.ChannelId)||line.SenderId==0||line.Timestamp<0||line.Timestamp>253402300799999||!RadioChannels.ValidText(line.Text))
+            ReadString(reader,ProtocolConstants.MaxNameBytes),ReadString(reader,RadioChannels.MaxTextBytes),reader.ReadInt64(),ReadString(reader,RadioChannels.MaxTextBytes),ReadOptionalVec3(reader));
+        if(!RadioChannels.BuiltIn(line.ChannelId)||line.SenderId==0||line.Timestamp<0||line.Timestamp>253402300799999||!RadioChannels.ValidText(line.Text)||
+            (line.RussianText.Length>0&&!RadioChannels.ValidText(line.RussianText))||line.SignalPosition is {IsFinite:false})
             throw new InvalidDataException("Invalid chat line.");
         return line;
+    }
+
+    private static NpcStatus? ReadNpcStatus(BinaryReader reader)
+    {
+        if(!reader.ReadBoolean())return null;
+        var role=(NpcOccupation)reader.ReadByte();var phase=(NpcPhase)reader.ReadByte();
+        if(!Enum.IsDefined(role)||!Enum.IsDefined(phase))throw new InvalidDataException("Invalid NPC status.");
+        return new(role,phase,reader.ReadUInt32());
     }
 
     private static double? ReadOptionalDouble(BinaryReader reader) => reader.ReadBoolean() ? reader.ReadDouble() : null;

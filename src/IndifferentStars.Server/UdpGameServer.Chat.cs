@@ -37,6 +37,21 @@ public sealed partial class UdpGameServer
         sender.ChatReplies[request.RequestId]=response;
         if(response is ChatRejectedMessage)Send(sender.Endpoint,response);
     }
+    private void BroadcastActivities(double now)
+    {
+        while(_world.TryTakeActivity(out var activity))
+        {
+            var channel=activity.SystemWide?RadioChannels.System:RadioChannels.Local;
+            var line=new ChatLineMessage(++_chatSequence,0,channel,activity.SourceId,activity.Source,activity.English,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),activity.Russian,activity.SystemWide?activity.Position:null);
+            foreach(var listener in _sessions.Values)
+            {
+                if(!RadioChannels.InAudience(channel,activity.Position,listener.Ship.Position))continue;
+                if(listener.PendingChat.Count>=64)listener.PendingChat.Remove(listener.PendingChat.Keys.First());
+                listener.PendingChat[line.MessageId]=(line,now,now);Send(listener.Endpoint,line);
+            }
+        }
+    }
     private void RetryChat(double now)
     {
         foreach(var session in _sessions.Values)

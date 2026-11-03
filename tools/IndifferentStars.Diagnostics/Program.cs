@@ -6,6 +6,8 @@ using IndifferentStars.Shared.Collision;
 using IndifferentStars.Shared.World;
 using IndifferentStars.Simulation;
 
+if(args.Length>0 && args[0]=="--life"){LifeDiagnostic.Run(args);return;}
+
 const int samples = 64;
 const double step = .05;
 var records = new List<object>();

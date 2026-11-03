@@ -47,6 +47,11 @@ public static class FlightModel
         if (!ship.IsPlayer)
             throw new ArgumentException("StepPlayer requires a player ship.", nameof(ship));
 
+        StepControlled(ship,input,dt);
+    }
+
+    public static void StepControlled(ShipState ship,InputState input,double dt)
+    {
         input = input.Clamped();
         ship.Throttle = input.Brake ? 0 : input.Cruise ? 1 : input.Throttle;
         ship.Cruising = input.Cruise;

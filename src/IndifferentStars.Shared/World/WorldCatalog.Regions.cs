@@ -48,6 +48,16 @@ public sealed partial class WorldCatalog
             stations.Add(station);
             sectors.Add(new SectorDefinition {Id=$"station-{id}",Name=station.Name,Kind=SectorKind.Habitated,Center=station.Position,Radius=9000,Bodies=new[]{station}});
         }
+        var extras=new SeedStream(seed,system,"optional-outposts");
+        var extraCount=extras.Range(0,3);
+        for(var i=0;i<extraCount;i++)
+        {
+            var body=planets[extras.Range(0,planets.Length)];var angle=extras.Between(0,Math.Tau);
+            var radial=new Vec3d(Math.Cos(angle),.4,Math.Sin(angle)).Normalized();
+            var purpose=(StationPurpose)extras.Range(0,4);
+            var station=CreateStation(7+i,purpose,body.Name+$" Outpost {i+1}",body.SystemPosition-origin+radial*(body.Radius+extras.Between(900000,2500000)),extras);
+            stations.Add(station);sectors.Add(new SectorDefinition {Id=$"station-{station.Id}",Name=station.Name,Kind=SectorKind.Habitated,Center=station.Position,Radius=9000,Bodies=new[]{station}});
+        }
         return(stations.AsReadOnly(),sectors.AsReadOnly(),bands);
     }
     private static StaticBody CreateStation(int id,StationPurpose purpose,string name,Vec3d position,SeedStream random)

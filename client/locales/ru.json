@@ -155,5 +155,18 @@
   "orbit_error_timeout": "Нет подтверждения команды орбиты от сервера.",
   "orbit_active": "Орбита",
   "orbit_transfer": "Перелёт на орбиту",
-  "type_moon": "Спутник"
+  "type_moon": "Спутник",
+  "map_resource_region": "Астероидный район",
+  "signal_position": "Позиция сигнала…",
+  "npc_job_courier": "Перевозчик",
+  "npc_job_miner": "Добытчик",
+  "npc_job_surveyor": "Исследователь",
+  "npc_job_patrol": "Патруль",
+  "npc_phase_waiting": "Ожидание",
+  "npc_phase_loading": "Погрузка",
+  "npc_phase_travelling": "Перелёт",
+  "npc_phase_docking": "Стыковка / ожидание порта",
+  "npc_phase_working": "Работа на месте",
+  "npc_phase_unloading": "Разгрузка",
+  "npc_phase_disabled": "Техническая остановка"
 }

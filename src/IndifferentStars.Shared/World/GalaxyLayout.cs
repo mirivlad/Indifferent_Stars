@@ -11,7 +11,7 @@ public sealed record SystemAddress(int Index, string Name, Vec3d PositionLightYe
 /// <summary>Seeded topology only. Ships do not cross these links until intersystem travel is implemented.</summary>
 public sealed class GalaxyLayout
 {
-    public const int GeneratorVersion = 2;
+    public const int GeneratorVersion = 3;
     public required IReadOnlyList<SystemAddress> Systems { get; init; }
     public required IReadOnlyList<SystemLink> Links { get; init; }
     public static GalaxyLayout Generate(int seed)

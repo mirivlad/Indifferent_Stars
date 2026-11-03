@@ -26,16 +26,16 @@ public sealed partial class ServerIntegrationTests
             var author=WaitFor<HelloAcceptedMessage>(a,_=>true);Assert.NotNull(author);
             Send(b,new HelloMessage(Guid.NewGuid(),"Reader",SurfaceMesh.Fingerprint));Assert.NotNull(WaitFor<HelloAcceptedMessage>(b,_=>true));
             var request=new ChatSendMessage(1,RadioChannels.Local,"Привет [b]пилоты[/b]");Send(a,request);
-            var line=WaitFor<ChatLineMessage>(b,_=>true);Assert.NotNull(line);Assert.Equal(request.Text,line.Text);
+            var line=WaitFor<ChatLineMessage>(b,m=>m.SenderId==author.PlayerId&&m.RequestId==1);Assert.NotNull(line);Assert.Equal(request.Text,line.Text);
             Assert.Equal(author.PlayerId,line.SenderId);Assert.Equal("Author",line.Sender);Assert.Equal(request.ChannelId,line.ChannelId);
-            var own=WaitFor<ChatLineMessage>(a,_=>true);Assert.Equal(line,own);
+            var own=WaitFor<ChatLineMessage>(a,m=>m.SenderId==author.PlayerId&&m.RequestId==1);Assert.Equal(line,own);
             Send(a,new ChatAckMessage(line.MessageId));Send(b,new ChatAckMessage(line.MessageId));
             Send(a,new ChatSendMessage(2,RadioChannels.General,"too soon"));
             Assert.Equal(ChatError.RateLimited,WaitFor<ChatRejectedMessage>(a,r=>r.RequestId==2)?.Error);
             Send(a,request);Assert.Equal(line,WaitFor<ChatLineMessage>(a,m=>m.RequestId==1));
-            Assert.Null(WaitFor<ChatLineMessage>(b,m=>m.MessageId!=line.MessageId,.65));
+            Assert.Null(WaitFor<ChatLineMessage>(b,m=>m.SenderId==author.PlayerId&&m.MessageId!=line.MessageId,.65));
             Send(a,new ChatSendMessage(3,RadioChannels.System,"system"));
-            var system=WaitFor<ChatLineMessage>(b,m=>m.ChannelId==RadioChannels.System);Assert.NotNull(system);
+            var system=WaitFor<ChatLineMessage>(b,m=>m.ChannelId==RadioChannels.System&&m.SenderId==author.PlayerId);Assert.NotNull(system);
             // No ACK: the same delivery must be retried, without a new message id.
             Assert.Equal(system,WaitFor<ChatLineMessage>(b,m=>m.MessageId==system.MessageId,2));
             Send(b,new ChatAckMessage(system.MessageId));

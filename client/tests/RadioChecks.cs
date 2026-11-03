@@ -71,7 +71,7 @@ public sealed partial class RadioChecks : Node
             await Until(()=>tabs.GetTabTitle(1).Contains("(1)"),3,"System message required.");tabs.CurrentTab=1;await Pause(.1);await Capture("02_system");
             tabs.CurrentTab=0;var reply=false;net.CommsCompleted+=r=>reply=r.Success;
             net.RequestComms(5000);await Until(()=>reply,3,"NPC reply required.");
-            Check(history.GetParsedText().Contains("Dawn Trader"),"NPC replies must appear in Local.");
+            Check(history.GetParsedText().Contains(Field<Dictionary<uint,ShipView>>(game,"_remoteShips")[5000].DisplayName),"NPC replies must appear in Local.");
             var local=(System.Collections.IList)Field<System.Collections.IDictionary>(radio,"_history")[RadioChannels.Local]!;
             Check(local.Cast<object>().Any(row=>row.GetType().GetProperty("SenderId")!.GetValue(row) is uint sender && sender==5000),
                 "History must retain NPC ids for future participant channels.");await Capture("03_local_npc");

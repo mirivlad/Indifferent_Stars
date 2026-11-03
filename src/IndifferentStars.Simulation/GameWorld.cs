@@ -61,7 +61,7 @@ public sealed partial class GameWorld
         foreach(var station in catalog.Stations)
             _stationStocks[station.Id]=CommodityCatalog.All.ToDictionary(c=>c.Id,c=>c.InitialStock);
         BuildCollisionRegions();
-        SpawnNpcs();
+        SpawnWorkers();
     }
 
     public WorldCatalog Catalog { get; }
@@ -145,7 +145,7 @@ public sealed partial class GameWorld
         var player = GetPlayer(playerId);
         var body = Catalog.Find((int)targetId);
         var targetShip = _players.GetValueOrDefault(targetId) ?? _npcs.FirstOrDefault(n => n.Id == targetId);
-        if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null))
+        if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null) || (targetShip is not null && (targetShip.InWarp || Vec3d.Distance(player.Position,targetShip.Position)>WorldCatalog.RelevanceRange)))
             return false;
         var targetPosition = targetShip?.Position ?? body!.Position;
         var targetRadius = targetShip is null ? body!.Radius : 20;
@@ -167,8 +167,13 @@ public sealed partial class GameWorld
         var station = Catalog.Find((int)targetId);
         if (player is null || player.Docked || player.InWarp || station?.Kind != BodyKind.Station)
             return false;
-        if (_players.Values.Any(other => other.Id != playerId && (other.Docked || other.DockingGranted) && other.DockingStationId==targetId))
-            return false;
+        return GrantDocking(player,station);
+    }
+
+    private bool GrantDocking(ShipState player,StaticBody station)
+    {
+        var targetId=(uint)station.Id;
+        if (_players.Values.Concat(_npcs).Any(other => other.Id!=player.Id && (other.Docked||other.DockingGranted) && other.DockingStationId==targetId))return false;
         player.DockingStationId = targetId;
         player.DockingGranted = true;
         player.ApproachFollowing = false;
@@ -299,7 +304,7 @@ public sealed partial class GameWorld
 
     public void Tick(double dt)
     {
-        var warping = _players.Values.Where(ship => ship.InWarp).Select(ship => ship.Id).ToHashSet();
+        var warping = _players.Values.Concat(_npcs).Where(ship => ship.InWarp).Select(ship => ship.Id).ToHashSet();
         var starts = _players.Values.Concat(_npcs).ToDictionary(ship => ship.Id, ship => (ship.Position, ship.Orientation));
         foreach (var (id, ship) in _players)
         {
@@ -334,7 +339,7 @@ public sealed partial class GameWorld
                 var targetShip = ship.ApproachFollowing
                     ? _players.GetValueOrDefault(ship.ApproachTargetId) ?? _npcs.FirstOrDefault(n => n.Id == ship.ApproachTargetId)
                     : null;
-                if (ship.ApproachFollowing && targetShip is null)
+                if (ship.ApproachFollowing && (targetShip is null || targetShip.InWarp || Vec3d.Distance(ship.Position,targetShip.Position)>WorldCatalog.RelevanceRange))
                 {
                     ship.ApproachTargetId = 0;
                     ship.ApproachFollowing = false;
@@ -370,7 +375,7 @@ public sealed partial class GameWorld
         }
 
         foreach (var npc in _npcs)
-            FlightModel.StepNpc(npc, dt);
+            StepWorker(npc,dt,warping);
 
         var ships = _players.Values.Concat(_npcs).OrderBy(ship => ship.Id).ToArray();
         foreach (var ship in ships)
@@ -406,7 +411,7 @@ public sealed partial class GameWorld
         !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive || ship.OrbitEstablished) &&
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
         _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
-        _npcs.All(other => CruiseClearOf(ship, other.Position, 20)) &&
+        _npcs.All(other => other.Id==ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
         Catalog.Celestials.All(body =>
             CruiseClearOf(ship, body.SystemPosition - Catalog.LocalFrameOrigin, body.Radius + body.AtmosphereHeight));
 
@@ -535,13 +540,20 @@ public sealed partial class GameWorld
         ship.InWarp ? ship.WarpDestination : null,
         !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null,
         ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting,
-        ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished, ship.DockingStationId);
+        ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished, ship.DockingStationId,
+        ship.Work is { } work?new NpcStatus(work.Occupation,work.Phase,(uint)work.TargetId):null);
 
-    private static string DescribeVessel(ShipState npc, string language)
+    private string DescribeVessel(ShipState npc, string language)
     {
         var speed = npc.Velocity.Length;
         var heading = (npc.Yaw * 180.0 / Math.PI + 360) % 360;
-        return ServerText.Get(language, "vessel", npc.Role, speed, heading, npc.Position.Y);
+        var work=npc.Work;
+        var role=work is null?npc.Role:ServerText.Get(language,"npc_job_"+work.Occupation.ToString().ToLowerInvariant());
+        var description=ServerText.Get(language,"vessel",role,speed,heading);
+        if(work is null)return description;
+        var target=Catalog.Find(work.TargetId)?.Name??Catalog.FindCelestial(work.TargetId)?.Name??Catalog.SystemName;
+        return description+"\n"+ServerText.Get(language,"npc_activity",ServerText.Get(language,"npc_phase_"+work.Phase.ToString().ToLowerInvariant()),
+            target,work.Cargo,work.CompletedJobs,work.Deliveries);
     }
 
     private string DescribeBody(StaticBody body, double distance, string language)
@@ -567,7 +579,7 @@ public sealed partial class GameWorld
 
     private string DescribeAsteroid(StaticBody body, double distance, string language)
     {
-        var random = new SeedStream(Catalog.Seed,body.Id,"asteroid-composition");
+        var random = new SeedStream(Catalog.Seed,body.Id,$"asteroid-composition-{Catalog.SystemIndex}");
         var silicate = 25 + random.Next(0, 30);
         var carbon = 15 + random.Next(0, 28);
         var ice = body.Icy?random.Range(55,81):8+random.Range(0,18);
@@ -582,83 +594,4 @@ public sealed partial class GameWorld
         return ServerText.Get(language, "asteroid", className, body.Radius, silicate, carbon, ice, iron, quality, distance / 1000);
     }
 
-    private void SpawnNpcs()
-    {
-        var station = Catalog.Station.Position;
-        var stationSize = ModelPose.StationScale / 55;
-
-        AddOrbitNpc("Dawn Trader", "Courier", station, 620 * stationSize, 80 * stationSize, 1.7, 78, 0.0);
-        AddOrbitNpc("Wandering Kite", "Courier", station, 1050 * stationSize, 180 * stationSize, 4.1, 96, 1.1);
-        AddOrbitNpc("Pale Meridian", "Hauler", station, 1550 * stationSize, 120 * stationSize, 2.6, 58, 2.4);
-        AddOrbitNpc("Quiet Ledger", "Surveyor", station, 2050 * stationSize, 300 * stationSize, 5.4, 72, 0.6);
-
-        // Freighter lane: from the station down towards the planet's upper atmosphere.
-        var midpoint = station + new Vec3d(2600, -900, -1800);
-        var nearPlanet = station + new Vec3d(4200, -3400, -2600);
-        _npcs.Add(CreateNpc(
-            "Long Cargo",
-            "Hauler",
-            new[] { station + new Vec3d(400, 120, 0) * stationSize, midpoint, nearPlanet, midpoint, station + new Vec3d(400, 120, 0) * stationSize },
-            62,
-            1));
-
-        _npcs.Add(CreateNpc(
-            "Cold Survey",
-            "Surveyor",
-            new[]
-            {
-                station + new Vec3d(4200, 260, 2200),
-                station + new Vec3d(6400, -150, 3400),
-                station + new Vec3d(6800, 320, 900),
-                station + new Vec3d(4800, 120, -1400),
-                station + new Vec3d(2900, -220, 900),
-            },
-            84,
-            2));
-
-        if (Catalog.Sectors.Count > 1)
-        {
-            var belt = Catalog.Sectors[1].Center;
-            AddOrbitNpc("Belt Runner", "Prospector", belt, 1500, 180, 1.3, 74, 0.4);
-            AddOrbitNpc("Iron Vigil", "Patrol", belt, 2300, 220, 3.9, 92, 0.8);
-        }
-    }
-
-    private void AddOrbitNpc(string name, string role, Vec3d center, double radius, double height, double phase, double speed, double startPhase)
-    {
-        var waypoints = new Vec3d[8];
-        for (var i = 0; i < waypoints.Length; i++)
-        {
-            var angle = startPhase + i * Math.PI * 2 / waypoints.Length;
-            waypoints[i] = center + new Vec3d(
-                Math.Cos(angle) * radius,
-                Math.Sin(phase + i * 0.8) * height,
-                Math.Sin(angle) * radius);
-        }
-
-        _npcs.Add(CreateNpc(name, role, waypoints, speed, 1));
-    }
-
-    private int _nextNpcId = 5000;
-
-    private ShipState CreateNpc(string name, string role, IReadOnlyList<Vec3d> waypoints, double speed, int startIndex)
-    {
-        var route = new NpcRoute { Waypoints = waypoints, Speed = speed, Index = startIndex % waypoints.Count };
-        var spawn = waypoints[0];
-        var direction = (waypoints[route.Index] - spawn).Normalized();
-        var (yaw, pitch) = FlightModel.AnglesForDirection(direction);
-        return new ShipState
-        {
-            Id = (uint)_nextNpcId++,
-            Name = name,
-            IsPlayer = false,
-            Role = role,
-            Position = spawn,
-            Yaw = yaw,
-            Pitch = pitch,
-            Velocity = direction * speed,
-            Route = route,
-            Throttle = 0.7,
-        };
-    }
 }

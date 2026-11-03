@@ -155,5 +155,18 @@
   "orbit_error_timeout": "Orbit command was not acknowledged.",
   "orbit_active": "Orbit established",
   "orbit_transfer": "Orbit transfer",
-  "type_moon": "Moon"
+  "type_moon": "Moon",
+  "map_resource_region": "Asteroid region",
+  "signal_position": "Signal position…",
+  "npc_job_courier": "Courier",
+  "npc_job_miner": "Miner",
+  "npc_job_surveyor": "Surveyor",
+  "npc_job_patrol": "Patrol",
+  "npc_phase_waiting": "Waiting",
+  "npc_phase_loading": "Loading",
+  "npc_phase_travelling": "Travelling",
+  "npc_phase_docking": "Docking / awaiting berth",
+  "npc_phase_working": "Working",
+  "npc_phase_unloading": "Unloading",
+  "npc_phase_disabled": "Technical hold"
 }

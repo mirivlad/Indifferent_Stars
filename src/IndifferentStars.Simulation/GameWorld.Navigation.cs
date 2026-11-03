@@ -119,7 +119,7 @@ public sealed partial class GameWorld
         if (ship.Cruising && aligned && ship.Velocity.Length >= WorldCatalog.CruiseSpeed * .9) ship.RouteCruiseSeconds += dt;
         if (ship.RouteCruiseSeconds >= 1)
         {
-            var warp = Warp(ship.Id, stop.TargetId, stop.Position, fromRoute: true);
+            var warp = WarpShip(ship, stop.TargetId, stop.Position, fromRoute: true);
             if (warp.Success) { ship.RouteWarping = true; ship.RouteAdvanceAfterWarp = true; }
             else { ship.RouteActive = false; ship.ApproachTargetId = 0; ship.CruiseBraking = ship.Velocity.Length > WorldCatalog.MaxBoostSpeed; }
             return InputState.None with { Brake = !warp.Success };

@@ -35,5 +35,17 @@
   "stellar_orangedwarf": "Orange dwarf",
   "stellar_yellowdwarf": "Yellow dwarf",
   "stellar_whitestar": "White star",
-  "stellar_bluestar": "Blue star"
+  "stellar_bluestar": "Blue star",
+  "npc_job_courier": "Courier",
+  "npc_job_miner": "Miner",
+  "npc_job_surveyor": "Surveyor",
+  "npc_job_patrol": "Patrol",
+  "npc_phase_waiting": "Waiting",
+  "npc_phase_loading": "Loading",
+  "npc_phase_travelling": "Travelling",
+  "npc_phase_docking": "Docking / awaiting berth",
+  "npc_phase_working": "Working",
+  "npc_phase_unloading": "Unloading",
+  "npc_phase_disabled": "Technical hold",
+  "npc_activity": "Activity: {0}\nDestination: {1}\nCargo: {2} units\nCompleted jobs: {3}; deliveries: {4}"
 }

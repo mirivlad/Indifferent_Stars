@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 19;
+    public const byte Version = 20;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -113,6 +113,10 @@ public sealed record InputMessage(
 
 public sealed record ImpactState(uint Sequence, Vec3d Point, Vec3d Normal, float NormalSpeed, float TangentialSpeed);
 
+public enum NpcOccupation : byte { Courier, Miner, Surveyor, Patrol }
+public enum NpcPhase : byte { Waiting, Loading, Travelling, Docking, Working, Unloading, Disabled }
+public sealed record NpcStatus(NpcOccupation Occupation,NpcPhase Phase,uint TargetId);
+
 public sealed record EntitySnapshot(
     uint Id,
     EntityKind Kind,
@@ -144,7 +148,8 @@ public sealed record EntitySnapshot(
     double OrbitAltitude = 0,
     bool OrbitRetrograde = false,
     bool OrbitEstablished = false,
-    uint DockingStationId = 0)
+    uint DockingStationId = 0,
+    NpcStatus? Activity = null)
 {
 }
 

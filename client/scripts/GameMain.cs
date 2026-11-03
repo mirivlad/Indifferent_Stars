@@ -490,12 +490,7 @@ public sealed partial class GameMain : Node3D
                 else if (mouse.ButtonIndex == MouseButton.Right)
                 {
                     _mapDestination = _tactical.WorldPositionAt(mouse.Position);
-                    _contactMenu.Clear();
-                    _contactMenu.AddItem(Locale.Text("route_add"), 23);
-                    _contactMenu.AddItem(Locale.Text("context_warp"), 14);
-                    _contactMenu.AddItem(Locale.Text("context_warp_distance"), 26);
-                    _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
-                    _contactMenu.Popup();
+                    ShowWaypointMenu();
                 }
             }
         }
@@ -559,6 +554,7 @@ public sealed partial class GameMain : Node3D
         _radio=new RadioChat();AddChild(_radio);
         _hud.NoticeRaised += text => _radio.Notice(RadioChat.Notifications,text);
         SetupNavigation();
+        _radio.SignalSelected += position => { _mapDestination=position; ShowWaypointMenu(); };
         _radio.SendRequested+=(channel,text)=>{if(_net?.SendChat(channel,text)!=true)_radio.Notice(RadioChat.Notifications,Locale.Text("no_connection"));};
         _radio.TypingChanged+=typing=>
         {

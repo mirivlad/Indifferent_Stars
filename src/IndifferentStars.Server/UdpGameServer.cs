@@ -48,7 +48,6 @@ public sealed partial class UdpGameServer : IDisposable
         _socket.Blocking = false;
     }
 
-    private double _nextRadioSeconds = 65;
 
     public void Run(CancellationToken cancellationToken = default)
     {
@@ -88,17 +87,7 @@ public sealed partial class UdpGameServer : IDisposable
                 _lastMaintenanceSeconds = now;
             }
 
-            if (now >= _nextRadioSeconds)
-            {
-                var npc = _world.Npcs[(int)(now / 65) % _world.Npcs.Count];
-                foreach (var listener in _sessions.Values)
-                {
-                    if (!_world.Players.TryGetValue(listener.PlayerId, out var ship) ||
-                        IndifferentStars.Shared.Vec3d.Distance(ship.Position, npc.Position) > WorldCatalog.RelevanceRange) continue;
-                    Send(listener.Endpoint, _world.RadioBroadcast(npc));
-                }
-                _nextRadioSeconds = now + 65 + (int)(now % 23);
-            }
+            BroadcastActivities(now);
 
             if (now - _lastStatsSeconds >= 30)
             {

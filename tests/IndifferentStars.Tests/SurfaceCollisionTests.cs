@@ -1,3 +1,4 @@
+using IndifferentStars.Shared.Protocol;
 using System.Numerics;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Collision;
@@ -102,8 +103,9 @@ public sealed class SurfaceCollisionTests
     {
         var world = new GameWorld(WorldCatalog.Generate(20261101));
         var station = WorldSurfaces.Body(world.Catalog, world.Catalog.Station, 0);
-        var freighter = world.Npcs.Single(npc => npc.Name == "Long Cargo");
-        Assert.All(freighter.Route!.Waypoints, point => Assert.True(station.Distance(point) > SurfaceMesh.Ship.Radius));
+        var couriers=world.Npcs.Where(npc=>npc.Work?.Occupation==NpcOccupation.Courier).ToArray();
+        Assert.NotEmpty(couriers);
+        Assert.All(couriers,ship=>Assert.True(station.Distance(ship.Position)>SurfaceMesh.Ship.Radius));
     }
 
     [Fact]

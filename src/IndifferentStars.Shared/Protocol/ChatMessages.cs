@@ -16,6 +16,6 @@ public static class RadioChannels
 }
 public enum ChatError : byte { InvalidChannel=1, InvalidText=2, RateLimited=3, StaleRequest=4 }
 public sealed record ChatSendMessage(uint RequestId,ushort ChannelId,string Text):IProtocolMessage {public MessageType Type=>MessageType.ChatSend;}
-public sealed record ChatLineMessage(ulong MessageId,uint RequestId,ushort ChannelId,uint SenderId,string Sender,string Text,long Timestamp):IProtocolMessage {public MessageType Type=>MessageType.ChatLine;}
+public sealed record ChatLineMessage(ulong MessageId,uint RequestId,ushort ChannelId,uint SenderId,string Sender,string Text,long Timestamp,string RussianText="",Vec3d? SignalPosition=null):IProtocolMessage {public MessageType Type=>MessageType.ChatLine;}
 public sealed record ChatAckMessage(ulong MessageId):IProtocolMessage {public MessageType Type=>MessageType.ChatAck;}
 public sealed record ChatRejectedMessage(uint RequestId,ushort ChannelId,ChatError Error):IProtocolMessage {public MessageType Type=>MessageType.ChatRejected;}

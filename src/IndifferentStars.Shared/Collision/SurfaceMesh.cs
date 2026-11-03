@@ -89,7 +89,7 @@ public sealed class SurfaceMesh
 
     public static string Fingerprint => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
         System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash +
-            FormattableString.Invariant($"|pose-v2|assembly-{StationAssembly.Version}|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
+            FormattableString.Invariant($"|pose-v2|world-gen-{GalaxyLayout.GeneratorVersion}|assembly-{StationAssembly.Version}|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
 
     public static readonly SurfaceMesh Ship = Load("ship_player");
     public static readonly SurfaceMesh Station = Load("station_kestrel");

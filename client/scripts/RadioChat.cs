@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared;
 
 namespace IndifferentStars.Client;
 
 public sealed partial class RadioChat : CanvasLayer
 {
-    private sealed record Line(DateTimeOffset Time,uint SenderId,string Sender,string Text,bool Npc);
+    private sealed record Line(DateTimeOffset Time,uint SenderId,string Sender,string Text,bool Npc,Vec3d? SignalPosition);
     public const ushort Notifications = 0;
     private readonly ushort[] _channels={RadioChannels.Local,RadioChannels.System,RadioChannels.General,Notifications};
     private readonly Dictionary<ushort,List<Line>> _history=new();
@@ -19,6 +20,8 @@ public sealed partial class RadioChat : CanvasLayer
     private Button _send=null!;
     public event Action<ushort,string>? SendRequested;
     public event Action<bool>? TypingChanged;
+    public event Action<Vec3d>? SignalSelected;
+    private readonly Dictionary<int,Vec3d> _signals=new();
     public bool IsTyping=>_input?.HasFocus()==true;
     public ushort SelectedChannel=>_channels[Math.Max(0,_tabs.CurrentTab)];
     public override void _Ready()
@@ -36,6 +39,7 @@ public sealed partial class RadioChat : CanvasLayer
         _log=new RichTextLabel {Name="RadioHistory",BbcodeEnabled=false,ScrollFollowing=false,SelectionEnabled=true,FocusMode=Control.FocusModeEnum.None,
             SizeFlagsVertical=Control.SizeFlags.ExpandFill,CustomMinimumSize=new Vector2(0,110),MouseFilter=Control.MouseFilterEnum.Stop};
         _log.AddThemeFontSizeOverride("normal_font_size",14);box.AddChild(_log);
+        _log.MetaClicked+=meta=>{if(_signals.TryGetValue(meta.AsInt32(),out var position))SignalSelected?.Invoke(position);};
         var row=new HBoxContainer();box.AddChild(row);
         _input=new LineEdit {Name="ChatInput",MaxLength=256,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};row.AddChild(_input);
         _send=new Button {FocusMode=Control.FocusModeEnum.None};row.AddChild(_send);
@@ -61,25 +65,32 @@ public sealed partial class RadioChat : CanvasLayer
         if(!RadioChannels.ValidText(text)){Notice(Notifications,Locale.Text("chat_error_2"));return;}
         _input.Text="";SendRequested?.Invoke(SelectedChannel,text);EndTyping();
     }
-    public void Receive(ChatLineMessage line)=>Append(line.ChannelId,DateTimeOffset.FromUnixTimeMilliseconds(line.Timestamp),line.Sender,line.Text,false,line.SenderId);
+    public void Receive(ChatLineMessage line)=>Append(line.ChannelId,DateTimeOffset.FromUnixTimeMilliseconds(line.Timestamp),line.Sender,Locale.Language=="ru"&&line.RussianText.Length>0?line.RussianText:line.Text,line.SenderId<10000,line.SenderId,line.SignalPosition);
     public void Radio(string sender,string text,uint senderId=0)=>Append(RadioChannels.Local,DateTimeOffset.Now,sender,text,true,senderId);
     public void Notice(ushort channel,string text)=>Append(channel,DateTimeOffset.Now,Locale.Text(channel==Notifications?"notifications_sender":"radio_heading"),text,true);
-    private void Append(ushort channel,DateTimeOffset time,string sender,string text,bool npc,uint senderId=0)
+    private void Append(ushort channel,DateTimeOffset time,string sender,string text,bool npc,uint senderId=0,Vec3d? signalPosition=null)
     {
         if(!_history.TryGetValue(channel,out var history))return;
-        history.Add(new Line(time,senderId,sender,text,npc));if(history.Count>100)history.RemoveAt(0);
+        history.Add(new Line(time,senderId,sender,text,npc,signalPosition));if(history.Count>100)history.RemoveAt(0);
         if(channel==SelectedChannel)Render();else _unread[channel]=Math.Min(99,_unread[channel]+1);
         RefreshLanguage();
     }
     private void Render(bool forceBottom=false)
     {
         var scroll=_log.GetVScrollBar();var previous=scroll.Value;var follow=forceBottom||previous>=scroll.MaxValue-scroll.Page-2;
-        _log.Clear();
+        _log.Clear();_signals.Clear();
         foreach(var line in _history[SelectedChannel])
         {
             _log.PushColor(new Color(.43f,.56f,.65f));_log.AddText(line.Time.ToLocalTime().ToString("HH:mm")+" ");_log.Pop();
             _log.PushColor(line.Npc?new Color(.95f,.72f,.4f):new Color(.5f,.84f,.95f));_log.AddText(line.Sender+": ");_log.Pop();
-            _log.AddText(line.Text+"\n");
+            _log.AddText(line.Text);
+            if(line.SignalPosition is { } position)
+            {
+                var id=_signals.Count;_signals[id]=position;
+                _log.AddText(" ");_log.PushMeta(id);_log.PushColor(new Color(.4f,.9f,.8f));
+                _log.AddText(Locale.Text("signal_position"));_log.Pop();_log.Pop();
+            }
+            _log.AddText("\n");
         }
         Callable.From(()=>{if(GodotObject.IsInstanceValid(_log))scroll.Value=follow?scroll.MaxValue:previous;}).CallDeferred();
     }

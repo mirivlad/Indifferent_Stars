@@ -144,6 +144,13 @@ public sealed partial class GameMain
                 else _net.RequestWarp(id,surfaceDistance:distance);
             });
     }
+    private void ShowWaypointMenu()
+    {
+        Input.MouseMode=Input.MouseModeEnum.Visible;
+        _contactMenu.Clear();_contactMenu.AddItem(Locale.Text("route_add"),23);
+        _contactMenu.AddItem(Locale.Text("context_warp"),14);_contactMenu.AddItem(Locale.Text("context_warp_distance"),26);
+        _contactMenu.Position=(Vector2I)GetViewport().GetMousePosition();_contactMenu.Popup();
+    }
     private void OpenWaypointWarpDistance()
     {
         var point=_mapDestination;
@@ -157,6 +164,9 @@ public sealed partial class GameMain
             Locale.Text("type_"+contact.Type.ToLowerInvariant())+"\n"+
             Locale.Text("distance_label")+": "+NavigationPanel.Distance(contact.Distance)+"\n"+
             Locale.Text("relative_vertical")+": "+(contact.RelativeAltitude<0?"−":"+")+NavigationPanel.Distance(Math.Abs(contact.RelativeAltitude))+"\n"+
+            (_remoteShips.TryGetValue(_targetId,out var actor)&&actor.Track.Activity is { } status?
+                Locale.Text("npc_job_"+status.Occupation.ToString().ToLowerInvariant())+" · "+Locale.Text("npc_phase_"+status.Phase.ToString().ToLowerInvariant())+"\n"+
+                (_catalog.Find((int)status.TargetId)?.Name??_catalog.FindCelestial((int)status.TargetId)?.Name??"")+"\n":"")+
             Locale.Text("information_sensors"));
     }
 }

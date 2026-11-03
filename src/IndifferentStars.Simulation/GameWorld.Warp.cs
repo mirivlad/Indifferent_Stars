@@ -14,8 +14,10 @@ public sealed partial class GameWorld
         ServerText.Get("en", "warp_stale"), Vec3d.Zero, 0, 0, ServerText.Get("ru", "warp_stale"));
 
     public WarpOutcome Warp(uint playerId, uint targetId, Vec3d? destination = null, bool fromRoute = false, double? surfaceDistance = null)
+        => WarpShip(GetPlayer(playerId),targetId,destination,fromRoute,surfaceDistance);
+
+    private WarpOutcome WarpShip(ShipState? player,uint targetId,Vec3d? destination=null,bool fromRoute=false,double? surfaceDistance=null)
     {
-        var player = GetPlayer(playerId);
         if (player is null) return WarpFail(targetId, "unknown_ship");
         if (player.Docked) return WarpFail(targetId, "warp_undock");
         if (player.InWarp) return WarpFail(targetId, "warp_busy");
@@ -35,7 +37,7 @@ public sealed partial class GameWorld
             var targetShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
             var body = Catalog.Find((int)targetId);
             var celestial = Catalog.FindCelestial((int)targetId);
-            if (targetShip?.Id == playerId) return WarpFail(targetId, "warp_self");
+            if (targetShip?.Id == player.Id) return WarpFail(targetId, "warp_self");
             if (targetShip is not null && (targetShip.InWarp ||
                 Vec3d.Distance(player.Position, targetShip.Position) > WorldCatalog.RelevanceRange))
                 return WarpFail(targetId, "warp_unknown");
@@ -94,7 +96,7 @@ public sealed partial class GameWorld
         player.CruiseInhibited = true;
         player.Velocity = Vec3d.Zero;
         player.Throttle = 0;
-        _inputs[playerId].Input = InputState.None;
+        if(_inputs.TryGetValue(player.Id,out var input))input.Input=InputState.None;
         return new WarpOutcome(true, targetId, ServerText.Get("en", "warp_accepted", label),
             arrival, (float)yaw, (float)pitch, ServerText.Get("ru", "warp_accepted", russianLabel));
     }
@@ -173,7 +175,7 @@ public sealed partial class GameWorld
         if (ship.WarpProgress < 1) return;
         ship.WarpStage = WarpStage.None;
         ship.WarpProgress = 0;
-        _inputs[ship.Id].Input = InputState.None;
+        if(_inputs.TryGetValue(ship.Id,out var input))input.Input=InputState.None;
     }
 
     private static WarpOutcome WarpFail(uint targetId, string key, params object[] args) =>

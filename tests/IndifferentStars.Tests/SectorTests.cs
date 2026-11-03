@@ -9,11 +9,12 @@ namespace IndifferentStars.Tests;
 public sealed class SectorTests
 {
     [Fact]
-    public void CatalogDefinesTwoContiguousSectors()
+    public void CatalogDefinesDistributedRegionsAndContiguousStartingSectors()
     {
         var catalog = WorldCatalog.Generate(2026);
 
-        Assert.Equal(2, catalog.Sectors.Count);
+        Assert.True(catalog.Sectors.Count>=10);
+        Assert.Contains(catalog.Sectors,s=>s.Id.StartsWith("resource-")&&s.Center.Length>1_000_000_000);
         Assert.Equal("kestrel-reach-orbit", catalog.SectorAt(Vec3d.Zero).Id);
         Assert.Equal("kestrel-reach-belt", catalog.SectorAt(catalog.Sectors[1].Center).Id);
         Assert.Contains(catalog.Sectors[1].Bodies, b => b.Id >= 2000);
@@ -42,7 +43,7 @@ public sealed class SectorTests
         var world = new GameWorld(WorldCatalog.Generate(9876));
         var ship = world.AddPlayer("Orbit");
         var beltNpcs = world.Npcs.Where(npc =>
-            Vec3d.Distance(npc.Position, world.Catalog.Sectors[1].Center) < 5000).ToList();
+            Vec3d.Distance(npc.Position, world.Catalog.Sectors.First(s=>s.Id=="resource-0").Center) < 18000).ToList();
 
         Assert.NotEmpty(beltNpcs);
         for (var i = 0; i < 20; i++)

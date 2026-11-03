@@ -219,6 +219,10 @@ public sealed partial class TacticalView : Control
 
     public Vec3d WorldPositionAt(Vector2 screen)
     {
+        var region=Catalog?.Sectors.Where(s=>s.Id.StartsWith("resource-"))
+            .Select(s=>(Sector:s,Distance:ScreenPosition(s.Center).DistanceTo(screen)))
+            .Where(s=>s.Distance<12).OrderBy(s=>s.Distance).FirstOrDefault();
+        if(region?.Sector is { } selected)return selected.Center;
         var scale = Math.Min(Size.X, Size.Y) * 0.43 / ZoomRange;
         var offset = screen - Size * 0.5f;
         return new Vec3d(_center.X + offset.X / scale, PlayerPosition.Y, _center.Z + offset.Y / scale);
@@ -327,7 +331,10 @@ public sealed partial class TacticalView : Control
         }
         foreach(var sector in Catalog.Sectors.Where(s=>s.Kind==SectorKind.Asteroid&&s.Id.StartsWith("resource-")))
         {
-            var at=Project(center,scale,sector.Center);DrawCircle(at,3,new Color(.8f,.66f,.38f));
+            var at=Project(center,scale,sector.Center);var tint=new Color(.8f,.66f,.38f);
+            DrawCircle(at,3,tint);
+            if(new Rect2(Vector2.Zero,size).HasPoint(at))
+                DrawLabel(Locale.Text("map_resource_region")+": "+sector.Name,at+new Vector2(9,-8),tint,11);
         }
         foreach(var body in Catalog.Celestials)
         {

@@ -146,8 +146,8 @@ public sealed class GameWorldTests
         Assert.True(world.Npcs.Count >= 5);
         Assert.DoesNotContain(snapshot, e => e.Id >= 1000 && e.Id < 5000);
 
-        var encoded = ProtocolCodec.Encode(new SnapshotMessage(1, 1234, snapshot));
-        Assert.True(encoded.Length <= ProtocolConstants.MaxPacketSize);
+        var packets = ProtocolCodec.EncodeSnapshotPackets(new SnapshotMessage(1,1234,snapshot));
+        Assert.All(packets,packet=>Assert.True(packet.Length<=ProtocolConstants.MaxPacketSize));
     }
 
     [Fact]

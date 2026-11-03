@@ -64,11 +64,23 @@ public sealed partial class SeededSystemChecks : Node3D
                 var shown=node.GlobalPosition+mesh.Multimesh.GetInstanceTransform(0).Origin;
                 if(shown.DistanceTo(ShipTrack.ToVector3(body.Position-origin))>.05)throw new Exception("Asteroid render/collision offset mismatch.");
                 camera.LookAt(ShipTrack.ToVector3(sector.Center-origin),Vector3.Up);
+                camera.Far=builder.RequiredFarPlane;camera.Near=Math.Max(.35f,camera.Far/8000000);
                 await Pause(.1);
+                if(sector.Id=="resource-1")
+                {
+                    await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+                    GetViewport().GetTexture().GetImage().SavePng(Path.Combine(output,"resource_field.png"));
+                }
             }
             var layer=new CanvasLayer();AddChild(layer);
             var map=new TacticalView {Catalog=catalog,PlayerPosition=new Vec3d(0,0,0)};layer.AddChild(map);map.Visible=true;map.ShowSystem();map._Process(2);map.QueueRedraw();
             await Pause(.2);await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+            foreach(var sector in catalog.Sectors.Where(s=>s.Id.StartsWith("resource-")))
+            {
+                var destination=map.WorldPositionAt(map.ScreenPosition(sector.Center));
+                if(Vec3d.Distance(destination,sector.Center)>.001)throw new Exception("Resource marker must retain its actual 3D position.");
+                if(!sector.Bodies.Any(b=>b.Kind==BodyKind.Asteroid&&Vec3d.Distance(destination,b.Position)<15000))throw new Exception("Resource marker must lead to nearby asteroids.");
+            }
             GetViewport().GetTexture().GetImage().SavePng(Path.Combine(output,"system_map.png"));
             if(catalog.Celestials.Count<7)throw new Exception("Generated bodies required.");
             GD.Print($"SEEDED SYSTEM CHECKS PASSED: {catalog.Celestials.Count} bodies, shaders, map and captures.");GetTree().Quit();

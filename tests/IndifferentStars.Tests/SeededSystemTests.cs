@@ -22,11 +22,12 @@ public sealed class SeededSystemTests
     [Fact]
     public void GeneratedSystemsHaveDistinctPlanetsMoonsAndNoIntersections()
     {
-        var counts=new HashSet<int>();var stars=new HashSet<StellarClass>();
+        var stationCounts=new HashSet<int>();var counts=new HashSet<int>();var stars=new HashSet<StellarClass>();
         for(var seed=0;seed<32;seed++)
         {
             var c=WorldCatalog.Generate(seed);var planets=c.Celestials.Where(b=>b.Kind==CelestialKind.Planet).ToArray();
-            counts.Add(planets.Length);stars.Add(c.Star.StellarClass);
+            counts.Add(planets.Length);stars.Add(c.Star.StellarClass);stationCounts.Add(c.Stations.Count);
+            Assert.InRange(c.Stations.Count,4,6);
             Assert.InRange(planets.Length,5,9);
             Assert.Contains(planets,b=>b.Surface==PlanetSurface.Terrestrial);
             Assert.Contains(planets,b=>b.Surface==PlanetSurface.Ice);
@@ -43,7 +44,7 @@ public sealed class SeededSystemTests
                 Assert.Same(body,SurfaceNavigation.Nearest(c,point).Body);
             }
         }
-        Assert.True(counts.Count>1);Assert.Equal(5,stars.Count);
+        Assert.True(counts.Count>1);Assert.True(stationCounts.Count>1);Assert.Equal(5,stars.Count);
     }
     [Fact]
     public void GalaxyTopologyIsConnectedUniqueAndDeterministic()

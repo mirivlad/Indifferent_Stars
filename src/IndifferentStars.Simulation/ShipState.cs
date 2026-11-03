@@ -75,6 +75,7 @@ public sealed class ShipState
     public bool RouteWarping { get; set; }
     public bool RouteAdvanceAfterWarp { get; set; }
     public double RouteCruiseSeconds { get; set; }
+    public NpcWork? Work { get; set; }
     public NpcRoute? Route { get; set; }
 
     public Vec3d Forward
