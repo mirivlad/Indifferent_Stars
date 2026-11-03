@@ -17,22 +17,17 @@ public sealed partial class ShipAudio : Node
 
     private AudioStreamPlayer _music = null!;
     private AudioStreamPlayer _engine = null!;
-    private AudioStreamPlayer _effects = null!;
     private AudioStreamPlayer _ui = null!;
     private AudioStreamPlayer _radio = null!;
     private AudioStreamGeneratorPlayback? _enginePlayback;
     private string[] _customTracks = Array.Empty<string>();
     private string _musicDirectory = "";
     private int _track;
-    private bool _previousThrust;
-    private float _maneuver;
-    private bool _boosting;
-    private double _phase;
+    private readonly EngineVoice _engineVoice = new();
+    private readonly Vector2[] _engineFrames = new Vector2[256];
     private double _radioTimer = 48;
-    private float _load;
     private float _warpEnergy;
     private double _warpPhase;
-    private bool _previousBrake;
     private bool _stopped;
 
     public override void _Ready()
@@ -53,12 +48,12 @@ public sealed partial class ShipAudio : Node
         {
             Name = "EngineSound",
             Bus = "Engines",
-            Stream = new AudioStreamGenerator { MixRateMode = AudioStreamGenerator.AudioStreamGeneratorMixRate.Custom, MixRate = 22050, BufferLength = 0.15f },
+            Stream = new AudioStreamGenerator { MixRateMode = AudioStreamGenerator.AudioStreamGeneratorMixRate.Custom, MixRate = EngineVoice.SampleRate, BufferLength = 0.15f },
         };
         AddChild(_engine);
         _engine.Play();
         _enginePlayback = _engine.GetStreamPlayback() as AudioStreamGeneratorPlayback;
-        _effects = MakeCuePlayer("Effects", 160);
+        FillEngineBuffer();
         _ui = MakeCuePlayer("UI", 540);
         _radio = MakeCuePlayer("Radio", 760);
     }
@@ -74,21 +69,10 @@ public sealed partial class ShipAudio : Node
         };
     }
 
-    public void SetFlight(float throttle, float maneuver, bool boosting, bool braking)
+    public void SetFlight(float throttle, float maneuver, bool boosting, bool braking, bool cruising = false, bool active = true)
     {
         if (_stopped) return;
-        var thrust = Math.Abs(throttle) > 0.05;
-        if (thrust != _previousThrust)
-        {
-            _effects.PitchScale = thrust ? 1.5f : 0.65f;
-            _effects.Play();
-        }
-        _previousThrust = thrust;
-        _maneuver = maneuver;
-        _boosting = boosting;
-        _load = Math.Clamp(Math.Abs(throttle) * 0.6f + maneuver * 0.25f + (boosting ? 0.4f : 0), 0, 1);
-        if (braking && !_previousBrake) { _effects.PitchScale = 1; _effects.Play(); }
-        _previousBrake = braking;
+        _engineVoice.SetControls(throttle, maneuver, boosting, braking, cruising, active);
     }
 
     public void RadioCue()
@@ -111,23 +95,26 @@ public sealed partial class ShipAudio : Node
             RadioCue();
             _radioTimer = 48 + GD.RandRange(0, 35);
         }
+        FillEngineBuffer();
+    }
+
+    private void FillEngineBuffer()
+    {
         if (_enginePlayback is null) return;
-        var count = Math.Min(_enginePlayback.GetFramesAvailable(), 4096);
-        if (count <= 0) return;
-        var frames = new Vector2[count];
-        for (var i = 0; i < count; i++)
+        var budget = Math.Min(_enginePlayback.GetFramesAvailable(), 4096);
+        while (budget >= _engineFrames.Length)
         {
-            _phase += Math.Tau * (48 + _load * 38) / 22050;
-            if (_phase > Math.Tau) _phase -= Math.Tau;
-            var sample = (float)((Math.Sin(_phase) + 0.22 * Math.Sin(_phase * 2.03)) * (0.025 + _load * 0.07)
-                + Math.Sin(_phase * 4.7) * _maneuver * 0.012
-                + (_boosting ? Math.Sin(_phase * 0.51) * 0.025 : 0));
-            _warpPhase += Math.Tau * (80 + _warpEnergy * 220) / 22050;
-            if (_warpPhase > Math.Tau) _warpPhase -= Math.Tau;
-            sample += (float)(Math.Sin(_warpPhase) * Math.Sin(_warpPhase * 0.503) * _warpEnergy * 0.06);
-            frames[i] = new Vector2(sample, sample);
+            for (var i = 0; i < _engineFrames.Length; i++)
+            {
+                var (left, right) = _engineVoice.NextFrame();
+                _warpPhase += Math.Tau * (80 + _warpEnergy * 220) / EngineVoice.SampleRate;
+                if (_warpPhase > Math.Tau) _warpPhase -= Math.Tau;
+                var warp = (float)(Math.Sin(_warpPhase) * Math.Sin(_warpPhase * .503) * _warpEnergy * .06);
+                _engineFrames[i] = new Vector2(left + warp, right + warp);
+            }
+            _enginePlayback.PushBuffer(_engineFrames);
+            budget -= _engineFrames.Length;
         }
-        _enginePlayback.PushBuffer(frames);
     }
 
     private AudioStreamPlayer MakeCuePlayer(string bus, double frequency)
@@ -218,7 +205,7 @@ public sealed partial class ShipAudio : Node
         _stopped = true;
         _music.Finished -= PlayNext;
         _enginePlayback?.Dispose();
-        foreach (var player in new[] { _music, _engine, _effects, _ui, _radio })
+        foreach (var player in new[] { _music, _engine, _ui, _radio })
         {
             player.Stop();
             var stream = player.Stream;

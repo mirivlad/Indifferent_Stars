@@ -274,7 +274,8 @@ public sealed partial class GameMain : Node3D
             var maneuver = Math.Max(Math.Abs(_input.Strafe), Math.Max(Math.Abs(_input.Vertical),
                 Math.Max(Math.Abs(_input.Roll), Math.Max(Math.Abs(_input.Steer), Math.Abs(_input.Pitch)))));
             _audio.SetFlight(_playerShip.Track.Throttle, maneuver,
-                _playerShip.Boosting || _playerShip.Track.Cruising, _input.Brake || _playerShip.EngineBraking);
+                _playerShip.Boosting, _input.Brake || _playerShip.EngineBraking,
+                _playerShip.Track.Cruising, _net?.State == ConnectionState.Connected && !_playerShip.Track.Docked);
             if (_trace && _playerShip.Track.HasData)
             {
                 var p = _playerShip.Track.WorldPosition;
