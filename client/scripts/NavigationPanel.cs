@@ -99,11 +99,21 @@ public sealed partial class NavigationPanel : CanvasLayer
     }
     public void UpdateContacts(List<NavigationContact> contacts, uint selected)
     {
-        _contacts=contacts; _selected=selected;
+        _contacts=contacts.OrderBy(c=>c.Distance).ThenBy(c=>c.Name,StringComparer.OrdinalIgnoreCase).ThenBy(c=>c.Id).ToList(); _selected=selected;
         var roster=string.Join("|",contacts.Select(c=>$"{c.Id}:{c.Name}:{c.Kind}"));
         if(roster!=_roster) { _roster=roster; Rebuild(); }
-        foreach(var contact in contacts)
-            if(_rows.TryGetValue(contact.Id,out var row)) { row.SetText(1,Distance(contact.Distance)); if(contact.Id==selected)row.Select(0); }
+        var previousByGroup=new Dictionary<string,TreeItem>();
+        foreach(var contact in _contacts)
+        {
+            if(!_rows.TryGetValue(contact.Id,out var row))continue;
+            row.SetText(1,Distance(contact.Distance));
+            var kind=Group(contact.Kind);
+            if(previousByGroup.TryGetValue(kind,out var previous))
+            { if(previous.GetNext()!=row)row.MoveAfter(previous); }
+            else if(row.GetParent().GetFirstChild() is { } first&&first!=row)row.MoveBefore(first);
+            previousByGroup[kind]=row;
+            if(contact.Id==selected)row.Select(0);
+        }
     }
     public void RefreshLanguage() { _toggle.Text=(_toggle.ButtonPressed?"▾ ":"▸ ")+Locale.Text("navigation"); _search.PlaceholderText=Locale.Text("navigation_search"); Rebuild(); }
     private void Rebuild()
@@ -116,7 +126,7 @@ public sealed partial class NavigationPanel : CanvasLayer
         {
             var group=_tree.CreateItem(root); group.SetText(0,Locale.Text("navigation_"+kind)); group.SetMetadata(0,kind);
             group.SetSelectable(0,false); group.SetSelectable(1,false); group.Collapsed=_search.Text.Length==0&&_collapsed.GetValueOrDefault(kind);
-            foreach(var contact in _contacts.Where(c=>Group(c.Kind)==kind&&c.Name.Contains(_search.Text,StringComparison.OrdinalIgnoreCase)).OrderBy(c=>c.Name,StringComparer.OrdinalIgnoreCase))
+            foreach(var contact in _contacts.Where(c=>Group(c.Kind)==kind&&c.Name.Contains(_search.Text,StringComparison.OrdinalIgnoreCase)))
             {
                 var row=_tree.CreateItem(group); row.SetText(0,contact.Name); row.SetText(1,Distance(contact.Distance));
                 row.SetTextAlignment(1,HorizontalAlignment.Right); row.SetMetadata(0,(long)contact.Id); row.SetTooltipText(0,contact.Name);

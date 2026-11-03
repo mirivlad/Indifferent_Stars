@@ -32,6 +32,22 @@ public sealed partial class NavigationInterfaceChecks : Node
             var tabs=(TabBar)radio.FindChild("RadioTabs",true,false);var log=(RichTextLabel)radio.FindChild("RadioHistory",true,false);
             await Pause(.5);
             Check(tree.GetRoot().GetChildCount()==6,"Six groups required.");
+            var sortPanel=new NavigationPanel {Visible=false};AddChild(sortPanel);
+            var sortTree=(Tree)sortPanel.FindChild("NavigationTree",true,false);
+            var far=new NavigationContact(1,"Alpha","NPC",3000);
+            var near=new NavigationContact(2,"Zulu","NPC",1000);
+            sortPanel.UpdateContacts(new(){far,near},1);
+            var ships=sortTree.GetRoot().GetChild(4);var originalNear=ships.GetFirstChild();
+            Check(originalNear.GetMetadata(0).AsInt64()==2,"Navigation must order contacts by distance rather than name.");
+            ships.Collapsed=true;
+            sortPanel.UpdateContacts(new(){far with {Distance=500},near with {Distance=2000}},1);
+            Check(ships.GetFirstChild().GetMetadata(0).AsInt64()==1&&ships.GetFirstChild().GetNext()==originalNear,
+                "Changed distances must reorder existing rows without rebuilding the tree.");
+            Check(ships.Collapsed&&sortTree.GetSelected().GetMetadata(0).AsInt64()==1,"Distance updates must retain collapsed groups and selected target.");
+            var sortSearch=(LineEdit)sortPanel.FindChild("NavigationSearch",true,false);
+            sortSearch.Text="Zulu";sortSearch.EmitSignal(LineEdit.SignalName.TextChanged,sortSearch.Text);
+            Check(sortTree.GetRoot().GetChild(4).GetChildCount()==1,"Filtering must retain the distance-sorted contact.");
+            sortPanel.QueueFree();
             toggle.ButtonPressed=false;await Pause(.1);Check(!tree.IsVisibleInTree(),"Navigation must collapse.");
             toggle.ButtonPressed=true;await Pause(.1);Check(tree.IsVisibleInTree(),"Navigation must expand.");
             Input.MouseMode=Input.MouseModeEnum.Captured;var target=Field<uint>(game,"_targetId");KeyPress(Key.Tab);await Pause(.1);
