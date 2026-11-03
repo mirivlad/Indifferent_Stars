@@ -102,6 +102,8 @@ public sealed partial class ShipView : Node3D
         _ionTrail.Visible = visible && _engineEffects && _particles;
     }
 
+    public void StopImpactAudio() => _impacts.StopAudio();
+
     public void SetEngineEffects(bool enabled)
     {
         _engineEffects = enabled;

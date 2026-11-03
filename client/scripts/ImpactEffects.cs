@@ -24,10 +24,28 @@ public sealed partial class ImpactEffects : Node3D
         EmissionEnabled=true,Emission=new Color(1,.5f,.12f),EmissionEnergyMultiplier=1.6f,
     };
     private readonly bool _player;
+    private bool _stopped;
     private readonly List<(AudioStreamPlayer3D Audio,Vec3d Point)> _positional=new();
     public int BurstCount=>_bursts.Count;
     public override void _EnterTree()=>ImpactSound.Retain();
-    public override void _ExitTree()=>ImpactSound.Release();
+    public void StopAudio()
+    {
+        _stopped=true;
+        foreach(var child in GetChildren())
+        {
+            if(child is AudioStreamPlayer audio){audio.Stop();}
+            if(child is AudioStreamPlayer3D spatial){spatial.Stop();}
+        }
+    }
+    public override void _ExitTree()
+    {
+        StopAudio();
+        foreach(var child in GetChildren())
+        {
+            if(child is MeshInstance3D mesh)mesh.Mesh=null;
+        }
+        _mesh.Dispose();_material.Dispose();ImpactSound.Release();
+    }
     public ImpactEffects(bool player)
     {
         Name="ImpactEffects";_player=player;TopLevel=true;
@@ -35,6 +53,7 @@ public sealed partial class ImpactEffects : Node3D
     }
     public void Trigger(ImpactState impact,Vec3d origin,bool particles)
     {
+        if(_stopped)return;
         if(particles)
         {
             if(_bursts.Count>=4)_bursts.RemoveAt(0);

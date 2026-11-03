@@ -35,6 +35,8 @@ public sealed partial class GameMain : Node3D
     private Camera3D _camera = null!;
     private SpotLight3D? _cameraFill;
     private Hud _hud = null!;
+    private RadioChat _radio = null!;
+    private Input.MouseModeEnum _beforeChat;
     private TacticalView _tactical = null!;
     private CanvasLayer _tacticalLayer = null!;
     private PopupMenu _contactMenu = null!;
@@ -61,7 +63,7 @@ public sealed partial class GameMain : Node3D
     private Input.MouseModeEnum _beforeLook;
     private bool _lookCaptured;
     private bool LookingAround => _mode != ViewMode.Tactical &&
-        (_settings.Pressed("camera_look") || Input.IsMouseButtonPressed(MouseButton.Middle));
+        _radio?.IsTyping != true && (_settings.Pressed("camera_look") || Input.IsMouseButtonPressed(MouseButton.Middle));
     private bool _quitting;
     private uint _playerId;
     private uint _targetId;
@@ -154,8 +156,15 @@ public sealed partial class GameMain : Node3D
         _net.CommsCompleted += reply =>
         {
             _audio.RadioCue();
-            _hud.ShowToast(_settings.Language == "ru" ? reply.RussianMessage : reply.Message, duration: 8);
+            var sender=reply.TargetId==(uint)_catalog.Station.Id?_catalog.Station.Name:
+                _remoteShips.TryGetValue(reply.TargetId,out var ship)?ship.DisplayName:Locale.Text("radio_heading");
+            var text=_settings.Language == "ru" ? reply.RussianMessage : reply.Message;
+            if(text.StartsWith(sender+": ",StringComparison.Ordinal))text=text[(sender.Length+2)..];
+            _radio.Radio(sender,text,reply.TargetId);
         };
+        _net.ChatReceived += _radio.Receive;
+        _net.ChatRejected += result => _radio.Notice(result.ChannelId,Locale.Text("chat_error_"+(int)result.Error));
+        _net.ChatTimedOut += channel => _radio.Notice(channel,Locale.Text("chat_timeout"));
         _net.ScanCompleted += OnScanCompleted;
         _net.ScanTimedOut += () => _hud.ShowScanResult(Locale.Text("scan_rejected"), Locale.Text("scan_timeout"), false);
         _net.WarpCompleted += OnWarpCompleted;
@@ -174,6 +183,8 @@ public sealed partial class GameMain : Node3D
         if (_quitting) return;
         _quitting = true;
         _audio.Stop();
+        _playerShip?.StopImpactAudio();
+        foreach(var ship in _remoteShips.Values)ship.StopImpactAudio();
         // Let the audio server consume pending playback stops before tearing down resources.
         await ToSignal(GetTree().CreateTimer(0.25), SceneTreeTimer.SignalName.Timeout);
         GetTree().Quit(exitCode);
@@ -216,6 +227,7 @@ public sealed partial class GameMain : Node3D
         _hud.SetHintsVisible(_settings.HudHints);
         _hud.SetControls(_settings);
         _hud.RefreshLanguage();
+        _radio.RefreshLanguage();
         _stationView?.RefreshLanguage();
         BuildContactMenu();
         if (_playerShip is not null)
@@ -248,7 +260,7 @@ public sealed partial class GameMain : Node3D
         }
         else if (!looking && _lookCaptured)
         {
-            if (!_settingsMenu.IsOpen && _mode != ViewMode.Tactical) Input.MouseMode = _beforeLook;
+            if (!_settingsMenu.IsOpen && !_radio.IsTyping && _mode != ViewMode.Tactical) Input.MouseMode = _beforeLook;
             _lookCaptured = false;
         }
 
@@ -339,7 +351,11 @@ public sealed partial class GameMain : Node3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (_settingsMenu.IsOpen) return;
+        if (_settingsMenu.IsOpen || _radio.IsTyping) return;
+        if(@event is InputEventKey {Pressed:true,Echo:false,Keycode:Key.Enter})
+        {
+            _radio.BeginTyping();GetViewport().SetInputAsHandled();return;
+        }
         if (@event is InputEventKey key && key.Pressed && !key.Echo)
         {
             var action = _settings.Keys.FirstOrDefault(pair => pair.Value == key.Keycode).Key;
@@ -528,6 +544,14 @@ public sealed partial class GameMain : Node3D
     {
         _hud = new Hud { Name = "Hud" };
         AddChild(_hud);
+        _radio=new RadioChat();AddChild(_radio);_hud.ReserveRadioSpace(260);
+        _radio.SendRequested+=(channel,text)=>{if(_net?.SendChat(channel,text)!=true)_radio.Notice(channel,Locale.Text("no_connection"));};
+        _radio.TypingChanged+=typing=>
+        {
+            if(typing){_beforeChat=_lookCaptured?_beforeLook:Input.MouseMode;Input.MouseMode=Input.MouseModeEnum.Visible;}
+            else if(_settingsMenu?.IsOpen != true)Input.MouseMode=_beforeChat;
+            _mouseTurn=Vector2.Zero;_mouseTurnAt=0;
+        };
 
         _tacticalLayer = new CanvasLayer { Name = "TacticalLayer", Layer = 5 };
         AddChild(_tacticalLayer);

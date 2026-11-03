@@ -130,6 +130,14 @@ public static class ProtocolCodec
                 }
                 break;
 
+            case ChatSendMessage chat:
+                writer.Write(chat.RequestId);writer.Write(chat.ChannelId);WriteString(writer,chat.Text,RadioChannels.MaxTextBytes);break;
+            case ChatLineMessage chat:
+                writer.Write(chat.MessageId);writer.Write(chat.RequestId);writer.Write(chat.ChannelId);writer.Write(chat.SenderId);
+                WriteString(writer,chat.Sender,ProtocolConstants.MaxNameBytes);WriteString(writer,chat.Text,RadioChannels.MaxTextBytes);writer.Write(chat.Timestamp);break;
+            case ChatAckMessage ack: writer.Write(ack.MessageId);break;
+            case ChatRejectedMessage chatRejected:
+                writer.Write(chatRejected.RequestId);writer.Write(chatRejected.ChannelId);writer.Write((byte)chatRejected.Error);break;
             case CommsRequestMessage comms:
                 writer.Write(comms.TargetId);
                 break;
@@ -316,6 +324,10 @@ public static class ProtocolCodec
 
                 MessageType.Snapshot => ReadSnapshot(reader),
 
+                MessageType.ChatSend => new ChatSendMessage(reader.ReadUInt32(),reader.ReadUInt16(),ReadString(reader,RadioChannels.MaxTextBytes)),
+                MessageType.ChatLine => ReadChatLine(reader),
+                MessageType.ChatAck => new ChatAckMessage(reader.ReadUInt64()),
+                MessageType.ChatRejected => new ChatRejectedMessage(reader.ReadUInt32(),reader.ReadUInt16(),ReadChatError(reader)),
                 MessageType.CommsRequest => new CommsRequestMessage(reader.ReadUInt32()),
                 MessageType.CommsResult => new CommsResultMessage(reader.ReadUInt32(), reader.ReadBoolean(),
                     ReadString(reader, ProtocolConstants.MaxStringBytes), ReadString(reader, ProtocolConstants.MaxStringBytes)),
@@ -455,6 +467,19 @@ public static class ProtocolCodec
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
+    }
+
+    private static ChatError ReadChatError(BinaryReader reader)
+    {
+        var value=(ChatError)reader.ReadByte();if(!Enum.IsDefined(value))throw new InvalidDataException("Invalid chat error.");return value;
+    }
+    private static ChatLineMessage ReadChatLine(BinaryReader reader)
+    {
+        var line=new ChatLineMessage(reader.ReadUInt64(),reader.ReadUInt32(),reader.ReadUInt16(),reader.ReadUInt32(),
+            ReadString(reader,ProtocolConstants.MaxNameBytes),ReadString(reader,RadioChannels.MaxTextBytes),reader.ReadInt64());
+        if(!RadioChannels.BuiltIn(line.ChannelId)||line.SenderId==0||line.Timestamp<0||line.Timestamp>253402300799999||!RadioChannels.ValidText(line.Text))
+            throw new InvalidDataException("Invalid chat line.");
+        return line;
     }
 
     private static ImpactState? ReadImpact(BinaryReader reader)

@@ -102,7 +102,7 @@ public sealed partial class GameMain
         if (_cruiseStopping && (_playerShip?.Track.Velocity.Length() ?? 0) < 0.1f) _cruiseStopping = false;
         if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true || (_playerShip is not null && _playerShip.Track.WarpStage != WarpStage.None))
             return InputState.None with { FlightAssist = _flightAssist };
-        if (_mode == ViewMode.Tactical)
+        if (_radio.IsTyping || _mode == ViewMode.Tactical)
             return InputState.None with { Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);

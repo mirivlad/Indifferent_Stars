@@ -17,7 +17,7 @@ namespace IndifferentStars.Tests;
 /// the public protocol only, so a broken codec or handler wiring is caught here rather
 /// than in a manual client run.
 /// </summary>
-public sealed class ServerIntegrationTests
+public sealed partial class ServerIntegrationTests
 {
     [Fact]
     public void TwoClientsObserveTheSameImpactAndThePilotCanDepart()

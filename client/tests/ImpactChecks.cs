@@ -28,7 +28,8 @@ public sealed partial class ImpactChecks : Node
             _observer.Start();await Until(()=>_observer.State==ConnectionState.Connected,5,"Second client required.");
             ImpactState? own=null;pilot!.ImpactOccurred+=hit=>own=hit;
             SetKey(Key.F2,true);SetKey(Key.F2,false);SetKey(Key.W,true);
-            await Until(()=>own is not null,12,"Approach must produce an authoritative hull impact.");SetKey(Key.W,false);
+            await Until(()=>own is not null,12,"Approach must produce an authoritative hull impact; "+
+                $"initial position={pilot.Track.WorldPosition}, typing={game.GetNode<RadioChat>("RadioChat").IsTyping}.");SetKey(Key.W,false);
             await Until(()=>observed?.Sequence==own!.Sequence,2,"Observer must receive the same impact.");
             Check(observed==own,"Both clients must agree on point, normal and speed.");
             var effects=pilot.GetNode<ImpactEffects>("ImpactEffects");
@@ -39,8 +40,19 @@ public sealed partial class ImpactChecks : Node
             SetKey(Key.F1,true);SetKey(Key.F1,false);await Capture("03_tactical_impact");
             SetKey(Key.F2,true);SetKey(Key.F2,false);
             var start=pilot.Track.WorldPosition;
-            SetKey(Key.S,true);await Pause(1.3);SetKey(Key.S,false);
-            Check(IndifferentStars.Shared.Vec3d.Distance(start,pilot.Track.WorldPosition)>10,"Pilot must move away after impact.");
+            var normal=ShipTrack.ToVector3(pilot.Track.Impact?.Normal??own!.Normal);
+            var until=Time.GetTicksMsec()+4000;
+            while(IndifferentStars.Shared.Vec3d.Distance(start,pilot.Track.WorldPosition)<=10 && Time.GetTicksMsec()<until)
+            {
+                var local=pilot.GlobalBasis.Inverse()*normal;
+                SetKey(Key.D,local.X>.2f);SetKey(Key.A,local.X<-.2f);
+                SetKey(Key.R,local.Y>.2f);SetKey(Key.C,local.Y<-.2f);
+                SetKey(Key.S,local.Z>.2f);SetKey(Key.W,local.Z<-.2f);
+                await Pause(.05);
+            }
+            foreach(var key in new[]{Key.D,Key.A,Key.R,Key.C,Key.S,Key.W})SetKey(key,false);
+            Check(IndifferentStars.Shared.Vec3d.Distance(start,pilot.Track.WorldPosition)>10,
+                $"Outward thrust must depart: start={start}, end={pilot.Track.WorldPosition}, v={pilot.Track.Velocity}, n={normal}.");
             foreach(var kind in Enum.GetValues<ImpactSoundKind>())
             {
                 var sample=ImpactSound.Sample(kind,2);

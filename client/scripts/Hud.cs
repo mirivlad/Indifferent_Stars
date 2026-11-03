@@ -67,7 +67,8 @@ public sealed partial class Hud : CanvasLayer
         _telemetryLabel.Text = _telemetryLabel.Text.Replace(Locale.Text("warp_short") + " " + Locale.Text("ready"), Locale.Text("warp_engaged"));
     }
 
-    public void SetHintsVisible(bool visible) => _controlsLabel.Visible = visible;
+    public void SetHintsVisible(bool visible) => _controlsLabel.GetParent<Control>().Visible = visible;
+    public void ReserveRadioSpace(float height) => _controlsLabel.GetParent<Control>().Position -= new Vector2(0,height);
 
     public void SetFlightDirections(Vector2? nose, Vector2? point)
     {
@@ -361,7 +362,7 @@ public sealed partial class Hud : CanvasLayer
     private void BuildScanPanel()
     {
         _scanPanel = CreatePanel();
-        Place(_scanPanel, 0.5f, 1, new Vector2(-340, -352), new Vector2(680, 180));
+        Place(_scanPanel, 0.5f, 0, new Vector2(-340, 200), new Vector2(680, 180));
         _scanPanel.Visible = false;
         _root.AddChild(_scanPanel);
 

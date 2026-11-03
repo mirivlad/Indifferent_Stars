@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Collections.Generic;
 using IndifferentStars.Shared.Protocol;
 using IndifferentStars.Simulation;
 
@@ -14,6 +15,10 @@ public sealed class PlayerSession
     public required ShipState Ship { get; set; }
     public double LastSeenSeconds { get; set; }
     public uint LastInputSequence { get; set; }
+    public uint? LastChatRequest { get; set; }
+    public double LastChatAt { get; set; } = -100;
+    public Dictionary<uint,IProtocolMessage> ChatReplies { get; } = new();
+    public Dictionary<ulong,(ChatLineMessage Line,double Started,double Sent)> PendingChat { get; } = new();
     public double LastCommsAtSeconds { get; set; } = -100;
     public double LastScanAtSeconds { get; set; } = -100;
     public double LastWarpAtSeconds { get; set; } = -100;

@@ -17,7 +17,7 @@ namespace IndifferentStars.Server;
 /// Single-threaded authoritative UDP server. Commands are validated against the
 /// session's own ship; snapshots are generated at a fixed rate from simulation state.
 /// </summary>
-public sealed class UdpGameServer : IDisposable
+public sealed partial class UdpGameServer : IDisposable
 {
     private readonly ServerConfig _config;
     private readonly WorldCatalog _catalog;
@@ -182,6 +182,12 @@ public sealed class UdpGameServer : IDisposable
                 }
                 break;
 
+            case ChatSendMessage chat:
+                if(_sessionsByEndpoint.TryGetValue(endpoint,out var author))HandleChat(author,chat,now);
+                break;
+            case ChatAckMessage ack:
+                if(_sessionsByEndpoint.TryGetValue(endpoint,out var recipient)){recipient.LastSeenSeconds=now;recipient.PendingChat.Remove(ack.MessageId);}
+                break;
             case CommsRequestMessage comms:
                 if (_sessionsByEndpoint.TryGetValue(endpoint, out var caller) && now - caller.LastCommsAtSeconds >= 0.5)
                 {
@@ -421,6 +427,7 @@ public sealed class UdpGameServer : IDisposable
 
     private void RunMaintenance(double now)
     {
+        RetryChat(now);
         List<PlayerSession>? expired = null;
         foreach (var session in _sessions.Values)
         {

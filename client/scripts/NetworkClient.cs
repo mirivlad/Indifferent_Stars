@@ -124,6 +124,7 @@ public sealed partial class NetworkClient : IDisposable
         }
 
         UpdatePendingRequests();
+        if(State==ConnectionState.Connected)RetryChat();
     }
 
     public void Poll()
@@ -134,6 +135,7 @@ public sealed partial class NetworkClient : IDisposable
             switch (message)
             {
                 case HelloAcceptedMessage welcome:
+                    if(Welcome is null){_chatSeen.Clear();_chatOrder.Clear();_pendingChat.Clear();}
                     Welcome = welcome;
                     State = ConnectionState.Connected;
                     HasEverConnected = true;
@@ -160,6 +162,10 @@ public sealed partial class NetworkClient : IDisposable
                     SnapshotReceived?.Invoke(snapshot);
                     break;
 
+                case ChatLineMessage line: ReceiveChat(line);break;
+                case ChatRejectedMessage chatRejected:
+                    if(_pendingChat.Remove(chatRejected.RequestId))ChatRejected?.Invoke(chatRejected);
+                    break;
                 case CommsResultMessage reply:
                     CommsCompleted?.Invoke(reply);
                     break;

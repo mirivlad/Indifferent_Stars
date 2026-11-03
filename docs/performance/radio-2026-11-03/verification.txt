@@ -1,0 +1,20 @@
+Linux 2026-11-03; Godot 4.7.2 .NET; Forward+; RX 580 2048SP 8 GB/RADV; Xeon E5-2680 v4
+1600x900, render scale 1, MSAA 2x, native game and second UDP client, Dummy audio
+Command: GODOT_BIN=<Godot 4.7.2 .NET> BLENDER_BIN=<Blender> tools/tests/check-surfaces-and-warp.sh
+Exit code: 0
+Release build and client build: 0 errors, 0 warnings
+BLENDER SURFACE VERIFIED: ship_player, 16740 triangles
+BLENDER SURFACE VERIFIED: station_kestrel, 15676 triangles
+Passed!  - Failed:     0, Passed:   134, Skipped:     0, Total:   134, Duration: 1 m 16 s - IndifferentStars.Tests.dll (net10.0)
+SURFACE GEOMETRY CHECKS PASSED: all visible GLB triangles match server surfaces.
+Effects checks passed: world trails, origin shift, hull rotation, expiry, warp reset, maneuver ports, quality switch, stellar light direction and pole.
+Navigation checks passed: reported position, ring radius, selectable bearing panel, local/AU scale, cockpit after rebase.
+WARP FRAME TELEMETRY: frames=607, p95=18.43 ms, viewport=(1600, 900), scale=1, MSAA=Msaa2X.
+WARP CHECKS PASSED: free map point, charging/travel/exit, all views, authoritative route, no cooldown/cruise/range, 1 km arrival, bounded FOV, AU-scale origin and camera.
+CAMERA CHECKS PASSED: wheel bounds, middle orbit, safe arc, menus, F1/F2/F3, cockpit eye, warp, cruise and rebasing.
+IMPACT CHECKS PASSED: two clients, same event, sparks, playing audio, F1/F2/F3 and departure; speed=76.38, sliding=21.51.
+SCAN RECOVERY CHECKS PASSED: success, rejection, continued input and bounded notification.
+RADIO CHECKS PASSED: two clients, three channels, NPC history, unread tabs, plain text, deduplication, typing focus and all views.
+RADIO FRAME TELEMETRY visible=False, frames=300, p95_ms=21.309, viewport=(1600, 900), scale=1, MSAA=Msaa2X.
+RADIO FRAME TELEMETRY visible=True, frames=300, p95_ms=23.960, viewport=(1600, 900), scale=1, MSAA=Msaa2X.
+Frame-time samples: two 5-second windows; short scenario observation, not a server capacity or steady FPS guarantee.

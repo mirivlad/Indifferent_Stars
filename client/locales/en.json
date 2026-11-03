@@ -87,5 +87,16 @@
   "warp_stage_4": "SAFE RECOVERY {0:F0}%",
   "warp_engaged": "IN WARP",
   "scan_timeout": "Scanner response timed out. Please try again.",
-  "impact_hit": "HULL IMPACT"
+  "impact_hit": "HULL IMPACT",
+  "radio_heading": "RADIO",
+  "chat_channel_1": "Local",
+  "chat_channel_2": "System",
+  "chat_channel_3": "General",
+  "chat_placeholder": "Enter to chat, Esc to resume flight",
+  "chat_send": "Send",
+  "chat_timeout": "Delivery was not confirmed. Check the connection.",
+  "chat_error_1": "Channel unavailable.",
+  "chat_error_2": "The message is too long or contains line breaks/control characters.",
+  "chat_error_3": "Too frequent. Wait half a second before sending again.",
+  "chat_error_4": "Stale send request rejected."
 }

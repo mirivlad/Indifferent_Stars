@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 14;
+    public const byte Version = 15;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -43,6 +43,10 @@ public enum MessageType : byte
     TradeResult = 20,
     CommsRequest = 21,
     CommsResult = 22,
+    ChatSend = 23,
+    ChatLine = 24,
+    ChatAck = 25,
+    ChatRejected = 26,
 }
 
 public enum EntityKind : byte
