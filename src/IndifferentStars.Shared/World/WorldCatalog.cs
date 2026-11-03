@@ -80,6 +80,8 @@ public sealed partial class WorldCatalog
     public const double FollowDistance = 200;
     public const double TacticalRange = 3_000_000;
     public const double DistantSensorRange = 75_000_000;
+    public const double ClusterSignalRadius = 100_000;
+    public const int ClusterSignalMembers = 4;
     /// <summary>Range of frequent detailed snapshots; sensors are replicated separately.</summary>
     public const double RelevanceRange = 150_000.0;
     public const double MaxSpeed = 260.0;

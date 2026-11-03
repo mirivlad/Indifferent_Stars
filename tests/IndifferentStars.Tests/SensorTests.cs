@@ -48,6 +48,23 @@ public sealed class SensorTests
         Assert.False(world.Scan(viewer.Id, target.Id).Success);
     }
     [Fact]
+    public void HiddenConcentratedTrafficProducesOnlyAnonymousDistantSignals()
+    {
+        var world=new GameWorld(WorldCatalog.Generate(20261101));var viewer=world.AddPlayer("Viewer");
+        var target=world.AddPlayer("Hidden cluster");target.TransponderEnabled=false;
+        target.Position=viewer.Position+new Vec3d(50_000_000,0,0);
+        Assert.Null(world.Detect(viewer,target));
+        for(var i=1;i<WorldCatalog.ClusterSignalMembers;i++)
+        {
+            var member=world.AddPlayer("Hidden member");member.TransponderEnabled=false;
+            member.Position=target.Position+Vec3d.Up*(1000*i);
+        }
+        Assert.Equal(ContactSource.DistantSignal,world.Detect(viewer,target));
+        var signal=Assert.Single(world.BuildSensorContacts(viewer.Id),c=>c.Id==target.Id);
+        Assert.Equal("?",signal.Name);Assert.Equal(0,(int)signal.Kind);Assert.Equal(Vec3d.Zero,signal.Velocity);
+        Assert.False(world.StartApproach(viewer.Id,target.Id));
+    }
+    [Fact]
     public void SensorPacketsAreBoundedValidatedAndRoundTrip()
     {
         var contacts = Enumerable.Range(1,8).Select(i => new SensorContact((uint)i,new string('X',48),

@@ -16,9 +16,18 @@ public sealed partial class GameWorld
         if (target.TransponderEnabled) return ContactSource.Transponder;
         var distance = Vec3d.Distance(viewer.Position, target.Position);
         if (distance <= WorldCatalog.TacticalRange) return ContactSource.Tactical;
-        if (distance <= WorldCatalog.DistantSensorRange && (target.Cruising || target.Boosting))
+        if (distance <= WorldCatalog.DistantSensorRange && (target.Cruising || target.Boosting || HasClusterSignal(target)))
             return ContactSource.DistantSignal;
         return null;
+    }
+
+    private bool HasClusterSignal(ShipState target)
+    {
+        var members=0;
+        foreach(var ship in _players.Values.Concat(_npcs))
+            if(!ship.InWarp && Vec3d.Distance(ship.Position,target.Position)<=WorldCatalog.ClusterSignalRadius &&
+                ++members>=WorldCatalog.ClusterSignalMembers)return true;
+        return false;
     }
 
     // Navigation resolves the current server position only when accurate information is available.
