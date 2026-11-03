@@ -59,6 +59,14 @@ public sealed partial class GameWorld
 
     private InputState StepRoute(ShipState ship, double dt)
     {
+        if (!MeasureTimings) return ComputeRoute(ship, dt);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try { return ComputeRoute(ship, dt); }
+        finally { RouteMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds; }
+    }
+
+    private InputState ComputeRoute(ShipState ship, double dt)
+    {
         if (ship.RouteWarping)
         {
             ship.RouteWarping = false;
@@ -78,11 +86,14 @@ public sealed partial class GameWorld
         var distance = Vec3d.Distance(ship.Position, destination);
         if (ApproachPilot.Arrived(ship, destination))
         { ship.RouteIndex++; ship.RouteCruiseSeconds = 0; return InputState.None; }
+        if (ship.Velocity.Length > WorldCatalog.MaxBoostSpeed && distance <
+            ship.Velocity.LengthSquared / (2 * FlightModel.CruiseBrakeAcceleration) + ship.Velocity.Length * .15 + 20_000)
+            return InputState.None with { Brake = true };
         if (distance < 1_000_000 && !ship.Cruising && ship.Velocity.Length <= WorldCatalog.MaxBoostSpeed)
             return ApproachPilot.Steer(ship, destination, maxSpeed: WorldCatalog.MaxBoostSpeed * .8) with { Boost = true };
 
         // Leave the nearest solid surface before cruise. CCD still checks every ordinary-flight step.
-        var nearest = double.MaxValue;
+        var nearest = WorldCatalog.CruiseClearance + 2000;
         var escape = Vec3d.Zero;
         foreach (var body in Catalog.LocalBodies)
         {
@@ -116,7 +127,7 @@ public sealed partial class GameWorld
         }
         var steer = ApproachPilot.Steer(ship, destination);
         var aligned = Vec3d.Dot(ship.Forward, (destination - ship.Position).Normalized()) > .995;
-        if (ship.Cruising && aligned && ship.Velocity.Length >= WorldCatalog.CruiseSpeed * .9) ship.RouteCruiseSeconds += dt;
+        if (ship.Cruising && aligned && ship.Velocity.Length >= CruiseLimitAt(ship) * .9) ship.RouteCruiseSeconds += dt;
         if (ship.RouteCruiseSeconds >= 1)
         {
             var warp = WarpShip(ship, stop.TargetId, stop.Position, fromRoute: true);

@@ -194,6 +194,7 @@ public sealed partial class GameWorld
         if(ship.CruiseBraking&&ship.Velocity.Length<=.1)ship.CruiseBraking=false;
         var input=StepRoute(ship,dt);
         if(ship.InWarp){warping.Add(ship.Id);return;}
+        ship.CruiseSpeedLimit=CruiseLimitAt(ship);
         if(input.Cruise&&!CanCruise(ship))input=InputState.None with {Brake=true};
         if(ship.CruiseBraking)input=InputState.None with {Brake=true};
         if(!work.FaultUsed&&work.Deliveries>=1&&ship.Velocity.Length>9000&&ship.Id%3==0)

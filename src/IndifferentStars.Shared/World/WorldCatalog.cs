@@ -82,7 +82,9 @@ public sealed partial class WorldCatalog
     /// <summary>Range of frequent detailed snapshots; sensors are replicated separately.</summary>
     public const double RelevanceRange = 150_000.0;
     public const double MaxSpeed = 260.0;
-    public const double CruiseSpeed = 20_000;
+    public const double CruiseSpeed = 500_000;
+    public const double PopulatedCruiseSpeed = 150_000;
+    public const double ActivityRadius = 5_000_000;
     public const double CruiseClearance = 10_000;
     public const double MaxBoostSpeed = 720.0;
     public const float StartFuel = 100f;

@@ -89,7 +89,7 @@ public sealed class CruiseTests
         world.ApplyInput(ship.Id, InputState.None);
         world.Tick(0.05);
         Assert.Equal(speed, ship.Velocity.Length, 5);
-        for (var i = 0; i < 180; i++) { world.ApplyInput(ship.Id, InputState.None with { Brake = true }); world.Tick(0.05); }
+        for (var i = 0; i < 400; i++) { world.ApplyInput(ship.Id, InputState.None with { Brake = true }); world.Tick(0.05); }
         Assert.Equal(0, ship.Velocity.Length, 5);
     }
 

@@ -69,6 +69,10 @@ public sealed partial class GameWorld
     public double TimeSeconds { get; private set; }
     public IReadOnlyDictionary<uint, ShipState> Players => _players;
     public IReadOnlyList<ShipState> Npcs => _npcs;
+    public bool MeasureTimings { get; set; }
+    public double RouteMilliseconds { get; private set; }
+    public double CruiseSafetyMilliseconds { get; private set; }
+    public double CollisionMilliseconds { get; private set; }
     public double InputTimeoutSeconds { get; set; } = 0.6;
 
     public ShipState AddPlayer(string name)
@@ -358,8 +362,9 @@ public sealed partial class GameWorld
                     input = ApproachPilot.Steer(ship, ship.ApproachDestination);
             }
             if (!input.Cruise) ship.CruiseInhibited = false;
-            var cruiseSafe = (!input.Cruise && !ship.Cruising) || CanCruise(ship);
-            if (ship.Cruising && !cruiseSafe)
+            ship.CruiseSpeedLimit = CruiseLimitAt(ship);
+            var cruiseSafe = (!input.Cruise && !ship.Cruising && ship.Velocity.Length <= WorldCatalog.MaxBoostSpeed) || CanCruise(ship);
+            if (!cruiseSafe && (ship.Cruising || ship.Velocity.Length > WorldCatalog.MaxBoostSpeed))
                 ship.CruiseBraking = true;
             if (input.Cruise && (!cruiseSafe || ship.CruiseInhibited || ship.CruiseBraking))
             {
@@ -370,7 +375,7 @@ public sealed partial class GameWorld
             if (ship.CruiseBraking)
             {
                 if (ship.Velocity.Length <= 0.1) ship.CruiseBraking = false;
-                else input = input with { Cruise = false, Throttle = 0, Brake = true };
+                input = input with { Cruise = false, Throttle = 0, Brake = true };
             }
             FlightModel.StepPlayer(ship, input, dt);
         }
@@ -390,7 +395,9 @@ public sealed partial class GameWorld
                 ship.AngularVelocity*=Math.Exp(-2.5*dt);
             }
         }
+        var collisionStarted = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         ResolveCollisions(ships,starts,warping,dt);
+        if (MeasureTimings) CollisionMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(collisionStarted).TotalMilliseconds;
 
         TickCount++;
         TimeSeconds += dt;
@@ -408,7 +415,24 @@ public sealed partial class GameWorld
         return entities.ToArray();
     }
 
-    private bool CanCruise(ShipState ship) =>
+    public double CruiseLimitAt(ShipState ship)
+    {
+        // Anticipate the deceleration needed to enter an inhabited area at its speed limit.
+        var excess = Math.Max(0, ship.Velocity.LengthSquared - WorldCatalog.PopulatedCruiseSpeed * WorldCatalog.PopulatedCruiseSpeed);
+        var margin = excess / (2 * FlightModel.CruiseBrakeAcceleration) + ship.Velocity.Length * .1;
+        return Catalog.Stations.Any(station => Vec3d.Distance(ship.Position, station.Position) <= WorldCatalog.ActivityRadius + margin)
+            ? WorldCatalog.PopulatedCruiseSpeed : WorldCatalog.CruiseSpeed;
+    }
+
+    private bool CanCruise(ShipState ship)
+    {
+        if (!MeasureTimings) return CruiseAllowed(ship);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        try { return CruiseAllowed(ship); }
+        finally { CruiseSafetyMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds; }
+    }
+
+    private bool CruiseAllowed(ShipState ship) =>
         !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive || ship.OrbitEstablished) &&
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
         _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&

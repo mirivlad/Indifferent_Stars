@@ -41,6 +41,7 @@ public sealed class ShipState
     }
     public double Throttle { get; set; }
     public bool Boosting { get; set; }
+    public double CruiseSpeedLimit { get; set; } = IndifferentStars.Shared.World.WorldCatalog.CruiseSpeed;
     public bool Cruising { get; set; }
     public bool CruiseInhibited { get; set; }
     public bool CruiseBraking { get; set; }

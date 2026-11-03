@@ -18,8 +18,8 @@ public static class FlightModel
     public const double YawRate = 1.15;
     public const double PitchRate = 0.85;
     public const double RollRate = 1.5;
-    public const double CruiseAcceleration = 2000;
-    public const double CruiseBrakeAcceleration = 3000;
+    public const double CruiseAcceleration = 20_000;
+    public const double CruiseBrakeAcceleration = 30_000;
 
     public static (Vec3d Forward, Vec3d Right, Vec3d Up) Basis(double yaw, double pitch)
     {
@@ -87,6 +87,13 @@ public static class FlightModel
         else
         {
             var previousSpeed = ship.Velocity.Length;
+            if (ship.Cruising && previousSpeed > ship.CruiseSpeedLimit)
+            {
+                var speed = Math.Max(ship.CruiseSpeedLimit, previousSpeed - CruiseBrakeAcceleration * dt);
+                ship.Velocity *= speed / previousSpeed;
+                primaryAccel = 0;
+                previousSpeed = speed;
+            }
             ship.Velocity += (forward * primaryAccel + up * (input.Vertical * VerticalAcceleration) + right * (input.Strafe * VerticalAcceleration)) * dt;
             if (input.FlightAssist)
             {
@@ -96,7 +103,7 @@ public static class FlightModel
                 if (input.Vertical == 0)
                     ship.Velocity += up * Math.Clamp(-Vec3d.Dot(ship.Velocity, up), -limit, limit);
             }
-            var maxSpeed = ship.Cruising ? WorldCatalog.CruiseSpeed : ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
+            var maxSpeed = ship.Cruising ? ship.CruiseSpeedLimit : ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
             var allowedSpeed = Math.Max(previousSpeed, maxSpeed);
             if (ship.Velocity.Length > allowedSpeed)
                 ship.Velocity = ship.Velocity.Normalized() * allowedSpeed;
