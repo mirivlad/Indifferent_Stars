@@ -117,7 +117,9 @@ public sealed class ShipTrack
                 }
             }
 
-            if (Vec3d.Distance(position, last.Position) > 2500 &&
+            var interval=last.ServerMs is { } previousMs ? (serverTimeMs-previousMs)/1000.0 : Math.Max(0,sampleTime-last.Time);
+            var expectedTravel=Math.Max(last.Velocity.Length(),snapshot.Velocity.Length)*interval;
+            if (Vec3d.Distance(position, last.Position) > 2500 + expectedTravel &&
                 !(previousWarp != WarpStage.None && WarpStage != WarpStage.None))
             {
                 _points.Clear();

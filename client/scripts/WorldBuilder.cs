@@ -16,6 +16,8 @@ namespace IndifferentStars.Client;
 /// </summary>
 public sealed partial class WorldBuilder
 {
+    private const double AsteroidRenderRange = 15_000;
+    private const double StationRenderRange = 200_000;
     private readonly Node3D _root;
     private readonly bool _highQuality;
     private Node3D? _stationNode;
@@ -62,7 +64,7 @@ public sealed partial class WorldBuilder
         {
             var node=_stationNodes[station.Id];
             node.Position=ToVector3(station.Position-renderOrigin);
-            node.Visible=Vec3d.Distance(observerLocal,station.Position)<WorldCatalog.RelevanceRange+5000;
+            node.Visible=Vec3d.Distance(observerLocal,station.Position)<StationRenderRange;
             var rotation=ModelPose.StationRotation(station,SimulationTime);
             node.Quaternion=new Quaternion(rotation.X,rotation.Y,rotation.Z,rotation.W);
         }
@@ -77,13 +79,13 @@ public sealed partial class WorldBuilder
             var distance = Vec3d.Distance(observer, sector.Center) - sector.Radius;
             if (_asteroidSectors.TryGetValue(sector.Id, out var loaded))
             {
-                if (distance > WorldCatalog.RelevanceRange + 2000)
+                if (distance > AsteroidRenderRange + 2000)
                 {
                     _asteroidSectors.Remove(sector.Id);
                     loaded.QueueFree();
                 }
             }
-            else if (distance <= WorldCatalog.RelevanceRange)
+            else if (distance <= AsteroidRenderRange)
             {
                 _asteroidMeshes ??= LoadAsteroidMeshes();
                 var node = new Node3D { Name = sector.Id, TopLevel=true, Position=ToVector3(sector.Center) };

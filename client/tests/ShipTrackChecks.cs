@@ -47,6 +47,14 @@ public sealed partial class ShipTrackChecks : Node
             paused.Sample(10.975,Vec3d.Zero);
             Check(Math.Abs(paused.WorldPosition.X-2.5)<.001,
                 "A server pause must restore interpolation instead of leaving a permanently extrapolated timeline.");
+            foreach(var speed in new[]{100_000d,200_000d,500_000d})
+            {
+                var fast=new ShipTrack();
+                fast.Push(Snapshot(0) with {Velocity=new Vec3d(speed,0,0)},10,500_000);
+                fast.Push(Snapshot(speed*.05) with {Velocity=new Vec3d(speed,0,0)},10.05,500_050);
+                fast.Sample(10.025,Vec3d.Zero);
+                Check(Math.Abs(fast.WorldPosition.X-speed*.025)<.01,$"Continuous {speed} m/s snapshots must interpolate rather than reset as a teleport.");
+            }
             var worldRoot = new Node3D();
             AddChild(worldRoot);
             var builder = new WorldBuilder(worldRoot, WorldCatalog.Generate(20261101), false);
@@ -64,16 +72,17 @@ public sealed partial class ShipTrackChecks : Node
             var catalog = WorldCatalog.Generate(20261101);
             var celestial = new CelestialRenderer(worldRoot, catalog, false);
             var previousAngularSize = 0.0;
-            foreach (var altitude in new[] { 1_400_000.0, 500_000.0, 104_000.0, 99_000.0 })
+            // Generated gas giants need farther samples outside the existing 1.45-radian projection cap.
+            foreach (var altitude in new[] { Math.Max(1_400_000.0,catalog.Planet.Radius*.05), Math.Max(500_000.0,catalog.Planet.Radius*.025), Math.Max(104_000.0,catalog.Planet.Radius*.01), 99_000.0 })
             {
-                var observer = new Vec3d(0, altitude - WorldCatalog.StationOrbitAltitude, 0);
+                var observer = catalog.CelestialOffset(catalog.Planet) + Vec3d.Up * (catalog.Planet.Radius + altitude);
                 var origin = RenderFrame.ChooseOrigin(observer, Vec3d.Zero);
                 celestial.Update(observer, origin, 0);
                 var displayOffset = celestial.PlanetHolder.Position - ShipTrack.ToVector3(observer - origin);
                 var angularSize = celestial.PlanetHolder.Scale.X / displayOffset.Length();
                 var expected = catalog.Planet.Radius / (catalog.Planet.Radius + altitude);
                 Check(Math.Abs(angularSize - expected) < 0.00001, "Planet angular size must follow actual observer distance.");
-                Check(angularSize > previousAngularSize, "Planet must grow during approach, including near the old projection cap.");
+                Check(angularSize > previousAngularSize, "Planet must grow during approach, outside the projection cap and into true scale.");
                 previousAngularSize = angularSize;
             }
             worldRoot.QueueFree();
