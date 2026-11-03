@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 16;
+    public const byte Version = 17;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -49,6 +49,8 @@ public enum MessageType : byte
     ChatRejected = 26,
     RouteRequest = 27,
     RouteResult = 28,
+    OrbitRequest = 29,
+    OrbitResult = 30,
 }
 
 public enum EntityKind : byte
@@ -136,7 +138,11 @@ public sealed record EntitySnapshot(
     uint RouteRevision = 0,
     byte RouteIndex = 0,
     bool RouteActive = false,
-    bool Boosting = false)
+    bool Boosting = false,
+    uint OrbitTargetId = 0,
+    double OrbitAltitude = 0,
+    bool OrbitRetrograde = false,
+    bool OrbitEstablished = false)
 {
 }
 
@@ -162,7 +168,7 @@ public sealed record ScanResultMessage(
     public MessageType Type => MessageType.ScanResult;
 }
 
-public sealed record WarpRequestMessage(uint RequestId, uint TargetId, Vec3d? Destination = null) : IProtocolMessage
+public sealed record WarpRequestMessage(uint RequestId, uint TargetId, Vec3d? Destination = null, double? SurfaceDistance = null) : IProtocolMessage
 {
     public MessageType Type => MessageType.WarpRequest;
 }
@@ -288,4 +294,15 @@ public sealed record RouteRequestMessage(uint RequestId, NavigationPoint[] Point
 public sealed record RouteResultMessage(uint RequestId, bool Accepted) : IProtocolMessage
 {
     public MessageType Type => MessageType.RouteResult;
+}
+
+public enum OrbitError : byte { None, UnknownTarget, UnsafeAltitude, Unavailable, Stale, Timeout }
+public sealed record OrbitRequestMessage(uint RequestId, uint TargetId, double Altitude, bool Retrograde = false) : IProtocolMessage
+{
+    public MessageType Type => MessageType.OrbitRequest;
+}
+public sealed record OrbitResultMessage(uint RequestId, uint TargetId, OrbitError Error, double MinimumAltitude = 0) : IProtocolMessage
+{
+    public MessageType Type => MessageType.OrbitResult;
+    public bool Accepted => Error == OrbitError.None;
 }

@@ -36,9 +36,10 @@ public sealed class WarpSafetyTests
         Assert.Equal(WarpStage.Charging, ship.WarpStage);
         Finish(world, ship);
         Assert.Equal(result.Destination, ship.Position);
-        Assert.InRange(Vec3d.Distance(ship.Position, world.Catalog.CelestialOffset(target)) -
-            target.Radius - target.AtmosphereHeight - SurfaceMesh.Ship.Radius,
-            WarpFlight.Clearance - .001, WarpFlight.Clearance + .001);
+        var expected = Math.Max(NavigationLimits.CelestialWarpMinimum(target),
+            target.AtmosphereHeight + WarpFlight.Clearance + SurfaceMesh.Ship.Radius);
+        Assert.InRange(Vec3d.Distance(ship.Position, world.Catalog.CelestialOffset(target)) - target.Radius,
+            expected - .001, expected + .001);
         Assert.Equal(Vec3d.Zero, ship.Velocity);
         Assert.False(ship.Cruising);
     }

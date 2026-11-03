@@ -119,6 +119,7 @@ public sealed partial class GameWorld
         {
             ship.ApproachTargetId = 0;
             ship.RouteActive = false;
+            ship.CancelOrbit();
         }
         slot.AgeSeconds = 0;
     }
@@ -129,6 +130,7 @@ public sealed partial class GameWorld
         if (ship is null || ship.Docked || ship.InWarp || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
             return false;
         ship.RouteActive = false;
+        ship.CancelOrbit();
         ship.ApproachTargetId = ship.Id;
         ship.ApproachFollowing = false;
         ship.ApproachDestination = destination;
@@ -149,6 +151,7 @@ public sealed partial class GameWorld
         if (away.LengthSquared < 0.5)
             return false;
         player.RouteActive = false;
+        player.CancelOrbit();
         player.ApproachTargetId = targetId;
         player.ApproachFollowing = follow;
         player.DockingGranted = false;
@@ -169,6 +172,7 @@ public sealed partial class GameWorld
         player.DockingPoint = station.Position + ModelPose.StationDockingOffset;
         player.ApproachDestination = player.DockingPoint;
         player.RouteActive = false;
+        player.CancelOrbit();
         player.ApproachTargetId = targetId;
         return true;
     }
@@ -312,6 +316,7 @@ public sealed partial class GameWorld
                 ship.Throttle = 0;
                 continue;
             }
+            if (StepOrbit(ship, dt)) continue;
             var input = slot.AgeSeconds <= InputTimeoutSeconds ? slot.Input : InputState.None;
             if (ship.RouteActive)
             {
@@ -392,7 +397,7 @@ public sealed partial class GameWorld
     }
 
     private bool CanCruise(ShipState ship) =>
-        !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive) &&
+        !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive || ship.OrbitEstablished) &&
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
         _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
         _npcs.All(other => CruiseClearOf(ship, other.Position, 20)) &&
@@ -522,7 +527,8 @@ public sealed partial class GameWorld
         ship.WarpProgress,
         ship.InWarp ? ship.WarpDestination : null,
         !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null,
-        ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting);
+        ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting,
+        ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished);
 
     private static string DescribeVessel(ShipState npc, string language)
     {

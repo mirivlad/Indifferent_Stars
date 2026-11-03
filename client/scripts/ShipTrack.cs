@@ -40,6 +40,10 @@ public sealed class ShipTrack
     public byte RouteIndex { get; private set; }
     public bool RouteActive { get; private set; }
     public bool Boosting { get; private set; }
+    public uint OrbitTargetId { get; private set; }
+    public double OrbitAltitude { get; private set; }
+    public bool OrbitRetrograde { get; private set; }
+    public bool OrbitEstablished { get; private set; }
     public bool HasData => _points.Count > 0;
     public string Name { get; private set; } = string.Empty;
     public EntityKind Kind { get; private set; }
@@ -65,6 +69,8 @@ public sealed class ShipTrack
         if (_points.Count == 1 && _points[0].ServerMs is null)
             _points.Clear();
         Boosting = snapshot.Boosting;
+        OrbitTargetId=snapshot.OrbitTargetId; OrbitAltitude=snapshot.OrbitAltitude;
+        OrbitRetrograde=snapshot.OrbitRetrograde; OrbitEstablished=snapshot.OrbitEstablished;
         RouteRevision = snapshot.RouteRevision; RouteIndex = snapshot.RouteIndex; RouteActive = snapshot.RouteActive;
         Impact = snapshot.Impact;
         Name = snapshot.Name;

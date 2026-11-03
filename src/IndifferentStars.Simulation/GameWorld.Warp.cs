@@ -13,7 +13,7 @@ public sealed partial class GameWorld
     public static WarpResultMessage StaleWarp(uint requestId, uint targetId) => new(requestId, targetId, false,
         ServerText.Get("en", "warp_stale"), Vec3d.Zero, 0, 0, ServerText.Get("ru", "warp_stale"));
 
-    public WarpOutcome Warp(uint playerId, uint targetId, Vec3d? destination = null, bool fromRoute = false)
+    public WarpOutcome Warp(uint playerId, uint targetId, Vec3d? destination = null, bool fromRoute = false, double? surfaceDistance = null)
     {
         var player = GetPlayer(playerId);
         if (player is null) return WarpFail(targetId, "unknown_ship");
@@ -22,10 +22,14 @@ public sealed partial class GameWorld
         if (destination is { } point && (targetId != 0 || !point.IsFinite))
             return WarpFail(targetId, "warp_invalid");
 
+        if (surfaceDistance is { } requested && !NavigationLimits.ValidDistance(requested))
+            return WarpFail(targetId, "warp_distance_invalid");
+        var minimum = NavigationLimits.LocalWarpMinimum;
         Vec3d arrival;
         var label = ServerText.Get("en", "warp_waypoint");
         var russianLabel = ServerText.Get("ru", "warp_waypoint");
-        if (destination is { } waypoint) arrival = waypoint;
+        if (destination is { } waypoint)
+            arrival = surfaceDistance is { } gap ? waypoint - (waypoint - player.Position).Normalized() * gap : waypoint;
         else
         {
             var targetShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
@@ -36,12 +40,16 @@ public sealed partial class GameWorld
                 Vec3d.Distance(player.Position, targetShip.Position) > WorldCatalog.RelevanceRange))
                 return WarpFail(targetId, "warp_unknown");
             if (targetShip is null && body is null && celestial is null) return WarpFail(targetId, "warp_unknown");
+            minimum = celestial is not null ? NavigationLimits.CelestialWarpMinimum(celestial) : NavigationLimits.LocalWarpMinimum;
+            if (surfaceDistance is { } requestedGap && requestedGap < minimum)
+                return WarpFail(targetId, "warp_distance_min", minimum);
+            var desiredGap = surfaceDistance ?? Math.Max(minimum, (celestial?.AtmosphereHeight ?? 0) + WarpFlight.Clearance + SurfaceMesh.Ship.Radius);
             var center = targetShip?.Position ?? body?.Position ?? Catalog.CelestialOffset(celestial!);
             var distance = Vec3d.Distance(player.Position, center);
             if (!double.IsFinite(distance) || distance < 1) return WarpFail(targetId, "warp_invalid");
             var direction = (center - player.Position) / distance;
             if (celestial is not null)
-                arrival = center - direction * (celestial.Radius + celestial.AtmosphereHeight + WarpFlight.Clearance + SurfaceMesh.Ship.Radius);
+                arrival = center - direction * (celestial.Radius + desiredGap);
             else
             {
                 var surface = targetShip is not null ? WorldSurfaces.Ship(targetShip, targetShip.Position, targetShip.Orientation)
@@ -49,11 +57,11 @@ public sealed partial class GameWorld
                 var hit = SurfaceQuery.Raycast(surface.Mesh, surface.Local(player.Position), surface.Local(center));
                 if (hit is null) return WarpFail(targetId, "warp_invalid");
                 var low = Vec3d.Distance(Vec3d.Lerp(player.Position, center, hit.Value), center);
-                var high = surface.Radius + WarpFlight.Clearance + SurfaceMesh.Ship.Radius;
+                var high = surface.Radius + desiredGap;
                 for (var i = 0; i < 40; i++)
                 {
                     var middle = (low + high) / 2;
-                    if (surface.Distance(center - direction * middle) < WarpFlight.Clearance + SurfaceMesh.Ship.Radius)
+                    if (surface.Distance(center - direction * middle) < desiredGap)
                         low = middle;
                     else high = middle;
                 }
@@ -66,11 +74,12 @@ public sealed partial class GameWorld
             return WarpFail(targetId, "warp_invalid");
         if (Vec3d.Distance(player.Position, arrival) < 1) return WarpFail(targetId, "warp_close");
         if (!WarpSafe(player, player.Position, TimeSeconds)) return WarpFail(targetId, "warp_departure_blocked");
-        if (!WarpSafe(player, arrival, TimeSeconds + WarpFlight.ChargeSeconds + WarpFlight.TravelSeconds))
+        if (!WarpSafe(player, arrival, TimeSeconds + WarpFlight.ChargeSeconds + WarpFlight.TravelSeconds, targetId, minimum))
             return WarpFail(targetId, "warp_blocked");
         var directionToArrival = (arrival - player.Position).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(directionToArrival);
-        if (!fromRoute) player.RouteActive = false;
+        if (!fromRoute) { player.RouteActive = false; player.CancelOrbit(); }
+        player.WarpTargetId = targetId; player.WarpTargetMinimum = minimum;
         player.WarpStart = player.Position;
         player.WarpDestination = arrival;
         player.WarpInitialOrientation = player.Orientation;
@@ -90,24 +99,26 @@ public sealed partial class GameWorld
             arrival, (float)yaw, (float)pitch, ServerText.Get("ru", "warp_accepted", russianLabel));
     }
 
-    private bool WarpSafe(ShipState player, Vec3d position, double time)
+    private bool WarpSafe(ShipState player, Vec3d position, double time, uint targetId = 0, double targetMinimum = 0)
     {
         var clearance = WarpFlight.Clearance + SurfaceMesh.Ship.Radius;
         foreach (var body in _collisionBodies)
         {
             var pose = BodySurface(body, time);
-            if (Vec3d.Distance(position, pose.Position) < pose.Radius + clearance &&
-                pose.Distance(position) < clearance - 1e-5) return false;
+            var gap = body.Id == targetId ? targetMinimum : clearance;
+            if (Vec3d.Distance(position, pose.Position) < pose.Radius + gap &&
+                pose.Distance(position) < gap - 1e-5) return false;
         }
         foreach (var other in _players.Values.Concat(_npcs))
         {
             if (other.Id == player.Id || other.InWarp) continue;
             var pose = WorldSurfaces.Ship(other, other.Position, other.Orientation);
-            if (Vec3d.Distance(position, other.Position) < pose.Radius + clearance &&
-                pose.Distance(position) < clearance - 1e-5) return false;
+            var gap = other.Id == targetId ? targetMinimum : clearance;
+            if (Vec3d.Distance(position, other.Position) < pose.Radius + gap &&
+                pose.Distance(position) < gap - 1e-5) return false;
         }
         return new[] { Catalog.Planet, Catalog.Star }.All(body =>
-            Vec3d.Distance(position, Catalog.CelestialOffset(body)) >= body.Radius + body.AtmosphereHeight + clearance - 1e-5);
+            Vec3d.Distance(position, Catalog.CelestialOffset(body)) >= body.Radius + (body.Id == targetId ? targetMinimum : Math.Max(body.AtmosphereHeight + clearance, NavigationLimits.CelestialWarpMinimum(body))) - 1e-5);
     }
 
     private void StepWarp(ShipState ship, double dt)
@@ -122,7 +133,7 @@ public sealed partial class GameWorld
         }
         if (ship.WarpStage == WarpStage.Charging)
         {
-            if (!WarpSafe(ship, ship.WarpDestination, ship.WarpStartedAt + WarpFlight.ChargeSeconds + WarpFlight.TravelSeconds))
+            if (!WarpSafe(ship, ship.WarpDestination, ship.WarpStartedAt + WarpFlight.ChargeSeconds + WarpFlight.TravelSeconds, ship.WarpTargetId, ship.WarpTargetMinimum))
             {
                 ship.WarpStage = WarpStage.None;
                 ship.WarpProgress = 0;
@@ -140,7 +151,7 @@ public sealed partial class GameWorld
             ship.WarpProgress = (float)travel;
             if (travel < 1) return;
             ship.Position = ship.WarpDestination;
-            if (!WarpSafe(ship, ship.WarpDestination, TimeSeconds + dt))
+            if (!WarpSafe(ship, ship.WarpDestination, TimeSeconds + dt, ship.WarpTargetId, ship.WarpTargetMinimum))
             {
                 // Materialise only at a checked location, even if another ship occupied the destination in transit.
                 var fallback = ship.WarpStart;

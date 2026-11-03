@@ -7,8 +7,17 @@ namespace IndifferentStars.Client;
 public sealed partial class NetworkClient
 {
     private (uint Id, uint Target, double StartedAt, double LastResendAt)? _pendingScan;
-    private (uint Id, uint Target, IndifferentStars.Shared.Vec3d? Destination, double StartedAt, double LastResendAt)? _pendingWarp;
+    private (uint Id, uint Target, IndifferentStars.Shared.Vec3d? Destination, double? SurfaceDistance, double StartedAt, double LastResendAt)? _pendingWarp;
     private (uint Id, ushort Commodity, int Quantity, bool Buy, double StartedAt, double LastResendAt)? _pendingTrade;
+    private (OrbitRequestMessage Message, double Started, double Sent)? _pendingOrbit;
+    public event Action<OrbitResultMessage>? OrbitCompleted;
+    public bool IsOrbitPending => _pendingOrbit.HasValue;
+    public void RequestOrbit(uint targetId, double altitude, bool retrograde)
+    {
+        if (State != ConnectionState.Connected || _pendingOrbit.HasValue) return;
+        var request = new OrbitRequestMessage(_requestSequence++, targetId, altitude, retrograde);
+        var now = NowSeconds(); _pendingOrbit = (request, now, now); Send(request);
+    }
     private double _lastPingSeconds;
     private (RouteRequestMessage Message, double Started, double Sent)? _pendingRoute;
     public event Action<RouteResultMessage>? RouteCompleted;
@@ -70,15 +79,15 @@ public sealed partial class NetworkClient
         Send(new TradeRequestMessage(id, commodityId, quantity, buy));
     }
 
-    public void RequestWarp(uint targetId, IndifferentStars.Shared.Vec3d? destination = null)
+    public void RequestWarp(uint targetId, IndifferentStars.Shared.Vec3d? destination = null, double? surfaceDistance = null)
     {
         if (State != ConnectionState.Connected || _pendingWarp.HasValue)
             return;
 
         var now = NowSeconds();
         var id = _requestSequence++;
-        _pendingWarp = (id, targetId, destination, now, now);
-        Send(new WarpRequestMessage(id, targetId, destination));
+        _pendingWarp = (id, targetId, destination, surfaceDistance, now, now);
+        Send(new WarpRequestMessage(id, targetId, destination, surfaceDistance));
     }
 
     private void UpdatePendingRequests()
@@ -87,6 +96,11 @@ public sealed partial class NetworkClient
             return;
 
         var now = NowSeconds();
+        if (_pendingOrbit is { } orbit)
+        {
+            if (now-orbit.Started>3) { _pendingOrbit=null; OrbitCompleted?.Invoke(new(orbit.Message.RequestId,orbit.Message.TargetId,OrbitError.Timeout)); }
+            else if(now-orbit.Sent>.3) { _pendingOrbit=(orbit.Message,orbit.Started,now); Send(orbit.Message); }
+        }
         if (_pendingRoute is { } route)
         {
             if (now-route.Started>3) { _pendingRoute=null; RouteCompleted?.Invoke(new RouteResultMessage(route.Message.RequestId,false)); }
@@ -121,8 +135,8 @@ public sealed partial class NetworkClient
             }
             else if (now - warp.LastResendAt > 0.4)
             {
-                _pendingWarp = (warp.Id, warp.Target, warp.Destination, warp.StartedAt, now);
-                Send(new WarpRequestMessage(warp.Id, warp.Target, warp.Destination));
+                _pendingWarp = (warp.Id, warp.Target, warp.Destination, warp.SurfaceDistance, warp.StartedAt, now);
+                Send(new WarpRequestMessage(warp.Id, warp.Target, warp.Destination, warp.SurfaceDistance));
             }
         }
 

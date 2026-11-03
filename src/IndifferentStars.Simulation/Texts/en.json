@@ -19,5 +19,7 @@
   "warp_departure_blocked": "Move at least 1 km clear of solid objects before warping.",
   "warp_accepted": "Warp to {0}: charging.",
   "warp_waypoint": "map waypoint",
-  "warp_stale": "Outdated warp request."
+  "warp_stale": "Outdated warp request.",
+  "warp_distance_invalid": "Invalid distance (maximum 100 AU).",
+  "warp_distance_min": "Minimum safe surface distance: {0} m."
 }

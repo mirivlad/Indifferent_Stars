@@ -23,6 +23,8 @@ public sealed class PlayerSession
     public double LastCommsAtSeconds { get; set; } = -100;
     public double LastScanAtSeconds { get; set; } = -100;
     public double LastWarpAtSeconds { get; set; } = -100;
+    public OrbitResultMessage? LastOrbitResult { get; set; }
+    public double LastOrbitAtSeconds { get; set; } = -100;
     public WarpResultMessage? LastWarpResult { get; set; }
     public TradeResultMessage? LastTradeResult { get; set; }
 }

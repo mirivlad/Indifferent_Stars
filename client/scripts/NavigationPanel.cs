@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Godot;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Client;
 
@@ -18,10 +19,17 @@ public sealed partial class NavigationPanel : CanvasLayer
     private VBoxContainer _content = null!;
     private VBoxContainer _route = null!;
     private Label _routeTitle = null!;
+    private Label _orbitStatus = null!;
     private Control _info = null!;
     private Label _infoTitle = null!;
     private Label _infoBody = null!;
     private Button _infoClose = null!;
+    private VBoxContainer _distanceForm = null!;
+    private LineEdit _distance = null!;
+    private OptionButton _direction = null!;
+    private Label _distanceError = null!;
+    private Button _distanceSubmit = null!;
+    private Action<double, bool>? _submitDistance;
     private List<NavigationContact> _contacts = new();
     private readonly Dictionary<uint, TreeItem> _rows = new();
     private uint _selected;
@@ -58,6 +66,7 @@ public sealed partial class NavigationPanel : CanvasLayer
         _content.AddChild(_tree);
         _tree.ItemSelected += () => Select(false);
         _tree.ItemMouseSelected += (_, button) => { if (button == (long)MouseButton.Right) Select(true); };
+        _orbitStatus = new Label { Name="OrbitStatus", Visible=false, AutowrapMode=TextServer.AutowrapMode.WordSmart, CustomMinimumSize=new Vector2(380,0) }; _content.AddChild(_orbitStatus);
         _routeTitle = new Label { Visible=false }; _content.AddChild(_routeTitle);
         var scroll = new ScrollContainer { Name="RouteScroll", CustomMinimumSize=new Vector2(0,130), Visible=false };
         _content.AddChild(scroll);
@@ -73,6 +82,14 @@ public sealed partial class NavigationPanel : CanvasLayer
         var details = new VBoxContainer();details.AddThemeConstantOverride("separation",14);dialog.AddChild(details);
         _infoTitle = new Label();_infoTitle.AddThemeFontSizeOverride("font_size",20);details.AddChild(_infoTitle);
         _infoBody = new Label {AutowrapMode=TextServer.AutowrapMode.WordSmart,CustomMinimumSize=new Vector2(480,110)};details.AddChild(_infoBody);
+        _distanceForm = new VBoxContainer { Visible=false }; details.AddChild(_distanceForm);
+        _distance = new LineEdit { Name="NavigationDistance", MaxLength=40 }; _distanceForm.AddChild(_distance);
+        _direction = new OptionButton { Name="OrbitDirection" }; _distanceForm.AddChild(_direction);
+        _distanceError = new Label { Modulate=new Color(1,.5f,.3f) }; _distanceForm.AddChild(_distanceError);
+        _distanceSubmit = new Button { Name="NavigationDistanceSubmit" }; _distanceForm.AddChild(_distanceSubmit);
+        _distanceSubmit.Pressed += SubmitDistance;
+        _distance.TextSubmitted += _ => SubmitDistance();
+        _distance.TextChanged += _ => _distanceError.Text="";
         _infoClose = new Button {Text=Locale.Text("close"),SizeFlagsHorizontal=Control.SizeFlags.ShrinkEnd};details.AddChild(_infoClose);
         _infoClose.Pressed+=()=>_info.Visible=false;
         GetViewport().SizeChanged += ResizeList;
@@ -142,8 +159,33 @@ public sealed partial class NavigationPanel : CanvasLayer
     }
     public void ShowInformation(string title, string body)
     {
+        _distanceForm.Visible=false; _submitDistance=null;
         _infoTitle.Text=title; _infoBody.Text=body; _infoClose.Text=Locale.Text("close");
         Input.MouseMode=Input.MouseModeEnum.Visible; _info.Visible=true; _infoClose.GrabFocus();
+    }
+    public void ShowDistanceRequest(string title, string initial, bool orbit, double minimum, Action<double,bool> submit)
+    {
+        ShowInformation(title, Locale.Text("navigation_distance_units")+"\n"+
+            (orbit?Locale.Text("orbit_distance_help"):Locale.Text("warp_distance_help"))+"\n"+
+            Locale.Text("navigation_distance_min")+": "+Distance(minimum));
+        _submitDistance=submit; _distanceForm.Visible=true; _distance.Text=initial;
+        _distanceError.Text=""; _direction.Visible=orbit; _direction.Clear();
+        _direction.AddItem(Locale.Text("orbit_prograde")); _direction.AddItem(Locale.Text("orbit_retrograde"));
+        _direction.Selected=0; _distanceSubmit.Text=Locale.Text("navigation_execute");
+        _distance.SetMeta("minimum",minimum); _distance.GrabFocus(); _distance.SelectAll();
+    }
+    private void SubmitDistance()
+    {
+        if(!NavigationLimits.TryParseDistance(_distance.Text,out var metres) || metres<_distance.GetMeta("minimum").AsDouble())
+        { _distanceError.Text=Locale.Text("navigation_distance_invalid"); return; }
+        var callback=_submitDistance; _submitDistance=null; _info.Visible=false;
+        callback?.Invoke(metres,_direction.Selected==1);
+    }
+    public void UpdateOrbit(string? target, double altitude, bool retrograde, bool established)
+    {
+        _orbitStatus.Visible=target is not null;
+        _orbitStatus.Text=target is null?"":Locale.Text(established?"orbit_active":"orbit_transfer")+" · "+target+"\n"+
+            Distance(altitude)+" · "+Locale.Text(retrograde?"orbit_retrograde":"orbit_prograde");
     }
     public void UpdateRoute(IReadOnlyList<string> names, bool active, int index, bool pending)
     {

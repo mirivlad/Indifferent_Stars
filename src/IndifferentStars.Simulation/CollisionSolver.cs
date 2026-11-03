@@ -74,6 +74,7 @@ public static class CollisionSolver
 
     public static void CancelNavigation(ShipState ship)
     {
+        ship.CancelOrbit();
         ship.Throttle=0;ship.Boosting=false;ship.Cruising=false;ship.CruiseInhibited=true;
         ship.CruiseBraking=false;ship.ApproachTargetId=0;ship.RouteActive=false;ship.ApproachFollowing=false;ship.DockingGranted=false;
     }

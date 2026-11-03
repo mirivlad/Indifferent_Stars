@@ -38,11 +38,16 @@ public sealed partial class TacticalView : Control
     public bool HasTarget { get; set; }
     public uint ApproachTargetId { get; set; }
     public Vec3d? ApproachPoint { get; set; }
+    public uint OrbitTargetId { get; set; }
+    public double OrbitAltitude { get; set; }
     public double ZoomRange { get; private set; } = 8500;
     private double _targetZoom = 8500;
     private Vec3d _center = Vec3d.Zero;
     private Vec3d _targetCenter = Vec3d.Zero;
     private bool _centerInitialized;
+    private bool _followPlayer = true;
+    private Button _returnToShip = null!;
+    public bool FollowingPlayer => _followPlayer;
     public List<Vec3d> RoutePoints { get; } = new();
     public List<TacticalContact> Contacts { get; } = new();
 
@@ -56,6 +61,12 @@ public sealed partial class TacticalView : Control
         MouseFilter = MouseFilterEnum.Ignore;
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         Visible = false;
+        _returnToShip = new Button { Name="ReturnToShip", Text=Locale.Text("map_return_ship"), FocusMode=FocusModeEnum.None };
+        AddChild(_returnToShip);
+        _returnToShip.AnchorLeft=_returnToShip.AnchorRight=.5f;
+        _returnToShip.OffsetLeft=-110; _returnToShip.OffsetRight=110;
+        _returnToShip.OffsetTop=56; _returnToShip.OffsetBottom=90;
+        _returnToShip.Pressed += CenterOnPlayer;
     }
 
     public override void _Draw()
@@ -75,6 +86,17 @@ public sealed partial class TacticalView : Control
         DrawSectorBoundaries(center, scale, size);
         DrawPlanetaryContext(center, scale);
         DrawAsteroids(center, scale, size);
+        if(Catalog?.FindCelestial((int)OrbitTargetId) is { } orbitBody)
+        {
+            var points=new Vector2[257];
+            for(var i=0;i<points.Length;i++)
+            {
+                var angle=Math.Tau*i/(points.Length-1);
+                points[i]=Project(center,scale,Catalog.CelestialOffset(orbitBody)+
+                    new Vec3d(Math.Cos(angle),0,Math.Sin(angle))*(orbitBody.Radius+OrbitAltitude));
+            }
+            DrawPolyline(points,new Color(.2f,1,.4f,.55f),1.5f);
+        }
         if (ApproachPoint is { } point)
         {
             var endpoint = Project(center, scale, point);
@@ -148,7 +170,7 @@ public sealed partial class TacticalView : Control
 
     public override void _Process(double delta)
     {
-        if (!_centerInitialized)
+        if (_followPlayer || !_centerInitialized)
         {
             _center = _targetCenter = PlayerPosition;
             _centerInitialized = true;
@@ -164,21 +186,28 @@ public sealed partial class TacticalView : Control
         var pixels = Math.Min(Size.X, Size.Y) * 0.43;
         var offset = screen - Size * 0.5f;
         var difference = (_targetZoom - next) / pixels;
-        _targetCenter += new Vec3d(offset.X * difference, 0, offset.Y * difference);
+        if (!_followPlayer) _targetCenter += new Vec3d(offset.X * difference, 0, offset.Y * difference);
         _targetZoom = next;
     }
 
     public void Pan(Vector2 motion)
     {
+        _followPlayer = false;
         var metresPerPixel = _targetZoom / (Math.Min(Size.X, Size.Y) * 0.43);
         _targetCenter -= new Vec3d(motion.X * metresPerPixel, 0, motion.Y * metresPerPixel);
     }
 
-    public void CenterOnPlayer() => _targetCenter = PlayerPosition;
+    public void CenterOnPlayer()
+    {
+        _followPlayer=true; _centerInitialized=true; _center=_targetCenter=PlayerPosition; QueueRedraw();
+    }
+
+    public void RefreshLanguage() => _returnToShip.Text=Locale.Text("map_return_ship");
 
     public void ShowSystem()
     {
         if (Catalog is null) return;
+        _followPlayer=false;
         _targetCenter = Catalog.Star.SystemPosition - Catalog.LocalFrameOrigin;
         _targetZoom = 200_000_000_000;
     }

@@ -200,6 +200,23 @@ public sealed partial class UdpGameServer : IDisposable
                 HandleScan(scanRequest, endpoint, now);
                 break;
 
+            case OrbitRequestMessage orbit:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var orbiter))
+                {
+                    orbiter.LastSeenSeconds = now;
+                    if (orbiter.LastOrbitResult is { } previousOrbit && orbit.RequestId <= previousOrbit.RequestId)
+                    {
+                        Send(endpoint, orbit.RequestId == previousOrbit.RequestId ? previousOrbit :
+                            new OrbitResultMessage(orbit.RequestId, orbit.TargetId, OrbitError.Stale));
+                        break;
+                    }
+                    if (now - orbiter.LastOrbitAtSeconds < .4) break;
+                    orbiter.LastOrbitAtSeconds = now;
+                    var orbitResult = _world.StartOrbit(orbiter.PlayerId, orbit);
+                    orbiter.LastOrbitResult = orbitResult;
+                    Send(endpoint, orbitResult);
+                }
+                break;
             case RouteRequestMessage route:
                 if (_sessionsByEndpoint.TryGetValue(endpoint, out var navigator))
                 {
@@ -374,7 +391,7 @@ public sealed partial class UdpGameServer : IDisposable
             return;
         session.LastWarpAtSeconds = now;
 
-        var result = _world.Warp(session.PlayerId, request.TargetId, request.Destination);
+        var result = _world.Warp(session.PlayerId, request.TargetId, request.Destination, surfaceDistance: request.SurfaceDistance);
         var response = new WarpResultMessage(
             request.RequestId,
             result.TargetId,

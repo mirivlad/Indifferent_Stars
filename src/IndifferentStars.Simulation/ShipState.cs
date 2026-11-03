@@ -59,6 +59,13 @@ public sealed class ShipState
     public double WarpStartedAt { get; set; }
     public Quaternion WarpInitialOrientation { get; set; }
     public Quaternion WarpOrientation { get; set; }
+    public uint WarpTargetId { get; set; }
+    public double WarpTargetMinimum { get; set; }
+    public uint OrbitTargetId { get; set; }
+    public double OrbitAltitude { get; set; }
+    public bool OrbitRetrograde { get; set; }
+    public bool OrbitEstablished { get; set; }
+    public void CancelOrbit() { OrbitTargetId=0; OrbitEstablished=false; }
     public bool InWarp => WarpStage != WarpStage.None;
     public NavigationPoint[] NavigationRoute { get; set; } = Array.Empty<NavigationPoint>();
     public uint RouteRevision { get; set; }

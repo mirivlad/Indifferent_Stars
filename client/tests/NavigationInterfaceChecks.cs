@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Godot;
 using IndifferentStars.Client;
 using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
 
 public sealed partial class NavigationInterfaceChecks : Node
@@ -63,6 +64,7 @@ public sealed partial class NavigationInterfaceChecks : Node
             stationGroup.GetFirstChild().Select(0);tree.EmitSignal(Tree.SignalName.ItemSelected);
             tree.EmitSignal(Tree.SignalName.ItemMouseSelected,Vector2.Zero,(long)MouseButton.Right);await Pause(.1);
             var context=Field<PopupMenu>(game,"_contactMenu");Check(context.Visible,"Right-click must open shared actions.");
+            Check(context.GetItemIndex(4)>=0&&context.GetItemIndex(24)<0&&context.GetItemIndex(25)>=0,"Station must support dock and custom warp, without orbital action.");
             Check(context.GetItemIndex(20)>=0&&context.GetItemIndex(21)>=0&&context.GetItemIndex(22)>=0,"Information, lock and route actions required.");
             context.Hide();await Pause(.1);context.EmitSignal(PopupMenu.SignalName.IdPressed,20L);await Pause(.1);
             Check(navigation.IsModal,"Information must open modal.");
@@ -98,9 +100,71 @@ public sealed partial class NavigationInterfaceChecks : Node
                 KeyPress(mode);await Pause(.3);Check(tree.IsVisibleInTree(),"Navigation must remain identical in every view.");
                 await Capture(mode==Key.F1?"03_tactical":mode==Key.F2?"02_external":"04_cockpit");
             }
+            // The system origin stays at Vesper; camera follow is independent of coordinates.
+            KeyPress(Key.F1);await Pause(.2);
+            var tactical=Field<TacticalView>(game,"_tactical");
+            tactical.CenterOnPlayer();var center=tactical.Size*.5f;
+            Check(tactical.FollowingPlayer&&tactical.ScreenPosition(tactical.PlayerPosition).DistanceTo(center)<.1,"Map must center instantly on player.");
+            var original=tactical.PlayerPosition;
+            tactical.PlayerPosition+=new Vec3d(1200,0,-800);tactical._Process(.016);
+            Check(tactical.ScreenPosition(tactical.PlayerPosition).DistanceTo(center)<.1,"Map must follow a moving player.");
+            tactical.Pan(new Vector2(150,80));tactical._Process(1);
+            Check(!tactical.FollowingPlayer&&tactical.ScreenPosition(tactical.PlayerPosition).DistanceTo(center)>50,"Panning must detach map follow.");
+            var returnButton=(Button)tactical.FindChild("ReturnToShip",true,false);
+            Check(returnButton.GlobalPosition.X>300&&returnButton.GlobalPosition.Y>=50,"Return button must be visible beneath the view title.");
+            returnButton.EmitSignal(Button.SignalName.Pressed);
+            Check(tactical.FollowingPlayer&&tactical.ScreenPosition(tactical.PlayerPosition).DistanceTo(center)<.1,"Return button must resume follow instantly.");
+            tactical.ShowSystem();tactical._Process(2);
+            Check(!tactical.FollowingPlayer&&tactical.ScreenPosition(catalog.CelestialOffset(catalog.Star)).DistanceTo(center)<1,"System view must retain Vesper as origin.");
+            tactical.PlayerPosition=original;tactical.CenterOnPlayer();
+            typeof(GameMain).GetField("_targetId",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(game,(uint)catalog.Planet.Id);
+            typeof(GameMain).GetMethod("BuildContactMenu",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(game,null);
+            Check(context.GetItemIndex(4)<0&&context.GetItemIndex(7)<0&&context.GetItemIndex(24)>=0,"Celestial menu must offer orbit and omit dock/follow.");
+            context.EmitSignal(PopupMenu.SignalName.IdPressed,24L);await Pause(.1);
+            Check(navigation.IsModal,"Orbit action must open distance dialog.");
+            var distance=(LineEdit)navigation.FindChild("NavigationDistance",true,false);
+            var execute=(Button)navigation.FindChild("NavigationDistanceSubmit",true,false);
+            var direction=(OptionButton)navigation.FindChild("OrbitDirection",true,false);
+            distance.Text="NaN";execute.EmitSignal(Button.SignalName.Pressed);
+            Check(navigation.IsModal&&!net.IsOrbitPending,"Invalid distance must not send orbit command.");
+            distance.Text="500 км";direction.Selected=1;
+            distance.EmitSignal(LineEdit.SignalName.TextChanged,distance.Text);
+            await Capture("05_orbit_dialog");
+            // Submit the 500 km surface altitude explicitly, preserving retrograde direction.
+            distance.Text="500 км";execute.EmitSignal(Button.SignalName.Pressed);
+            await Until(()=>pilot.Track.OrbitTargetId==(uint)catalog.Planet.Id,4,"Server orbit command must reach snapshot.");
+            Check(pilot.Track.OrbitAltitude==500000&&pilot.Track.OrbitRetrograde&&!pilot.Track.OrbitEstablished,"Orbit transfer must retain altitude and direction.");
+            await Pause(.4);await Capture("06_orbit_transfer");
+            KeyPress(Key.G);await Until(()=>pilot.Track.OrbitTargetId==0,4,"G must stop orbital autopilot.");
+            typeof(GameMain).GetField("_targetId",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(game,(uint)catalog.Station.Id);
+            typeof(GameMain).GetMethod("BuildContactMenu",BindingFlags.NonPublic|BindingFlags.Instance)!.Invoke(game,null);
+            context.EmitSignal(PopupMenu.SignalName.IdPressed,25L);await Pause(.1);
+            Check(navigation.IsModal&&!direction.Visible,"Custom warp must open a distance-only dialog.");
+            distance.Text="500 м";await Capture("07_warp_dialog");
+            execute.EmitSignal(Button.SignalName.Pressed);await Until(()=>!net.IsWarpPending,4,"Custom warp must receive server response.");
+            Check(log.GetParsedText().Contains("1 км"),"Unsafe departure must remain rejected despite custom station distance.");
             KeyPress(Key.G);await Until(()=>pilot.Track.RouteActive,4,"G must explicitly start autopilot.");
             KeyPress(Key.G);await Until(()=>!pilot.Track.RouteActive,4,"G must stop autopilot.");
             Check(NavigationPanel.Distance(999).EndsWith(" м")&&NavigationPanel.Distance(1000).EndsWith(" км")&&NavigationPanel.Distance(1e6).Contains("тыс.")&&NavigationPanel.Distance(149597870700).Contains("а.е."),"Distance units must change at specified boundaries.");
+            if(System.Environment.GetEnvironmentVariable("IS_ORBIT_FLIGHT")=="1")
+            {
+                net.RequestOrbit((uint)catalog.Planet.Id,500000,true);
+                await Until(()=>pilot.Track.OrbitEstablished,180,"Full orbital transfer must complete in live server/client.");
+                KeyPress(Key.F1);await Pause(.4);
+                tactical.ZoomAt(tactical.Size*.5f,10_000_000/tactical.ZoomRange);tactical.CenterOnPlayer();await Pause(1);
+                var orbitStart=pilot.Track.WorldPosition;
+                await Pause(5);
+                var altitude=Vec3d.Distance(pilot.Track.WorldPosition,catalog.CelestialOffset(catalog.Planet))-catalog.Planet.Radius;
+                Check(Vec3d.Distance(orbitStart,pilot.Track.WorldPosition)>100&&Math.Abs(altitude-500000)<50,"Established orbit must move and maintain actual surface altitude.");
+                await Capture("08_orbit_established");
+                KeyPress(Key.F2);await Pause(1);await Capture("09_orbit_external");
+                KeyPress(Key.F3);await Pause(1);
+                var camera=Field<Camera3D>(game,"_camera");
+                Check(float.IsFinite(camera.GetCameraProjection().GetZFar()),"Orbital cockpit must retain a finite camera frustum.");
+                GD.Print($"ORBIT FLIGHT: altitude={altitude:F3} m, speed={pilot.Track.Velocity.Length():F1} m/s, camera near={camera.Near:F4}, far={camera.Far:F0}");
+                await Capture("10_orbit_cockpit");
+                KeyPress(Key.G);await Until(()=>pilot.Track.OrbitTargetId==0,4,"Established orbit must cancel in cockpit.");
+            }
             GD.Print("NAVIGATION INTERFACE CHECKS PASSED: accordion, search focus, Tab, shared menu, modal, route planning/reorder/remove, G, notifications and three views.");
             await game.QuitGracefully();
             async Task Capture(string name)

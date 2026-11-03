@@ -128,6 +128,7 @@ public static class ProtocolCodec
                         writer.Write(impact.NormalSpeed); writer.Write(impact.TangentialSpeed);
                     }
                     writer.Write(entity.RouteRevision); writer.Write(entity.RouteIndex); writer.Write(entity.RouteActive); writer.Write(entity.Boosting);
+                    writer.Write(entity.OrbitTargetId); writer.Write(entity.OrbitAltitude); writer.Write(entity.OrbitRetrograde); writer.Write(entity.OrbitEstablished);
                 }
                 break;
 
@@ -168,6 +169,8 @@ public static class ProtocolCodec
                 writer.Write(warpRequest.TargetId);
                 writer.Write(warpRequest.Destination.HasValue);
                 if (warpRequest.Destination is { } destination) WriteVec3(writer, destination);
+                writer.Write(warpRequest.SurfaceDistance.HasValue);
+                if (warpRequest.SurfaceDistance is { } gap) writer.Write(gap);
                 break;
 
             case WarpResultMessage warpResult:
@@ -193,6 +196,12 @@ public static class ProtocolCodec
                 WriteString(writer, disconnect.Reason, ProtocolConstants.MaxStringBytes);
                 break;
 
+            case OrbitRequestMessage orbit:
+                writer.Write(orbit.RequestId); writer.Write(orbit.TargetId); writer.Write(orbit.Altitude); writer.Write(orbit.Retrograde);
+                break;
+            case OrbitResultMessage orbitResult:
+                writer.Write(orbitResult.RequestId); writer.Write(orbitResult.TargetId); writer.Write((byte)orbitResult.Error); writer.Write(orbitResult.MinimumAltitude);
+                break;
             case RouteRequestMessage route:
                 if (route.Points.Length > RouteRequestMessage.MaxPoints) throw new ArgumentException("Too many route points.");
                 writer.Write(route.RequestId); writer.Write(route.Enabled); writer.Write((byte)route.Points.Length);
@@ -359,7 +368,7 @@ public static class ProtocolCodec
                 MessageType.WarpRequest => new WarpRequestMessage(
                     reader.ReadUInt32(),
                     reader.ReadUInt32(),
-                    ReadOptionalVec3(reader)),
+                    ReadOptionalVec3(reader), ReadOptionalDouble(reader)),
 
                 MessageType.WarpResult => new WarpResultMessage(
                     reader.ReadUInt32(),
@@ -376,6 +385,8 @@ public static class ProtocolCodec
                 MessageType.Disconnect => new DisconnectMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
+                MessageType.OrbitRequest => new OrbitRequestMessage(reader.ReadUInt32(), reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean()),
+                MessageType.OrbitResult => ReadOrbitResult(reader),
                 MessageType.RouteRequest => ReadRoute(reader),
                 MessageType.RouteResult => new RouteResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32(), reader.ReadBoolean(), ReadOptionalVec3(reader)),
@@ -481,7 +492,8 @@ public static class ProtocolCodec
                 reader.ReadUInt32(),
                 ReadRouteIndex(reader),
                 reader.ReadBoolean(),
-                reader.ReadBoolean());
+                reader.ReadBoolean(),
+                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
@@ -498,6 +510,19 @@ public static class ProtocolCodec
         if(!RadioChannels.BuiltIn(line.ChannelId)||line.SenderId==0||line.Timestamp<0||line.Timestamp>253402300799999||!RadioChannels.ValidText(line.Text))
             throw new InvalidDataException("Invalid chat line.");
         return line;
+    }
+
+    private static double? ReadOptionalDouble(BinaryReader reader) => reader.ReadBoolean() ? reader.ReadDouble() : null;
+
+    private static OrbitResultMessage ReadOrbitResult(BinaryReader reader)
+    {
+        var id = reader.ReadUInt32();
+        var target = reader.ReadUInt32();
+        var error = (OrbitError)reader.ReadByte();
+        if (error > OrbitError.Timeout) throw new InvalidDataException("Invalid orbit result.");
+        var minimum = reader.ReadDouble();
+        if (!double.IsFinite(minimum) || minimum < 0) throw new InvalidDataException("Invalid orbit clearance.");
+        return new OrbitResultMessage(id, target, error, minimum);
     }
 
     private static byte ReadRouteIndex(BinaryReader reader)

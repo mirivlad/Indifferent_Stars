@@ -21,6 +21,7 @@ public sealed partial class GameWorld
             }
             else if (stop.TargetId == ship.Id || !TryRoutePosition(ship, stop, out _)) return false;
         }
+        ship.CancelOrbit();
         ship.NavigationRoute = request.Points.ToArray();
         ship.RouteRevision = request.RequestId;
         ship.RouteIndex = 0;
@@ -42,7 +43,7 @@ public sealed partial class GameWorld
         if (Catalog.FindCelestial((int)stop.TargetId) is { } celestial)
         {
             var center = Catalog.CelestialOffset(celestial);
-            position = center + (ship.Position - center).Normalized() * (celestial.Radius + celestial.AtmosphereHeight + 2500);
+            position = center + (ship.Position - center).Normalized() * (celestial.Radius + Math.Max(celestial.AtmosphereHeight + 2500, NavigationLimits.CelestialWarpMinimum(celestial)));
             return true;
         }
         if (Catalog.Find((int)stop.TargetId) is { } body)

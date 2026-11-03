@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Client;
 
@@ -41,6 +42,17 @@ public sealed partial class GameMain
     private void ConnectNavigation()
     {
         if(_net is null)return;
+        _net.OrbitCompleted += result =>
+        {
+            if (result.Accepted)
+            {
+                _routePoints.Clear(); _confirmedRoute.Clear(); _routeRevision=0; _confirmedRevision=0;
+                _routeEnabled=false; _routeIndex=0; _cruise=false; _cruiseStopping=false;
+                _hud.ShowToast(Locale.Text("orbit_accepted"));
+            }
+            else _hud.ShowToast(Locale.Text("orbit_error_"+result.Error.ToString().ToLowerInvariant())+
+                (result.MinimumAltitude>0?" · "+Locale.Text("navigation_distance_min")+": "+NavigationPanel.Distance(result.MinimumAltitude):""));
+        };
         _net.RouteCompleted += result =>
         {
             if(result.RequestId!=_routeRevision)return;
@@ -62,7 +74,7 @@ public sealed partial class GameMain
     }
     private void AddRoutePoint(NavigationPoint point)
     {
-        if(_net?.State!=ConnectionState.Connected||_net.IsRoutePending)return;
+        if(_net?.State!=ConnectionState.Connected||_net.IsRoutePending||_net.IsOrbitPending)return;
         TrimCompletedRoute();
         if(_routePoints.Count>=RouteRequestMessage.MaxPoints) { _hud.ShowToast(Locale.Text("route_full")); return; }
         _routePoints.Add(point);
@@ -78,8 +90,8 @@ public sealed partial class GameMain
     }
     private void ToggleAutopilot()
     {
-        if(_net?.State!=ConnectionState.Connected||_net.IsRoutePending)return;
-        if(_routeEnabled || _playerShip?.Track is { ApproachTargetId: not 0 }) { TrimCompletedRoute(); SubmitRoute(false); return; }
+        if(_net?.State!=ConnectionState.Connected||_net.IsRoutePending||_net.IsOrbitPending)return;
+        if(_routeEnabled || _playerShip?.Track is { ApproachTargetId: not 0 } || _playerShip?.Track.OrbitTargetId>0) { TrimCompletedRoute(); SubmitRoute(false); return; }
         TrimCompletedRoute();
         if(_routePoints.Count==0)
         {
@@ -110,9 +122,33 @@ public sealed partial class GameMain
         var contacts=BuildContacts().Select(c=>new NavigationContact(c.Id,c.Name,c.Type,
             Math.Max(0,Vec3d.Distance(observer,RoutePosition(new NavigationPoint(c.Id))??observer)-c.Radius))).ToList();
         _navigation.UpdateContacts(contacts,_hasTarget?_targetId:0);
+        var orbitTrack=_playerShip?.Track;
+        _navigation.UpdateOrbit(orbitTrack?.OrbitTargetId>0?_catalog.FindCelestial((int)orbitTrack.OrbitTargetId)?.Name:null,
+            orbitTrack?.OrbitAltitude??0,orbitTrack?.OrbitRetrograde??false,orbitTrack?.OrbitEstablished??false);
         _navigation.UpdateRoute(_routePoints.Select(p=>p.TargetId==0?Locale.Text("route_point"):FindContact(p.TargetId)?.Name??$"#{p.TargetId}").ToList(),_routeEnabled,_routeIndex,_net?.IsRoutePending==true);
         _tactical.RoutePoints.Clear();
         foreach(var point in _routePoints.Skip(_routeIndex))if(RoutePosition(point) is { } position)_tactical.RoutePoints.Add(position);
+    }
+    private void OpenNavigationDistance(bool orbit)
+    {
+        if(_net?.State!=ConnectionState.Connected || _net.IsRoutePending || _net.IsOrbitPending || FindContact(_targetId) is not { } contact)return;
+        var id=_targetId;
+        var celestial=_catalog.FindCelestial((int)id);
+        if(orbit && celestial is null)return;
+        var minimum=celestial is not null ? (orbit?NavigationLimits.OrbitMinimum(celestial):NavigationLimits.CelestialWarpMinimum(celestial)) : NavigationLimits.LocalWarpMinimum;
+        var initial=orbit?Math.Max(500_000,minimum):Math.Max(1000,minimum);
+        _navigation.ShowDistanceRequest(Locale.Text(orbit?"context_orbit":"context_warp_distance")+" · "+contact.Name,
+            (initial/1000).ToString(System.Globalization.CultureInfo.InvariantCulture)+" km",orbit,minimum,(distance,retrograde)=>
+            {
+                if(orbit)_net.RequestOrbit(id,distance,retrograde);
+                else _net.RequestWarp(id,surfaceDistance:distance);
+            });
+    }
+    private void OpenWaypointWarpDistance()
+    {
+        var point=_mapDestination;
+        _navigation.ShowDistanceRequest(Locale.Text("context_warp_distance"),"1 km",false,0,
+            (distance,_)=>_net?.RequestWarp(0,point,distance));
     }
     private void ShowObjectInformation()
     {

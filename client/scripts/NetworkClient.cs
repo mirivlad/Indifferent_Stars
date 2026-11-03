@@ -185,6 +185,10 @@ public sealed partial class NetworkClient : IDisposable
                     WarpCompleted?.Invoke(warp);
                     break;
 
+                case OrbitResultMessage orbit:
+                    if (_pendingOrbit is { } pendingOrbit && pendingOrbit.Message.RequestId == orbit.RequestId)
+                    { _pendingOrbit=null; OrbitCompleted?.Invoke(orbit); }
+                    break;
                 case RouteResultMessage route:
                     if (_pendingRoute is { } pendingRoute && pendingRoute.Message.RequestId == route.RequestId)
                     { _pendingRoute=null; RouteCompleted?.Invoke(route); }

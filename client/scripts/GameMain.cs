@@ -227,6 +227,7 @@ public sealed partial class GameMain : Node3D
         _audio.SetMusicDirectory(_settings.MusicDirectory);
         _hud.RefreshLanguage();
         _navigation.RefreshLanguage();
+        _tactical.RefreshLanguage();
         _radio.RefreshLanguage();
         _stationView?.RefreshLanguage();
         BuildContactMenu();
@@ -334,7 +335,7 @@ public sealed partial class GameMain : Node3D
         }
         _worldBuilder?.Process(delta, _playerShip?.Track.WorldPosition ?? Vec3d.Zero, _renderOrigin,
             _playerShip?.Track.HasData == true ? _playerShip.Track.SampledServerSeconds : null);
-        _camera.Far = _worldBuilder?.RequiredFarPlane ?? 900_000f;
+        UpdateCameraClipping();
 
         _scanCooldown = Mathf.Max(0f, _scanCooldown - dt);
         if (_net is not null)
@@ -491,6 +492,7 @@ public sealed partial class GameMain : Node3D
                     _contactMenu.Clear();
                     _contactMenu.AddItem(Locale.Text("route_add"), 23);
                     _contactMenu.AddItem(Locale.Text("context_warp"), 14);
+                    _contactMenu.AddItem(Locale.Text("context_warp_distance"), 26);
                     _contactMenu.Position = (Vector2I)GetViewport().GetMousePosition();
                     _contactMenu.Popup();
                 }
@@ -575,6 +577,9 @@ public sealed partial class GameMain : Node3D
             else if (id == 21) { _hasTarget=true; }
             else if (id == 22) AddRoutePoint(new NavigationPoint(_targetId));
             else if (id == 23) AddRoutePoint(new NavigationPoint(0,_mapDestination));
+            else if (id == 24) OpenNavigationDistance(true);
+            else if (id == 25) OpenNavigationDistance(false);
+            else if (id == 26) OpenWaypointWarpDistance();
             else if (id == 10) _net?.RequestComms(_targetId);
             else if (id == 11)
             {
@@ -609,8 +614,11 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem(Locale.Text("context_approach"), 1);
         _contactMenu.AddItem(Locale.Text("context_scan"), 2);
         _contactMenu.AddItem(Locale.Text("context_warp"), 3);
-        _contactMenu.AddItem(Locale.Text("context_dock"), 4);
-        _contactMenu.AddItem(Locale.Text("context_follow"), 7);
+        _contactMenu.AddItem(Locale.Text("context_warp_distance"), 25);
+        if (_catalog.FindCelestial((int)_targetId) is not null)
+            _contactMenu.AddItem(Locale.Text("context_orbit"),24);
+        if (_targetId == (uint)_catalog.Station.Id) _contactMenu.AddItem(Locale.Text("context_dock"), 4);
+        if (_remoteShips.ContainsKey(_targetId)) _contactMenu.AddItem(Locale.Text("context_follow"), 7);
         _contactMenu.AddSeparator();
         _contactMenu.AddItem(Locale.Text("context_comms"), 10);
         _contactMenu.AddItem(Locale.Text("context_trade"), 11);
@@ -657,8 +665,7 @@ public sealed partial class GameMain : Node3D
             _cockpit.Visible = mode == ViewMode.Cockpit;
         _playerShip?.SetExternalModelVisible(mode != ViewMode.Cockpit);
 
-        _camera.Near = mode == ViewMode.Cockpit ? 0.05f : 0.35f;
-        _camera.Far = _worldBuilder?.RequiredFarPlane ?? 900_000f;
+        UpdateCameraClipping();
         if (_cameraFill is not null)
             _cameraFill.Visible = mode == ViewMode.External;
         _cameraSnap = true;
@@ -740,6 +747,8 @@ public sealed partial class GameMain : Node3D
         _tactical.PlayerId = _playerId;
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
+        _tactical.OrbitTargetId = _playerShip?.Track.OrbitTargetId ?? 0;
+        _tactical.OrbitAltitude = _playerShip?.Track.OrbitAltitude ?? 0;
         _tactical.ApproachTargetId = _playerShip?.Track.ApproachTargetId ?? 0;
         _tactical.ApproachPoint = _playerShip?.Track.WarpDestination ?? _playerShip?.Track.ApproachPoint;
 
@@ -758,6 +767,14 @@ public sealed partial class GameMain : Node3D
         }
 
         _tactical.QueueRedraw();
+    }
+
+    private void UpdateCameraClipping()
+    {
+        var far = _worldBuilder?.RequiredFarPlane ?? 900_000f;
+        _camera.Far = far;
+        // Keep float32 frustum extraction finite when a nearby planet fills the view.
+        _camera.Near = Math.Max(_mode == ViewMode.Cockpit ? .05f : .35f, far / 8_000_000f);
     }
 
     private void UpdateCamera(float dt)
@@ -830,7 +847,7 @@ public sealed partial class GameMain : Node3D
             throttle = track.Throttle;
             docked = track.Docked;
             assist = track.FlightAssist;
-            autopilot = track.ApproachTargetId != 0;
+            autopilot = track.ApproachTargetId != 0 || track.OrbitTargetId != 0;
             following = track.ApproachFollowing;
             _hud.SetTelemetry(speed, throttle, surfaceInfo, _playerShip.Boosting, 0, _scanRange / 1000f,
                 autopilot, assist, following, track.Cruising, _cruise, track.CruiseBraking);
