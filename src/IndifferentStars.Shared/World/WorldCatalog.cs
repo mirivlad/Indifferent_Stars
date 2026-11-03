@@ -77,6 +77,7 @@ public sealed class SectorDefinition
 public sealed partial class WorldCatalog
 {
     public const double ScanRange = 200_000.0;
+    public const double FollowDistance = 200;
     public const double TacticalRange = 3_000_000;
     public const double DistantSensorRange = 75_000_000;
     /// <summary>Range of frequent detailed snapshots; sensors are replicated separately.</summary>

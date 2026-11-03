@@ -116,7 +116,7 @@ public sealed class ApproachPilotTests
             world.Tick(0.05);
         }
         Assert.Equal(leader.Id, follower.ApproachTargetId);
-        Assert.InRange(Vec3d.Distance(follower.Position, leader.Position), 490, 550);
+        Assert.InRange(Vec3d.Distance(follower.Position, leader.Position), WorldCatalog.FollowDistance - 30, WorldCatalog.FollowDistance + 30);
         Assert.InRange(Vec3d.Distance(follower.Velocity, leader.Velocity), 0, 3);
         world.RemovePlayer(leader.Id);
         world.Tick(0.05);

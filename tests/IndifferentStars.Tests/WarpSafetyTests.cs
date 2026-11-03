@@ -96,6 +96,7 @@ public sealed class WarpSafetyTests
         }
         Assert.False(world.Warp(ship.Id, 3, new Vec3d(0, 100000, 0)).Success);
         var other = world.AddPlayer("Hidden");
+        other.TransponderEnabled = false; other.Position = ship.Position + new Vec3d(WorldCatalog.TacticalRange + 1, 0, 0);
         Assert.False(world.Warp(ship.Id, other.Id).Success);
         ship.Position = new Vec3d(0, 800, 0);
         Assert.False(world.Warp(ship.Id, 0, before).Success);

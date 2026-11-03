@@ -32,6 +32,11 @@ public sealed partial class ServerIntegrationTests
             var snapshot=WaitFor<SnapshotMessage>(a,_=>true); Assert.NotNull(snapshot);
             Assert.DoesNotContain(snapshot.Entities,e=>e.Id==distant.Id);
             Send(a,new TransponderMessage(1,false));
+            Assert.False(WaitFor<TransponderMessage>(a,m=>m.Sequence==1)!.Enabled);
+            Send(a,new TransponderMessage(1,true));
+            Assert.False(WaitFor<TransponderMessage>(a,m=>m.Sequence==1)!.Enabled);
+            var caller=world.Players.Values.Single(p=>p.Name=="Sensor pilot");
+            Assert.NotNull(WaitFor<SensorContactsMessage>(b,m=>m.Contacts.Any(c=>c.Id==caller.Id&&!c.Transponder&&c.Source==ContactSource.Tactical)));
         }
         finally {cancellation.Cancel(); Assert.True(thread.Join(TimeSpan.FromSeconds(3)));}
     }

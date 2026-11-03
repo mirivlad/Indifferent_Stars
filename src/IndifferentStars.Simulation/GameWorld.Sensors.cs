@@ -44,7 +44,8 @@ public sealed partial class GameWorld
                 Math.Round(target.Position.Z / 100_000) * 100_000) : target.Position;
             history[target.Id] = new(target.Id, anonymous ? "?" : target.Name, position,
                 anonymous ? Vec3d.Zero : target.Velocity, source, now, target.TransponderEnabled,
-                target.TransponderEnabled ? (uint)(target.Work?.TargetId ?? 0) : 0);
+                target.TransponderEnabled ? (uint)(target.Work?.TargetId ?? 0) : 0,
+                anonymous ? 0 : target.IsPlayer ? EntityKind.Player : EntityKind.Npc);
         }
         foreach (var (id, contact) in history.ToArray())
         {

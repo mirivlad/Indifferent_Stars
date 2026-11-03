@@ -15,7 +15,8 @@ public sealed class CommsTests
         var ship = world.AddPlayer("Caller");
         Assert.False(world.Contact(uint.MaxValue, (uint)catalog.Station.Id).Success);
         Assert.False(world.Contact(ship.Id, (uint)catalog.Planet.Id).Success);
-        ship.Position = new Vec3d(0, 100000, 0);
+        ship.Position = new Vec3d(0, WorldCatalog.DistantSensorRange + 1000, 0);
+        world.Npcs[0].TransponderEnabled = false;
         Assert.False(world.Contact(ship.Id, (uint)catalog.Station.Id).Success);
         Assert.False(world.Contact(ship.Id, world.Npcs[0].Id).Success);
     }

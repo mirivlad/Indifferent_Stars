@@ -45,6 +45,12 @@ public sealed partial class GameWorld
                 var spawn=station.Position+new Vec3d(Math.Cos(i*2.4)*(2200+i*180),2400+i*400,Math.Sin(i*2.4)*(2200+i*180));
                 var ship=new ShipState {Id=id++,Name=$"{names.Name()} {Catalog.SystemIndex+1}/{id-5000}",Role=job.ToString(),Position=spawn,
                     Work=new NpcWork {Occupation=job,HomeStationId=station.Id,TargetId=station.Id,Goal=spawn,Phase=NpcPhase.Waiting,Until=population.Between(1,12)}};
+                for(var attempt=0;!WarpSafe(ship,ship.Position,0);attempt++)
+                {
+                    if(attempt>=32)throw new InvalidOperationException("No clear NPC spawn near station.");
+                    ship.Position+=Vec3d.Up*1000;
+                }
+                ship.Work!.Goal=ship.Position;
                 _npcs.Add(ship);
                 if(job!=NpcOccupation.Courier)NextAssignment(ship);
             }

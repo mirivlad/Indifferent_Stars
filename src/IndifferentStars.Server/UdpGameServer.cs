@@ -184,11 +184,15 @@ public sealed partial class UdpGameServer : IDisposable
                 break;
 
             case TransponderMessage transponder:
-                if (_sessionsByEndpoint.TryGetValue(endpoint, out var transmitter) && transponder.Sequence > transmitter.TransponderSequence)
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var transmitter))
                 {
-                    transmitter.TransponderSequence = transponder.Sequence;
-                    transmitter.Ship.TransponderEnabled = transponder.Enabled;
+                    if (transponder.Sequence > transmitter.TransponderSequence)
+                    {
+                        transmitter.TransponderSequence = transponder.Sequence;
+                        transmitter.Ship.TransponderEnabled = transponder.Enabled;
+                    }
                     transmitter.LastSeenSeconds = now;
+                    Send(endpoint, new TransponderMessage(transmitter.TransponderSequence, transmitter.Ship.TransponderEnabled));
                 }
                 break;
             case ChatSendMessage chat:
@@ -353,6 +357,7 @@ public sealed partial class UdpGameServer : IDisposable
             (float)WorldCatalog.MaxBoostSpeed,
             _world.TickCount,
             (byte)_config.TickRate, _catalog.SystemIndex));
+        Send(session.Endpoint, new TransponderMessage(session.TransponderSequence, ship.TransponderEnabled));
     }
 
     private void HandleScan(ScanRequestMessage request, IPEndPoint endpoint, double now)

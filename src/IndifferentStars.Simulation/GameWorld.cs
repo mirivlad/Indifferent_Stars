@@ -164,7 +164,7 @@ public sealed partial class GameWorld
         player.ApproachTargetId = targetId;
         player.ApproachFollowing = follow;
         player.DockingGranted = false;
-        player.ApproachDestination = targetPosition + away * (targetRadius + 500);
+        player.ApproachDestination = targetPosition + away * (follow ? WorldCatalog.FollowDistance : targetRadius + 500);
         return true;
     }
 
@@ -355,7 +355,7 @@ public sealed partial class GameWorld
                 {
                     var away = (ship.Position - targetShip.Position).Normalized();
                     if (away.LengthSquared < 0.5) away = -ship.Forward;
-                    ship.ApproachDestination = targetShip.Position + away * 520;
+                    ship.ApproachDestination = targetShip.Position + away * WorldCatalog.FollowDistance;
                     input = ApproachPilot.Steer(ship, ship.ApproachDestination, targetShip.Velocity);
                 }
                 else if (ApproachPilot.Arrived(ship, ship.ApproachDestination))

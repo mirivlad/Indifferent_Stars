@@ -10,7 +10,7 @@ public static class RadioChannels
     public const int MaxTextBytes=512;
     public static bool BuiltIn(ushort id)=>id is Local or System or General;
     public static bool InAudience(ushort channel,Vec3d sender,Vec3d receiver)=>BuiltIn(channel)&&
-        (channel!=Local||Vec3d.Distance(sender,receiver)<=IndifferentStars.Shared.World.WorldCatalog.RelevanceRange);
+        (channel!=Local||Vec3d.Distance(sender,receiver)<=15_000);
     public static bool ValidText(string text)=>!string.IsNullOrWhiteSpace(text)&&Encoding.UTF8.GetByteCount(text)<=MaxTextBytes&&
         !text.Any(c=>char.IsControl(c)||c is '\u2028' or '\u2029');
 }

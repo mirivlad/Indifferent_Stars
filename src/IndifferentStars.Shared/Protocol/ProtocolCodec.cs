@@ -100,7 +100,7 @@ public static class ProtocolCodec
                     writer.Write(contact.Id); WriteString(writer, contact.Name, ProtocolConstants.MaxNameBytes);
                     WriteVec3(writer, contact.Position); WriteVec3(writer, contact.Velocity);
                     writer.Write((byte)contact.Source); writer.Write(contact.ObservedAtMs);
-                    writer.Write(contact.Transponder); writer.Write(contact.DestinationId);
+                    writer.Write(contact.Transponder); writer.Write(contact.DestinationId); writer.Write((byte)contact.Kind);
                 }
                 break;
             case SnapshotMessage snapshot:
@@ -469,7 +469,10 @@ public static class ProtocolCodec
             var position = ReadVec3(reader); var velocity = ReadVec3(reader);
             var source = (ContactSource)reader.ReadByte();
             if (!Enum.IsDefined(source)) throw new InvalidDataException("Invalid contact source.");
-            contacts[i] = new(id, name, position, velocity, source, reader.ReadUInt64(), reader.ReadBoolean(), reader.ReadUInt32());
+            var observed = reader.ReadUInt64(); var transponder = reader.ReadBoolean(); var destination = reader.ReadUInt32();
+            var kind = (EntityKind)reader.ReadByte();
+            if (kind != 0 && !Enum.IsDefined(kind)) throw new InvalidDataException("Invalid contact kind.");
+            contacts[i] = new(id, name, position, velocity, source, observed, transponder, destination, kind);
         }
         return new(tick, contacts);
     }

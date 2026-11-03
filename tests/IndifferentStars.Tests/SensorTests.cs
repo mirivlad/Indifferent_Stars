@@ -57,6 +57,8 @@ public sealed class SensorTests
         Assert.True(ProtocolCodec.TryDecode(packet,out var decoded,out _));
         Assert.Equal(contacts,Assert.IsType<SensorContactsMessage>(decoded).Contacts);
         Assert.False(ProtocolCodec.TryDecode(packet[..^1],out _,out _));
+        var invalid = ProtocolCodec.Encode(new SensorContactsMessage(1,new[]{contacts[0] with {Source=(ContactSource)255}}));
+        Assert.False(ProtocolCodec.TryDecode(invalid,out _,out _));
         Assert.Throws<ArgumentException>(() => ProtocolCodec.Encode(new SensorContactsMessage(1, contacts.Concat(contacts).ToArray())));
     }
 }
