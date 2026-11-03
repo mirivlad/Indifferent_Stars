@@ -51,6 +51,10 @@ public sealed partial class WorldBuilder
     {
         SimulationTime = serverSeconds ?? SimulationTime + delta;
         _celestial?.Update(observerLocal, renderOrigin, (float)delta);
+        if(_worldEnvironment?.Environment is { } environment&&_celestial is not null)
+        {
+            environment.TonemapExposure=.95f*_celestial.ExposureScale;
+        }
         UpdateAsteroidSectors(observerLocal);
 
         if (_stationNode is not null)
@@ -86,6 +90,7 @@ public sealed partial class WorldBuilder
 
     public void SetGlowEnabled(bool enabled)
     {
+        _celestial?.SetStarDetail(enabled);
         if (_worldEnvironment?.Environment is { } environment)
             environment.GlowEnabled = enabled;
     }

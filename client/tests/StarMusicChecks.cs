@@ -68,11 +68,14 @@ public sealed partial class StarMusicChecks : Node3D
                 if(name=="02_three_radii")
                 {
                     var corona=star.GetNode<MeshInstance3D>("Corona");corona.Visible=false;environment.GlowEnabled=false;
+                    var prominences=star.GetChildren().OfType<MeshInstance3D>().Where(m=>m.Name.ToString().StartsWith("Prominence_")).ToArray();
+                    foreach(var prominence in prominences)prominence.Visible=false;
                     await Pause(.1);var disc=await Capture("02_physical_disc");
                     var width=Enumerable.Range(0,disc.GetWidth()).Count(x=>disc.GetPixel(x,disc.GetHeight()/2).R>.1);
                     var expected=disc.GetHeight()*Math.Tan(Math.Asin(catalog.Star.Radius/distance))/Math.Tan(Mathf.DegToRad(camera.Fov)/2);
                     Check(Math.Abs(width-expected)<5,$"Physical disc diameter mismatch: {width} vs {expected:F2} pixels.");
                     corona.Visible=true;environment.GlowEnabled=true;
+                    foreach(var prominence in prominences)prominence.Visible=true;
                     renderer.Update(observer,observer,8);await Pause(.1);var after=await Capture("03_animated");
                     var changed=0;
                     for(var y=250;y<650;y+=8)for(var x=600;x<1000;x+=8)
@@ -120,7 +123,8 @@ public sealed partial class StarMusicChecks : Node3D
                 marker.QueueFree();await Pause(.05);
                 camera.RotateY(Mathf.Pi);renderer.Update(observer,observer,0);await Pause(.1);
                 var away=await Capture(name+"_away");
-                Check(away.GetPixel(away.GetWidth()/2,away.GetHeight()/2).R<.05f,"Star must disappear when looking away, without a rear-facing halo.");
+                if(distance>catalog.Star.Radius*1.42)
+                    Check(away.GetPixel(away.GetWidth()/2,away.GetHeight()/2).R<.05f,"Outside the corona the star must disappear when looking away.");
             }
             var polar=center+Vec3d.Up*catalog.Star.Radius*3;
             camera.Position=Vector3.Zero;camera.LookAt(Vector3.Down,Vector3.Forward);renderer.Update(polar,polar,.016f);

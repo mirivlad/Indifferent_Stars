@@ -1,0 +1,29 @@
+{
+  "base_commit": "ef6c6f4",
+  "candidate_sources": {
+    "client/scripts/CelestialRenderer.cs": "12182598080c29f19fa7320caf7146a47edbe2e70c806aa245229deab37d1f00",
+    "client/scripts/WorldBuilder.cs": "5e0cd6557d61f2d932c3665978819da925772b7be27f6176da2a1232e3607e1d",
+    "client/assets/shaders/star.gdshader": "c9dcc114d482d2e28a4ee70843fd38311f0662b4f37b64bf1c058ef61927368c",
+    "client/assets/shaders/star_corona.gdshader": "f68a414af5c370a2e4582f34fe52b60f404c90393197718420f83e21c61f4d5e",
+    "client/assets/shaders/star_prominence.gdshader": "649e14b785c1f691297520a0fe0c283ad5f5bd997916476e2d3fd4f9edd5fa1a",
+    "client/assets/shaders/star_plasma.gdshaderinc": "6c53f868ced8a69e68442f3357f9bade1df9c91e81daa85463b2addce3c8f84d",
+    "client/assets/shaders/star_geometry.gdshaderinc": "8d057779d50c0ff7f8e557c26c4c00754d4caf44031d4fdee1c937ae566a30a7",
+    "client/tests/VesperVisualChecks.cs": "7bffef0dcd29034799717d31d441315277d89ec4d224c02d62c768fb11c34f53"
+  },
+  "artifacts": {
+    "after.png": "3578add09b7035fb3466683ec2f517f9285fccd4f3220ae914052b0f9ccb0c5e",
+    "approach.png": "40208c617ee521d66d772503420b07ee35ea06ec043d73078ceed2761e61971a",
+    "baseline-run.txt": "45a4175367da87529d80d0aca4ade23689abc1cb11d8a523021400c93bedf814",
+    "baseline-telemetry.json": "901492798ba58cb6f0cf5ff532119e5d99f3dc5c74d4ed8569d3bf5ee921a908",
+    "before.png": "ec45d5cfd814bb15c94cbd5af39b124bfd1922e769a6cfeb9c8e92d157aa6099",
+    "candidate-run.txt": "2500477c0a7de0d9f770f07665d3becaec295d60b0eef7a78674bd0fb781b96b",
+    "candidate-telemetry.json": "b9ca412fee7222a2bf0c7c69f5915ed1c523a83bd44e41276d7f2aeaf10c959f",
+    "chromosphere.png": "6ab9145a92521114c367c433cdf29a48a0dcd9391c956f521a117b1cf0e7ddf0",
+    "cockpit.png": "6d45e284d6e61aa9d51f3521ce3b4ec9bf7c2fa577336eab7a5a04471e166cb3",
+    "corona.png": "e6abef3a7cf30150bb5ee7e6158b2c9cdb13b546bf39c6cadc3c422dd71fbf1a",
+    "low.png": "21f00f409679d10937d2e81ebd28488b5ae621b21675873ec39688c2a32a3503",
+    "orbit.mp4": "dcf262209e15e2972b8493966c2bd8b554f107c0f6739b89b36687a1790e7368",
+    "plasma-motion.mp4": "9660938a4c895fc3333f938063e369b543a7891115b58be9ff1a9d801bf03386",
+    "prominences.png": "7d1b9e01a451fd38cf0954ef5db646e3eddd01d9b4a887110a4984717e8794e7"
+  }
+}

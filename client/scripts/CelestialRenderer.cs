@@ -43,9 +43,12 @@ public sealed class CelestialRenderer
     private readonly Node3D _celestialRoot;
     private readonly DirectionalLight3D _sunLight;
     private float _elapsed;
+    private readonly List<ShaderMaterial> _stellarMaterials = new();
     private ShaderMaterial _starMaterial = null!;
     private ShaderMaterial _coronaMaterial = null!;
     private Node3D _starHolder = null!;
+    private float _baseSunEnergy = 1.35f;
+    public float ExposureScale { get; private set; } = 1;
 
     public CelestialRenderer(Node3D root, WorldCatalog catalog, bool highQuality)
     {
@@ -76,7 +79,7 @@ public sealed class CelestialRenderer
     public float RequiredFarPlane { get; private set; } = 800_000f;
 
     public Node3D PlanetHolder => _visuals.Count > 0 ? _visuals[0].Holder : _celestialRoot;
-    public float SunEnergy { get => _sunLight.LightEnergy; set => _sunLight.LightEnergy = value; }
+    public float SunEnergy { get => _baseSunEnergy; set => _baseSunEnergy = value; }
     public bool ShadowsEnabled { get => _sunLight.ShadowEnabled; set => _sunLight.ShadowEnabled = value; }
 
     public void Update(Vec3d observerLocal, Vec3d renderOrigin, float delta)
@@ -131,7 +134,7 @@ public sealed class CelestialRenderer
         }
 
         RequiredFarPlane = Math.Max(400_000f, far * 1.25f);
-        UpdateStar(observerLocal, renderOrigin);
+        UpdateStar(observerLocal, renderOrigin, delta);
 
         // Directional light arrives from the star; computed in real system coordinates.
         var lightDirection = ToVector3((observerSystem - _catalog.Star.SystemPosition).Normalized());
@@ -145,6 +148,8 @@ public sealed class CelestialRenderer
         _celestialRoot.AddChild(_starHolder);
         _starMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/star.gdshader") };
         _coronaMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/star_corona.gdshader") };
+        _coronaMaterial.SetShaderParameter("volume_steps",_highQuality?12:6);
+        _stellarMaterials.Add(_starMaterial);_stellarMaterials.Add(_coronaMaterial);
         foreach (var (name, material) in new[] { ("Photosphere", _starMaterial), ("Corona", _coronaMaterial) })
         {
             _starHolder.AddChild(new MeshInstance3D
@@ -156,9 +161,24 @@ public sealed class CelestialRenderer
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             });
         }
+        var anchors=new[]{new Vector3(.08f,.72f,.69f),new Vector3(.48f,-.86f,.15f),new Vector3(.5f,-.15f,-.85f),new Vector3(.86f,.4f,-.32f)};
+        var tangents=new[]{new Vector3(0,-.69f,.72f),new Vector3(0,-.38f,-.92f),new Vector3(0,.96f,-.27f),new Vector3(.32f,0,.86f)};
+        for(var i=0;i<anchors.Length;i++)
+        for(var strand=-1;strand<=1;strand++)
+        {
+            var material=new ShaderMaterial {Shader=GD.Load<Shader>("res://assets/shaders/star_prominence.gdshader")};
+            material.SetShaderParameter("anchor",anchors[i].Normalized());material.SetShaderParameter("tangent",tangents[i].Normalized());
+            material.SetShaderParameter("strand",(float)strand);
+            material.SetShaderParameter("phase",.7f+i*1.7f);_stellarMaterials.Add(material);
+            // The vertex shader bends this UV grid into a closed strand in 3D stellar coordinates.
+            _starHolder.AddChild(new MeshInstance3D {Name=$"Prominence_{i}_{strand+1}",Mesh=new PlaneMesh {Size=Vector2.One,SubdivideWidth=47,SubdivideDepth=7},
+                MaterialOverride=material,ExtraCullMargin=1_000_000,CastShadow=GeometryInstance3D.ShadowCastingSetting.Off});
+        }
     }
 
-    private void UpdateStar(Vec3d observerLocal, Vec3d renderOrigin)
+    public void SetStarDetail(bool high) => _coronaMaterial.SetShaderParameter("volume_steps",high?12:6);
+
+    private void UpdateStar(Vec3d observerLocal, Vec3d renderOrigin, float delta)
     {
         var camera = _root.GetViewport().GetCamera3D();
         var cameraRender = camera?.GlobalPosition ?? ToVector3(observerLocal-renderOrigin);
@@ -166,7 +186,15 @@ public sealed class CelestialRenderer
         var offset = _catalog.Star.SystemPosition - _catalog.LocalFrameOrigin - cameraLocal;
         var distance = Math.Max(_catalog.Star.Radius + 1, offset.Length);
         _starHolder.Position = cameraRender;
-        foreach (var material in new[] { _starMaterial, _coronaMaterial })
+        var proximity=(float)Math.Clamp((_catalog.Star.Radius/distance-.035)/.65,0,1);
+        // Illumination depends on distance; only the smoothly adapting iris depends on the viewing direction.
+        var irradiance=(float)Math.Clamp(Math.Pow(149_597_870_700.0/distance,.55),1,7);
+        _sunLight.LightEnergy=_baseSunEnergy*irradiance;
+        var facing=camera is null?0:Mathf.SmoothStep(0,1,Mathf.Clamp(((-camera.GlobalBasis.Z).Dot(ToVector3(offset.Normalized()))+.15f),0,1));
+        var exposureTarget=1-proximity*(.22f+.2f*facing);
+        var adaptation=exposureTarget<ExposureScale?1.6f:.35f;
+        ExposureScale=Mathf.Lerp(ExposureScale,exposureTarget,1-Mathf.Exp(-delta*adaptation));
+        foreach (var material in _stellarMaterials)
         {
             material.SetShaderParameter("star_direction",ToVector3(offset.Normalized()));
             material.SetShaderParameter("radius_ratio",(float)(_catalog.Star.Radius/distance));

@@ -1,43 +1,64 @@
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
-
 #include "res://assets/shaders/star_geometry.gdshaderinc"
+#include "res://assets/shaders/star_plasma.gdshaderinc"
+uniform float animation_time=0.0;
+uniform int volume_steps=12;
+// Diagnostic capture can isolate the independently evaluated emissive layers.
+uniform int layer_mask=3;
+uniform sampler2D scene_depth : hint_depth_texture, filter_nearest;
 
-uniform float animation_time = 0.0;
-
-void vertex() {
-    POSITION = vec4(VERTEX.xy, 1.0, 1.0);
+vec2 stellar_layers(vec3 p,float time){
+    float r=length(p);if(r<1.0||r>1.42)return vec2(0.0);
+    vec3 n=p/r;float h=r-1.0;
+    float convection=plasma_noise(n*28.0+vec3(time*.025,-time*.018,time*.012));
+    float chromo=exp(-pow((h-(.006+convection*convection*.035))/.012,2.0))*(1.0+pow(convection,3.0)*45.0);
+    vec3 warp=vec3(plasma_noise(p*5.0),plasma_noise(p*5.0+7.0),plasma_noise(p*5.0-7.0))-.5;
+    float structure=plasma_noise(p*13.0+warp*2.5+vec3(0,time*.02,0));
+    float region=.1+2.5*pow(plasma_noise(n*4.0+vec3(2,5,1)),3.0);
+    float corona=exp(-h*10.0)*smoothstep(.28,.77,structure)*region*.9;
+    corona*=1.0-smoothstep(.28,.42,h);
+    if((layer_mask&1)==0)chromo=0.0;
+    if((layer_mask&2)==0)corona=0.0;
+    return vec2(chromo,corona);
 }
-void fragment() {
-    vec3 ray = stellar_ray(SCREEN_UV, INV_PROJECTION_MATRIX, INV_VIEW_MATRIX);
-    float cosine = dot(ray, star_direction);
-    float sine = sqrt(max(0.0, (1.0 - cosine) * (1.0 + cosine)));
-    float radial = sine / max(radius_ratio, 0.000001);
-    if (cosine <= 0.0 || radial < 1.0 || radial > 3.2) discard;
-    vec3 axis = abs(star_direction.y) < 0.95 ? vec3(0,1,0) : vec3(1,0,0);
-    vec3 right = normalize(cross(star_direction, axis));
-    vec3 up = cross(right, star_direction);
-    float angle = atan(dot(ray, up), dot(ray, right));
-    float t = animation_time;
-    float rays = pow(max(0.0, 0.5 + 0.5 * sin(angle * 37.0 + sin(angle * 11.0 + t * 0.18) * 2.0)), 5.0);
-    float halo = exp(-(radial - 1.0) * 8.0) * 0.24;
-    halo += rays * exp(-(radial - 1.0) * 4.0) * 0.12;
-    float loops = 0.0;
-    for (int i=0; i<6; i++) {
-        float fi = float(i);
-        float center = fi * 1.0472 + sin(fi * 12.35) * 0.35 + sin(t * 0.035 + fi) * 0.13;
-        float offset = atan(sin(angle - center), cos(angle - center));
-        float height = 0.1 + 0.15 * (0.5 + 0.5 * sin(t * 0.15 + fi * 2.7));
-        vec2 q = vec2(offset / (0.08 + height * 0.2), (radial - 1.0) / height);
-        q.x += sin(q.y * 4.0 + fi + t * 0.08) * 0.15 * q.y;
-        float arc = exp(-pow((length(q) - 1.0) * 16.0, 2.0));
-        float activity = pow(max(0.0, sin(t * 0.12 + fi * 1.9)), 2.0);
-        loops += arc * smoothstep(1.0, 1.035, radial) * 0.45 * activity;
+void vertex(){POSITION=vec4(VERTEX.xy,1.0,1.0);}
+void fragment(){
+    vec3 ray=stellar_ray(SCREEN_UV,INV_PROJECTION_MATRIX,INV_VIEW_MATRIX);
+    vec3 center=star_direction/radius_ratio;
+    float along=dot(ray,center);
+    float impact=length(cross(ray,center));
+    if(impact>1.42)discard;
+    float half_path=sqrt(max(0.0,1.42*1.42-impact*impact));
+    float entry=max(0.0,along-half_path), exit=along+half_path;
+    float cosine=dot(ray,star_direction);
+    bool hits_surface=cosine>0.0&&impact<1.0;
+    if(hits_surface)exit=min(exit,stellar_intersection(cosine)/radius_ratio);
+    float depth=textureLod(scene_depth,SCREEN_UV,0.0).r;
+    if(depth>0.0){
+        vec4 opaque=INV_PROJECTION_MATRIX*vec4(SCREEN_UV*2.0-1.0,depth,1.0);
+        float opaque_distance=length(opaque.xyz/opaque.w);
+        // The photosphere's distant depth is a bounded projection, not a nearby occluder.
+        if(opaque_distance<148500.0)exit=min(exit,opaque_distance/(distance_metres*radius_ratio));
     }
-    float fade = 1.0 - smoothstep(2.0, 3.2, radial);
-    vec3 color = mix(vec3(1.0,0.35,0.05), vec3(1.0,0.8,0.4), exp(-(radial-1.0)*12.0));
-    ALBEDO = color * (halo + loops) * 2.0 * fade;
-    EMISSION = ALBEDO;
-    ALPHA = fade;
-    DEPTH = stellar_depth(ray, distance_metres * surface_gap_ratio, VIEW_MATRIX, PROJECTION_MATRIX);
+    // A few kilometres of optically thin foreground plasma contribute less than one display level.
+    float span=exit-entry;if(span<.00001)discard;
+    vec3 accumulated=vec3(0.0);float transmittance=1.0;
+    for(int i=0;i<12;i++){
+        if(i>=volume_steps)break;
+        float u=(float(i)+.5)/float(volume_steps);
+        float sample_t;
+        float weight;
+        if(hits_surface){sample_t=mix(entry,exit,1.0-(1.0-u)*(1.0-u));weight=span*2.0*(1.0-u)/float(volume_steps);}
+        else if(along<0.0){sample_t=mix(entry,exit,u*u);weight=span*2.0*u/float(volume_steps);}
+        else {float v=u*2.0-1.0;float focus=clamp(along,entry,exit);float half_span=v<0.0?focus-entry:exit-focus;
+            sample_t=focus+sign(v)*v*v*half_span;weight=half_span*4.0*abs(v)/float(volume_steps);}
+        vec3 p=ray*sample_t-center;
+        vec2 layers=stellar_layers(p,animation_time);
+        vec3 radiance=layers.x*vec3(1.0,.36,.055)*2.8+layers.y*vec3(1.0,.25,.04)*1.4;
+        accumulated+=transmittance*radiance*weight;
+        transmittance*=exp(-dot(layers,vec2(.28,.12))*weight);
+    }
+    ALBEDO=accumulated;EMISSION=vec3(0.0);ALPHA=1.0;
+    DEPTH=stellar_depth(ray,min(entry*distance_metres*radius_ratio,149000.0),VIEW_MATRIX,PROJECTION_MATRIX);
 }

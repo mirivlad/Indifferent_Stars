@@ -1,0 +1,49 @@
+[
+  {
+    "shot": "mid",
+    "visible": false,
+    "frames": 667,
+    "p50_ms": 2.973,
+    "p95_ms": 3.412,
+    "exposure": 0.95,
+    "light": 1.35
+  },
+  {
+    "shot": "mid",
+    "visible": true,
+    "frames": 554,
+    "p50_ms": 3.599,
+    "p95_ms": 3.952,
+    "exposure": 0.95,
+    "light": 1.35
+  },
+  {
+    "shot": "mid_low",
+    "frames": 448,
+    "p95_ms": 3.406
+  },
+  {
+    "shot": "approach",
+    "visible": true,
+    "frames": 466,
+    "p50_ms": 3.22,
+    "p95_ms": 3.586,
+    "exposure": 0.95,
+    "light": 1.35
+  },
+  {
+    "shot": "near",
+    "visible": true,
+    "frames": 455,
+    "p50_ms": 3.007,
+    "p95_ms": 3.421,
+    "exposure": 0.95,
+    "light": 1.35
+  },
+  {
+    "shot": "near_face",
+    "frames": 508,
+    "p95_ms": 3.211,
+    "exposure": 0.95
+  }
+]
