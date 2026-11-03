@@ -47,7 +47,7 @@ public sealed partial class GameMain
             if (result.Accepted)
             {
                 _routePoints.Clear(); _confirmedRoute.Clear(); _routeRevision=0; _confirmedRevision=0;
-                _routeEnabled=false; _routeIndex=0; _cruise=false; _cruiseStopping=false;
+                _routeEnabled=false; _routeIndex=0; _cruise=false;
                 _hud.ShowToast(Locale.Text("orbit_accepted"));
             }
             else _hud.ShowToast(Locale.Text("orbit_error_"+result.Error.ToString().ToLowerInvariant())+
@@ -84,7 +84,7 @@ public sealed partial class GameMain
     private void SubmitRoute(bool enabled)
     {
         if(_net?.State!=ConnectionState.Connected)return;
-        _cruise=false; _cruiseStopping=false;
+        _cruise=false;
         _routeEnabled=enabled;_routeIndex=0;
         _routeRevision=_net.RequestRoute(_routePoints.ToArray(),enabled);
     }

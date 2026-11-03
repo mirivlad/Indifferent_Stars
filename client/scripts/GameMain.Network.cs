@@ -99,11 +99,10 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
-        if (_cruiseStopping && (_playerShip?.Track.Velocity.Length() ?? 0) < 0.1f) _cruiseStopping = false;
         if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true || (_playerShip is not null && _playerShip.Track.WarpStage != WarpStage.None))
             return InputState.None with { FlightAssist = _flightAssist };
         if (_radio.IsTyping || _navigation.IsTyping || _navigation.IsModal || _mode == ViewMode.Tactical)
-            return InputState.None with { Cruise = _cruise, Brake = _cruiseStopping, FlightAssist = _flightAssist };
+            return InputState.None with { Cruise = _cruise, FlightAssist = _flightAssist };
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
         var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
@@ -117,7 +116,7 @@ public sealed partial class GameMain
         var roll = (_settings.Pressed("roll_left") ? 1f : 0f) - (_settings.Pressed("roll_right") ? 1f : 0f);
         var boost = _settings.Pressed("boost");
         var brake = _settings.Pressed("brake");
-        return new InputState(throttle, steer, pitch, vertical, boost, brake || _cruiseStopping, strafe, roll, _flightAssist, _cruise);
+        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist, _cruise);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)
@@ -194,7 +193,6 @@ public sealed partial class GameMain
                     (_playerShip.Track.CruiseInhibited || _playerShip.Track.CruiseBraking))
                 {
                     _cruise = false;
-                    _cruiseStopping = false;
                     _hud.ShowToast(Locale.Text(_playerShip.Track.CruiseBraking ? "cruise_safety_stop_hint" : "cruise_denied_hint"), duration: 6);
                 }
                 continue;
@@ -233,7 +231,6 @@ public sealed partial class GameMain
         if (result.Success && _playerShip is not null)
         {
             _cruise = false;
-            _cruiseStopping = false;
             _cameraSnap = true;
             _hud.ShowToast(text, new Color(1f, 0.78f, 0.4f), 5f);
         }

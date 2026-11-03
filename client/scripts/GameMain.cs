@@ -82,7 +82,6 @@ public sealed partial class GameMain : Node3D
     private InputState _input = InputState.None;
     private bool _flightAssist;
     private bool _cruise;
-    private bool _cruiseStopping;
     private Vec3d _renderOrigin = Vec3d.Zero;
     private Vector2 _mouseTurn;
     private ulong _mouseTurnAt;
@@ -402,7 +401,6 @@ public sealed partial class GameMain : Node3D
                     break;
                 case "cruise":
                     _cruise = !_cruise;
-                    _cruiseStopping = !_cruise;
                     _hud.ShowToast(Locale.Text(_cruise ? "cruise_request_hint" : "cruise_stop_hint"), duration: 6);
                     break;
                 case "assist" when _mode != ViewMode.Tactical:

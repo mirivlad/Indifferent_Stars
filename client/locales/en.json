@@ -16,7 +16,7 @@
   "context_move_point":"Fly to this point",
   "particles":"Ion trails / particles",
   "cruise_request_hint":"Cruise requested: requires 10 km clearance.",
-  "cruise_stop_hint":"Leaving cruise: braking with engines.",
+  "cruise_stop_hint":"Cruise thrust off: coasting on inertia.",
   "cruise":"Cruise",
   "cruise_active":"CRUISE",
   "cruise_blocked":"CRUISE BLOCKED — RESET MODE",
