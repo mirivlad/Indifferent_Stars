@@ -131,5 +131,6 @@
   "distance_label": "Расстояние",
   "information_sensors": "Данные сенсоров. Для подробного отчёта используйте сканирование.",
   "close": "Закрыть",
-  "notifications_sender": "Система"
+  "notifications_sender": "Система",
+  "distance_million_km": "{0:F2} млн км"
 }

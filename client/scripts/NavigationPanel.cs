@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Godot;
 
@@ -89,10 +90,12 @@ public sealed partial class NavigationPanel : CanvasLayer
     public static string Distance(double metres)
     {
         metres = Math.Max(0,metres);
-        if (metres >= 149_597_870_700) return Locale.Format("distance_au",metres/149_597_870_700);
-        if (metres >= 1_000_000) return Locale.Format("distance_thousand_km",metres/1_000_000);
-        if (metres >= 1000) return Locale.Format("distance_km",metres/1000);
-        return Locale.Format("distance_m",metres);
+        string Format(string key, double value) => string.Format(CultureInfo.GetCultureInfo(Locale.Language),Locale.Text(key),value);
+        if (metres >= 149_597_870_700 * .5) return Format("distance_au",metres/149_597_870_700);
+        if (metres >= 1_000_000_000) return Format("distance_million_km",metres/1_000_000_000);
+        if (metres >= 1_000_000) return Format("distance_thousand_km",metres/1_000_000);
+        if (metres >= 1000) return Format("distance_km",metres/1000);
+        return Format("distance_m",metres);
     }
     public void UpdateContacts(List<NavigationContact> contacts, uint selected)
     {

@@ -27,8 +27,6 @@ public sealed class CelestialRenderer
         public required MeshInstance3D Surface { get; init; }
         public float AngularGain { get; init; } = 1f;
         public float SpinSpeed { get; init; }
-        /// <summary>When > 0, place the body at this display distance (infinite-distance sky object).</summary>
-        public double FixedDisplayDistance { get; init; }
         public double DisplayDistance { get; set; }
         public double DisplayRadius { get; set; }
         public bool TrueScale { get; set; }
@@ -45,6 +43,9 @@ public sealed class CelestialRenderer
     private readonly Node3D _celestialRoot;
     private readonly DirectionalLight3D _sunLight;
     private float _elapsed;
+    private ShaderMaterial _starMaterial = null!;
+    private ShaderMaterial _coronaMaterial = null!;
+    private Node3D _starHolder = null!;
 
     public CelestialRenderer(Node3D root, WorldCatalog catalog, bool highQuality)
     {
@@ -66,7 +67,7 @@ public sealed class CelestialRenderer
         _root.AddChild(_sunLight);
 
         BuildPlanet(catalog.Planet);
-        BuildStar(catalog.Star);
+        BuildStar();
 
         Update(Vec3d.Zero, Vec3d.Zero, 0f);
     }
@@ -94,11 +95,7 @@ public sealed class CelestialRenderer
             var direction = offset / distance;
             var surfaceDistance = distance - body.Radius;
 
-            // Future transition: when a player really approaches the body, draw it at true
-            // scale in sector coordinates instead of a scaled distant projection.
-            // Keep the stellar disc in the bounded sky projection: a billion-metre
-            // render frustum loses the foreground ship and breaks float plane extraction.
-            visual.TrueScale = body.Kind != CelestialKind.Star && surfaceDistance <= TrueScaleSurfaceDistance;
+            visual.TrueScale = surfaceDistance <= TrueScaleSurfaceDistance;
             visual.SurfaceDistance = surfaceDistance;
 
             Vector3 position;
@@ -110,13 +107,6 @@ public sealed class CelestialRenderer
                 position = ToVector3(body.SystemPosition - _catalog.LocalFrameOrigin - renderOrigin);
                 displayRadius = body.Radius;
                 displayDistance = distance;
-            }
-            else if (visual.FixedDisplayDistance > 0)
-            {
-                var angular = Math.Min(1.45, Math.Asin(Math.Clamp(body.Radius / distance, 0, 1)) * visual.AngularGain);
-                displayDistance = visual.FixedDisplayDistance;
-                displayRadius = Math.Sin(angular) * displayDistance;
-                position = ToVector3(observer) + ToVector3(direction) * (float)displayDistance;
             }
             else
             {
@@ -141,6 +131,7 @@ public sealed class CelestialRenderer
         }
 
         RequiredFarPlane = Math.Max(400_000f, far * 1.25f);
+        UpdateStar(observerLocal, renderOrigin);
 
         // Directional light arrives from the star; computed in real system coordinates.
         var lightDirection = ToVector3((observerSystem - _catalog.Star.SystemPosition).Normalized());
@@ -148,65 +139,41 @@ public sealed class CelestialRenderer
         _sunLight.Basis = Basis.LookingAt(lightDirection, lightUp);
     }
 
-    private void BuildStar(CelestialBody star)
+    private void BuildStar()
     {
-        var holder = new Node3D
+        _starHolder = new Node3D { Name = "StarVesper" };
+        _celestialRoot.AddChild(_starHolder);
+        _starMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/star.gdshader") };
+        _coronaMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/star_corona.gdshader") };
+        foreach (var (name, material) in new[] { ("Photosphere", _starMaterial), ("Corona", _coronaMaterial) })
         {
-            Name = "StarVesper",
-        };
-        _celestialRoot.AddChild(holder);
-
-        var surface = new MeshInstance3D
-        {
-            Name = "Photosphere",
-            Mesh = new SphereMesh { Radius = 1, Height = 2, RadialSegments = 48, Rings = 24 },
-            MaterialOverride = new StandardMaterial3D
+            _starHolder.AddChild(new MeshInstance3D
             {
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                AlbedoColor = new Color(1.0f, 0.82f, 0.52f),
-                EmissionEnabled = true,
-                Emission = new Color(1.0f, 0.72f, 0.38f),
-                EmissionEnergyMultiplier = 42f,
-            },
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        holder.AddChild(surface);
+                Name = name,
+                Mesh = new QuadMesh { Size = new Vector2(2,2) },
+                MaterialOverride = material,
+                ExtraCullMargin = 1_000_000,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+        }
+    }
 
-        var coronaMaterial = new StandardMaterial3D
+    private void UpdateStar(Vec3d observerLocal, Vec3d renderOrigin)
+    {
+        var camera = _root.GetViewport().GetCamera3D();
+        var cameraRender = camera?.GlobalPosition ?? ToVector3(observerLocal-renderOrigin);
+        var cameraLocal = renderOrigin + new Vec3d(cameraRender.X,cameraRender.Y,cameraRender.Z);
+        var offset = _catalog.Star.SystemPosition - _catalog.LocalFrameOrigin - cameraLocal;
+        var distance = Math.Max(_catalog.Star.Radius + 1, offset.Length);
+        _starHolder.Position = cameraRender;
+        foreach (var material in new[] { _starMaterial, _coronaMaterial })
         {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
-            AlbedoTexture = CreateRadialGlowTexture(
-                new Color(1.0f, 0.90f, 0.72f, 0.42f),
-                new Color(1.0f, 0.58f, 0.22f, 0.30f)),
-            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
-            BillboardKeepScale = true,
-            AlbedoColor = new Color(1.0f, 0.86f, 0.62f),
-            EmissionEnabled = true,
-            Emission = new Color(1.0f, 0.66f, 0.30f),
-            EmissionEnergyMultiplier = 3.2f,
-        };
-
-        var corona = new MeshInstance3D
-        {
-            Name = "Corona",
-            Mesh = new QuadMesh { Size = new Vector2(18f, 18f) },
-            MaterialOverride = coronaMaterial,
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        holder.AddChild(corona);
-
-        _visuals.Add(new CelestialVisual
-        {
-            Body = star,
-            Holder = holder,
-            Surface = surface,
-            // A star is a point of light at one AU. A small artistic gain keeps its
-            // photosphere legible as a disc without turning it into a red giant.
-            AngularGain = 3.0f,
-            FixedDisplayDistance = 150_000,
-        });
+            material.SetShaderParameter("star_direction",ToVector3(offset.Normalized()));
+            material.SetShaderParameter("radius_ratio",(float)(_catalog.Star.Radius/distance));
+            material.SetShaderParameter("surface_gap_ratio",(float)((distance-_catalog.Star.Radius)/distance));
+            material.SetShaderParameter("distance_metres",(float)distance);
+            material.SetShaderParameter("animation_time",_elapsed);
+        }
     }
 
     private void BuildPlanet(CelestialBody planet)
@@ -332,24 +299,6 @@ public sealed class CelestialRenderer
         var mesh = new ArrayMesh();
         mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
         return mesh;
-    }
-
-    private static Texture2D CreateRadialGlowTexture(Color inner, Color outer)
-    {
-        var gradient = new Gradient
-        {
-            Colors = new[] { inner, outer, new Color(outer.R, outer.G, outer.B, 0.0f) },
-            Offsets = new[] { 0.0f, 0.32f, 1.0f },
-        };
-        return new GradientTexture2D
-        {
-            Gradient = gradient,
-            Width = 256,
-            Height = 256,
-            Fill = GradientTexture2D.FillEnum.Radial,
-            FillFrom = new Vector2(0.5f, 0.5f),
-            FillTo = new Vector2(1.0f, 0.5f),
-        };
     }
 
     private static Vector3 ToVector3(Vec3d value) => new((float)value.X, (float)value.Y, (float)value.Z);

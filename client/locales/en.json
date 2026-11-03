@@ -131,5 +131,6 @@
   "distance_label": "Distance",
   "information_sensors": "Sensor data. Scan for a detailed report.",
   "close": "Close",
-  "notifications_sender": "System"
+  "notifications_sender": "System",
+  "distance_million_km": "{0:F2} million km"
 }
