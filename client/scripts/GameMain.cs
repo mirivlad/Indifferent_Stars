@@ -458,7 +458,7 @@ public sealed partial class GameMain : Node3D
                 _tactical.ZoomAt(mouse.Position, 1 / 0.65);
             else if (mouse.ButtonIndex is MouseButton.Left or MouseButton.Right)
             {
-                var contact = BuildContacts().Where(c => c.Id != _playerId && _tactical.ZoomRange < 100_000_000)
+                var contact = BuildContacts().Where(c => c.Id != _playerId && (_tactical.ZoomRange < 100_000_000 || c.IsShip || _catalog.Find((int)c.Id)?.Kind==BodyKind.Station))
                     .Select(c => (Contact: c, Distance: _tactical.ScreenPosition(new Vec3d(c.Position.X, c.Position.Y, c.Position.Z)).DistanceTo(mouse.Position)))
                     .Where(c => c.Distance < 20).OrderBy(c => c.Distance).FirstOrDefault();
                 var selectedId = contact.Contact.Id;
@@ -553,7 +553,7 @@ public sealed partial class GameMain : Node3D
         _radio=new RadioChat();AddChild(_radio);
         _hud.NoticeRaised += text => _radio.Notice(RadioChat.Notifications,text);
         SetupNavigation();
-        _radio.SignalSelected += position => { _mapDestination=position; ShowWaypointMenu(); };
+        _radio.SignalSelected += OpenRadioSignal;
         _radio.SendRequested+=(channel,text)=>{if(_net?.SendChat(channel,text)!=true)_radio.Notice(RadioChat.Notifications,Locale.Text("no_connection"));};
         _radio.TypingChanged+=typing=>
         {
@@ -576,7 +576,8 @@ public sealed partial class GameMain : Node3D
             else if (id == 24) OpenNavigationDistance(true);
             else if (id == 25) OpenNavigationDistance(false);
             else if (id == 26) OpenWaypointWarpDistance();
-            else if (id == 10) _net?.RequestComms(_targetId);
+            else if (id == 27) { _targetId=_radioSourceId; _hasTarget=FindContact(_targetId) is not null; }
+            else if (id == 10 && RequireLiveContact()) _net?.RequestComms(_targetId);
             else if (id == 11)
             {
                 if (_playerShip?.Track is {Docked:true} dockedTrack && dockedTrack.DockingStationId==_targetId) _stationView.Visible = true;
@@ -748,13 +749,16 @@ public sealed partial class GameMain : Node3D
         _tactical.ApproachTargetId = _playerShip?.Track.ApproachTargetId ?? 0;
         _tactical.ApproachPoint = _playerShip?.Track.WarpDestination ?? _playerShip?.Track.ApproachPoint;
 
-        _tactical.Contacts.Clear();
+        _tactical.Contacts.Clear(); _tactical.TrafficRoutes.Clear();
+        foreach(var sensor in _sensorContacts.Values)
+            if(sensor.Source==ContactSource.Transponder && _catalog.Find((int)sensor.DestinationId) is { } destination)
+                _tactical.TrafficRoutes.Add((sensor.Position,destination.Position));
         foreach (var contact in BuildContacts().Where(c => c.IsShip))
         {
             var source = _sensorContacts.GetValueOrDefault(contact.Id)?.Source;
             _tactical.Contacts.Add(new TacticalContact
             {
-                Id = contact.Id, Name = contact.Name, Kind = contact.Type, Position = contact.Position,
+                Id = contact.Id, Name = contact.Name, Kind = contact.Type, Position = contact.Position, Source = source,
                 Color = source is ContactSource.LastKnown or ContactSource.Lost ? new Color(.4f,.45f,.5f) :
                     source == ContactSource.DistantSignal ? new Color(.9f,.4f,.3f) : new Color(1,.7f,.3f),
                 IsPlayer = false,

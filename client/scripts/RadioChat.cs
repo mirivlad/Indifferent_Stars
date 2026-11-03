@@ -20,8 +20,8 @@ public sealed partial class RadioChat : CanvasLayer
     private Button _send=null!;
     public event Action<ushort,string>? SendRequested;
     public event Action<bool>? TypingChanged;
-    public event Action<Vec3d>? SignalSelected;
-    private readonly Dictionary<int,Vec3d> _signals=new();
+    public event Action<uint,Vec3d,DateTimeOffset>? SignalSelected;
+    private readonly Dictionary<int,Line> _signals=new();
     public bool IsTyping=>_input?.HasFocus()==true;
     public ushort SelectedChannel=>_channels[Math.Max(0,_tabs.CurrentTab)];
     public override void _Ready()
@@ -39,7 +39,7 @@ public sealed partial class RadioChat : CanvasLayer
         _log=new RichTextLabel {Name="RadioHistory",BbcodeEnabled=false,ScrollFollowing=false,SelectionEnabled=true,FocusMode=Control.FocusModeEnum.None,
             SizeFlagsVertical=Control.SizeFlags.ExpandFill,CustomMinimumSize=new Vector2(0,110),MouseFilter=Control.MouseFilterEnum.Stop};
         _log.AddThemeFontSizeOverride("normal_font_size",14);box.AddChild(_log);
-        _log.MetaClicked+=meta=>{if(_signals.TryGetValue(meta.AsInt32(),out var position))SignalSelected?.Invoke(position);};
+        _log.MetaClicked+=meta=>{if(_signals.TryGetValue(meta.AsInt32(),out var line)&&line.SignalPosition is { } position)SignalSelected?.Invoke(line.SenderId,position,line.Time);};
         var row=new HBoxContainer();box.AddChild(row);
         _input=new LineEdit {Name="ChatInput",MaxLength=256,SizeFlagsHorizontal=Control.SizeFlags.ExpandFill};row.AddChild(_input);
         _send=new Button {FocusMode=Control.FocusModeEnum.None};row.AddChild(_send);
@@ -86,7 +86,7 @@ public sealed partial class RadioChat : CanvasLayer
             _log.AddText(line.Text);
             if(line.SignalPosition is { } position)
             {
-                var id=_signals.Count;_signals[id]=position;
+                var id=_signals.Count;_signals[id]=line;
                 _log.AddText(" ");_log.PushMeta(id);_log.PushColor(new Color(.4f,.9f,.8f));
                 _log.AddText(Locale.Text("signal_position"));_log.Pop();_log.Pop();
             }

@@ -11,11 +11,13 @@ public sealed record NavigationContact(uint Id, string Name, string Kind, double
 
 public sealed partial class NavigationPanel : CanvasLayer
 {
-    private readonly string[] _groups = { "star", "planet", "asteroid", "station", "ship", "other" };
+    private readonly string[] _groups = { "ship", "station", "planet", "star", "asteroid", "other" };
     private readonly Dictionary<string, bool> _collapsed = new() { ["asteroid"] = true };
     private Tree _tree = null!;
+    private TabBar _tabs = null!;
     private LineEdit _search = null!;
     private Button _toggle = null!;
+    private Button _transponder = null!;
     private VBoxContainer _content = null!;
     private VBoxContainer _route = null!;
     private Label _routeTitle = null!;
@@ -35,6 +37,12 @@ public sealed partial class NavigationPanel : CanvasLayer
     private uint _selected;
     private string _roster = "";
     private bool _filtering;
+    public event Action<bool>? TransponderRequested;
+    public void UpdateTransponder(bool enabled, bool pending)
+    {
+        _transponder.SetPressedNoSignal(enabled); _transponder.Disabled = pending;
+        _transponder.Text = Locale.Text(enabled ? "transponder_on" : "transponder_off") + (pending ? "…" : "");
+    }
     public event Action<uint, bool>? ContactSelected;
     public event Action<int, int>? RouteEdited;
     public bool IsTyping => _search.HasFocus();
@@ -55,9 +63,16 @@ public sealed partial class NavigationPanel : CanvasLayer
         box.AddChild(_toggle);
         _content = new VBoxContainer(); box.AddChild(_content);
         _toggle.Toggled += open => { _toggle.Text=(open?"▾ ":"▸ ")+Locale.Text("navigation"); _content.Visible = open; panel.Size = new Vector2(400,0); };
+        _transponder = new Button { Name="TransponderToggle", ToggleMode=true, ButtonPressed=true, FocusMode=Control.FocusModeEnum.None };
+        _content.AddChild(_transponder); UpdateTransponder(true, false);
+        _transponder.Toggled += enabled => TransponderRequested?.Invoke(enabled);
+        _tabs = new TabBar { Name="NavigationTabs", FocusMode=Control.FocusModeEnum.None };
+        _tabs.AddTab(Locale.Text("navigation_ship")); _tabs.AddTab(Locale.Text("navigation_objects"));
+        _content.AddChild(_tabs);
         _search = new LineEdit { Name="NavigationSearch", PlaceholderText=Locale.Text("navigation_search"), MaxLength=64 };
         _content.AddChild(_search);
         _search.TextChanged += _ => Rebuild();
+        _tabs.TabChanged += _ => { _search.Text=""; _search.ReleaseFocus(); Rebuild(); };
         _search.GuiInput += e => { if(e is InputEventKey {Pressed:true,Keycode:Key.Escape or Key.Tab}) { _search.ReleaseFocus(); _search.AcceptEvent(); } };
         _tree = new Tree { Name="NavigationTree", Columns=2, HideRoot=true, SelectMode=Tree.SelectModeEnum.Row, AllowRmbSelect=true,
             FocusMode=Control.FocusModeEnum.None, CustomMinimumSize=new Vector2(0,260) };
@@ -103,7 +118,7 @@ public sealed partial class NavigationPanel : CanvasLayer
     }
 
     private void ResizeList() => _tree.CustomMinimumSize = new Vector2(0, Mathf.Clamp(GetViewport().GetVisibleRect().Size.Y * .36f, 120, 360));
-    private static string Group(string kind) => kind.ToLowerInvariant() switch { "player" or "npc" => "ship", "moon" => "planet", "star" or "planet" or "asteroid" or "station" => kind.ToLowerInvariant(), _ => "other" };
+    private static string Group(string kind) => kind.ToLowerInvariant() switch { "player" or "npc" or "ship" => "ship", "moon" => "planet", "star" or "planet" or "asteroid" or "station" => kind.ToLowerInvariant(), _ => "other" };
     public static string Distance(double metres)
     {
         metres = Math.Max(0,metres);
@@ -132,25 +147,35 @@ public sealed partial class NavigationPanel : CanvasLayer
             if(contact.Id==selected)row.Select(0);
         }
     }
-    public void RefreshLanguage() { _toggle.Text=(_toggle.ButtonPressed?"▾ ":"▸ ")+Locale.Text("navigation"); _search.PlaceholderText=Locale.Text("navigation_search"); Rebuild(); }
+    public void RefreshLanguage() { _toggle.Text=(_toggle.ButtonPressed?"▾ ":"▸ ")+Locale.Text("navigation"); _search.PlaceholderText=Locale.Text("navigation_search"); _tabs.SetTabTitle(0,Locale.Text("navigation_ship")); _tabs.SetTabTitle(1,Locale.Text("navigation_objects")); UpdateTransponder(_transponder.ButtonPressed,_transponder.Disabled); Rebuild(); }
     private void Rebuild()
     {
         var oldRoot=_tree.GetRoot();
-        if(oldRoot!=null&&!_filtering)for(var group=oldRoot.GetFirstChild();group!=null;group=group.GetNext())_collapsed[group.GetMetadata(0).AsString()]=group.Collapsed;
+        if(oldRoot!=null&&!_filtering)for(var group=oldRoot.GetFirstChild();group!=null;group=group.GetNext())
+            if(group.GetMetadata(0).VariantType==Variant.Type.String)_collapsed[group.GetMetadata(0).AsString()]=group.Collapsed;
         _filtering=_search.Text.Length>0;
         _tree.Clear(); _rows.Clear(); var root=_tree.CreateItem();
-        foreach(var kind in _groups)
+        if(_tabs.CurrentTab==0)
         {
+            foreach(var contact in _contacts.Where(c=>Group(c.Kind)=="ship"&&c.Name.Contains(_search.Text,StringComparison.OrdinalIgnoreCase)))
+                AddContact(root,contact);
+            return;
+        }
+        foreach(var kind in _groups.Where(kind=>kind!="ship"))
+        {
+            var matches=_contacts.Where(c=>Group(c.Kind)==kind&&c.Name.Contains(_search.Text,StringComparison.OrdinalIgnoreCase)).ToArray();
+            if(_search.Text.Length>0&&matches.Length==0)continue;
             var group=_tree.CreateItem(root); group.SetText(0,Locale.Text("navigation_"+kind)); group.SetMetadata(0,kind);
             group.SetSelectable(0,false); group.SetSelectable(1,false); group.Collapsed=_search.Text.Length==0&&_collapsed.GetValueOrDefault(kind);
-            foreach(var contact in _contacts.Where(c=>Group(c.Kind)==kind&&c.Name.Contains(_search.Text,StringComparison.OrdinalIgnoreCase)))
-            {
-                var row=_tree.CreateItem(group); row.SetText(0,contact.Name); row.SetText(1,Distance(contact.Distance));
-                row.SetTextAlignment(1,HorizontalAlignment.Right); row.SetMetadata(0,(long)contact.Id); row.SetTooltipText(0,contact.Name);
-                _rows[contact.Id]=row; if(contact.Id==_selected)row.Select(0);
-            }
+            foreach(var contact in matches)AddContact(group,contact);
         }
 
+    }
+    private void AddContact(TreeItem parent,NavigationContact contact)
+    {
+        var row=_tree.CreateItem(parent); row.SetText(0,contact.Name); row.SetText(1,Distance(contact.Distance));
+        row.SetTextAlignment(1,HorizontalAlignment.Right); row.SetMetadata(0,(long)contact.Id); row.SetTooltipText(0,contact.Name);
+        _rows[contact.Id]=row; if(contact.Id==_selected)row.Select(0);
     }
     private void Select(bool context)
     {

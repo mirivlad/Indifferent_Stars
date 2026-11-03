@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.World;
+using IndifferentStars.Shared.Protocol;
 
 namespace IndifferentStars.Client;
 
@@ -15,6 +16,7 @@ public sealed class TacticalContact
     public required Vec3d Position { get; init; }
     public required Color Color { get; init; }
     public bool IsPlayer { get; init; }
+    public ContactSource? Source { get; init; }
 }
 
 /// <summary>
@@ -49,6 +51,7 @@ public sealed partial class TacticalView : Control
     private Button _returnToShip = null!;
     public bool FollowingPlayer => _followPlayer;
     public List<Vec3d> RoutePoints { get; } = new();
+    public List<(Vec3d From,Vec3d To)> TrafficRoutes { get; } = new();
     public List<TacticalContact> Contacts { get; } = new();
 
     private readonly List<LabelItem> _labels = new(64);
@@ -107,6 +110,12 @@ public sealed partial class TacticalView : Control
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, destination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
         else if (ApproachTargetId != 0 && Contacts.Find(contact => contact.Id == ApproachTargetId) is { } movingDestination)
             DrawLine(Project(center, scale, PlayerPosition), Project(center, scale, movingDestination.Position), new Color(0.55f, 0.9f, 0.8f, 0.8f), 1.5f);
+        foreach (var route in TrafficRoutes)
+        {
+            var from=Project(center,scale,route.From); var to=Project(center,scale,route.To);
+            if(ClipLine(ref from,ref to,size))
+                DrawDashedLine(from,to,new Color(.8f,.55f,.2f,.2f),1,8);
+        }
         DrawContactLabels(center, scale, size);
         DrawPlayer(center, scale);
         DrawScale(scale, size);
@@ -387,6 +396,22 @@ public sealed partial class TacticalView : Control
         DrawAltitudeTick(screen, (float)(PlayerPosition.Y - body.Position.Y), color);
     }
 
+    private static bool ClipLine(ref Vector2 from,ref Vector2 to,Vector2 size)
+    {
+        var start=from; var delta=to-from; double enter=0,exit=1;
+        bool Axis(double position,double motion,double maximum)
+        {
+            if(Math.Abs(motion)<1e-12)return position>=0&&position<=maximum;
+            var a=-position/motion;var b=(maximum-position)/motion;
+            if(a>b)(a,b)=(b,a);
+            enter=Math.Max(enter,a);exit=Math.Min(exit,b);return enter<=exit;
+        }
+        if(!Axis(start.X,delta.X,size.X)||!Axis(start.Y,delta.Y,size.Y))return false;
+        from=new Vector2((float)Math.Clamp(start.X+delta.X*enter,0,size.X),(float)Math.Clamp(start.Y+delta.Y*enter,0,size.Y));
+        to=new Vector2((float)Math.Clamp(start.X+delta.X*exit,0,size.X),(float)Math.Clamp(start.Y+delta.Y*exit,0,size.Y));
+        return true;
+    }
+
     private void DrawContactLabels(Vector2 center, float scale, Vector2 size)
     {
         foreach (var contact in Contacts)
@@ -407,12 +432,14 @@ public sealed partial class TacticalView : Control
                 DrawLine(center, screen, new Color(0.45f, 1.0f, 0.65f, 0.22f), 1.0f);
             }
 
-            DrawColoredPolygon(new[]
+            if (contact.Source == ContactSource.Transponder) DrawArc(screen,6,0,Mathf.Tau,16,color,1.5f);
+            else if (contact.Source is ContactSource.LastKnown or ContactSource.Lost)
             {
-                screen + new Vector2(0, -7),
-                screen + new Vector2(6, 6),
-                screen + new Vector2(-6, 6),
-            }, color);
+                DrawLine(screen-new Vector2(5,5),screen+new Vector2(5,5),color,1.5f);
+                DrawLine(screen-new Vector2(5,-5),screen+new Vector2(5,-5),color,1.5f);
+            }
+            else if (contact.Source == ContactSource.DistantSignal) DrawRect(new Rect2(screen-new Vector2(5,5),new Vector2(10,10)),color,false,1.5f);
+            else DrawColoredPolygon(new[] {screen+new Vector2(0,-7),screen+new Vector2(6,6),screen+new Vector2(-6,6)},color);
 
             DrawLabel(contact.Name, screen + new Vector2(10, -8), color, 13, true);
             var distance = Vec3d.Distance(PlayerPosition, contact.Position) / 1000f;

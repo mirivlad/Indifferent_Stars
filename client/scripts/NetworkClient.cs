@@ -137,6 +137,8 @@ public sealed partial class NetworkClient : IDisposable
             switch (message)
             {
                 case HelloAcceptedMessage welcome:
+                    if(Welcome is null || State!=ConnectionState.Connected || welcome.PlayerId!=Welcome.PlayerId)
+                    { _transponderAckSequence=0; _pendingTransponder=null; TransponderEnabled=true; }
                     if(Welcome is null){_chatSeen.Clear();_chatOrder.Clear();_pendingChat.Clear();}
                     Welcome = welcome;
                     State = ConnectionState.Connected;
@@ -152,6 +154,11 @@ public sealed partial class NetworkClient : IDisposable
                     JoinRejected?.Invoke(rejected);
                     break;
 
+                case TransponderMessage transponder:
+                    if (transponder.Sequence < _transponderAckSequence) break;
+                    if (_pendingTransponder is { } pendingTransmitter && pendingTransmitter.Message.Sequence != transponder.Sequence) break;
+                    _pendingTransponder = null; _transponderAckSequence=transponder.Sequence; TransponderEnabled = transponder.Enabled;
+                    TransponderChanged?.Invoke(transponder.Enabled); break;
                 case SensorContactsMessage sensors:
                     SensorsReceived?.Invoke(sensors); break;
                 case SnapshotMessage snapshot:

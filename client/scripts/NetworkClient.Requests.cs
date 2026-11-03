@@ -18,6 +18,17 @@ public sealed partial class NetworkClient
         var request = new OrbitRequestMessage(_requestSequence++, targetId, altitude, retrograde);
         var now = NowSeconds(); _pendingOrbit = (request, now, now); Send(request);
     }
+    private uint _transponderAckSequence;
+    private (TransponderMessage Message, double Started, double Sent)? _pendingTransponder;
+    public bool TransponderEnabled { get; private set; } = true;
+    public bool IsTransponderPending => _pendingTransponder.HasValue;
+    public event Action<bool>? TransponderChanged;
+    public void RequestTransponder(bool enabled)
+    {
+        if (State != ConnectionState.Connected || IsTransponderPending) return;
+        var message = new TransponderMessage(_requestSequence++, enabled);
+        var now = NowSeconds(); _pendingTransponder = (message, now, now); Send(message);
+    }
     private double _lastPingSeconds;
     private (RouteRequestMessage Message, double Started, double Sent)? _pendingRoute;
     public event Action<RouteResultMessage>? RouteCompleted;
@@ -96,6 +107,15 @@ public sealed partial class NetworkClient
             return;
 
         var now = NowSeconds();
+        if (_pendingTransponder is { } transmitter)
+        {
+            if (now-transmitter.Started>3)
+            {
+                _pendingTransponder=null; TransponderChanged?.Invoke(TransponderEnabled);
+                TransportError?.Invoke(Locale.Text("transponder_timeout"));
+            }
+            else if(now-transmitter.Sent>.3) { _pendingTransponder=(transmitter.Message,transmitter.Started,now); Send(transmitter.Message); }
+        }
         if (_pendingOrbit is { } orbit)
         {
             if (now-orbit.Started>3) { _pendingOrbit=null; OrbitCompleted?.Invoke(new(orbit.Message.RequestId,orbit.Message.TargetId,OrbitError.Timeout)); }

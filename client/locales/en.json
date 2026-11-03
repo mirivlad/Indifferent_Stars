@@ -1,4 +1,19 @@
 {
+  "navigation_objects": "Objects",
+  "sensor_velocity_unknown": "Speed and direction unknown",
+  "sensor_velocity": "Known speed and direction",
+
+  "follow_close_first": "Approach within 150 km before enabling formation following.",
+  "radio_source_departed": "Source departed or contact lost · event {0:F0} s ago",
+  "radio_event_position": "Event location · {0:F0} s ago",
+  "radio_select_source": "Select known source contact",
+  "contact_coordinates_unreliable": "Coordinates are stale or approximate. This action needs a fresh accurate contact.",
+
+  "transponder_on": "Transponder: on",
+  "transponder_off": "Transponder: off",
+  "transponder_timeout": "Transponder change was not confirmed. Try again.",
+  "type_ship": "Ship",
+
   "sensor_tactical": "Tactical · transponder off",
   "sensor_transponder": "Transponder",
   "sensor_distantsignal": "Unknown signal",

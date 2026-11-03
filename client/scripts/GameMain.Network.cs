@@ -24,6 +24,7 @@ public sealed partial class GameMain
 
     private readonly Dictionary<uint, SensorContact> _sensorContacts = new();
     private ulong _sensorTick;
+    private double _serverTickSeconds = .05;
     private void OnSensors(SensorContactsMessage message)
     {
         if (message.Tick < _sensorTick) return;
@@ -31,7 +32,7 @@ public sealed partial class GameMain
         foreach (var contact in message.Contacts) _sensorContacts[contact.Id] = contact;
     }
     private ContactRef SensorRef(SensorContact contact, Vec3d player) => new(contact.Id,
-        contact.Name + " · " + SensorSource(contact.Source), "NPC", contact.Position, 8, true,
+        contact.Name + " · " + SensorSource(contact.Source), contact.Kind == EntityKind.Player ? "PLAYER" : contact.Kind == EntityKind.Npc ? "NPC" : "SHIP", contact.Position, 8, true,
         (float)Vec3d.Distance(player, contact.Position), (float)(contact.Position.Y-player.Y));
     private static string SensorSource(ContactSource source) => Locale.Text("sensor_"+source.ToString().ToLowerInvariant());
 
@@ -137,6 +138,7 @@ public sealed partial class GameMain
         _sensorContacts.Clear(); _sensorTick = 0;
         _playerId = welcome.PlayerId;
         _scanRange = welcome.ScanRange;
+        _serverTickSeconds = 1.0 / welcome.TickRate;
 
         if (_catalog.Seed != welcome.WorldSeed || _catalog.SystemIndex != welcome.SystemIndex)
             RebuildStaticWorld(welcome.WorldSeed,welcome.SystemIndex);
@@ -297,8 +299,27 @@ public sealed partial class GameMain
             _net?.RequestDock(_targetId, false);
     }
 
+    private bool RequireLiveContact()
+    {
+        if (_sensorContacts.TryGetValue(_targetId,out var sensor) &&
+            (sensor.Source is ContactSource.LastKnown or ContactSource.Lost or ContactSource.DistantSignal ||
+             _serverTick * _serverTickSeconds-sensor.ObservedAtMs/1000.0>3))
+        {
+            _hud.ShowToast(Locale.Text("contact_coordinates_unreliable")); return false;
+        }
+        return true;
+    }
     private void RequestApproach(bool follow = false)
     {
+        if (!RequireLiveContact()) return;
+        if (follow && FindContact(_targetId) is { Distance:>150_000 })
+        {
+            _hud.ShowToast(Locale.Text("follow_close_first")); return;
+        }
+        if (!follow && FindContact(_targetId) is { IsShip:true, Distance:>150_000 })
+        {
+            TrimCompletedRoute(); _routePoints.Clear(); _routePoints.Add(new NavigationPoint(_targetId)); SubmitRoute(true); return;
+        }
         if (_hasTarget)
             _net?.RequestApproach(_targetId, follow);
     }
@@ -311,6 +332,7 @@ public sealed partial class GameMain
 
     private void RequestScan()
     {
+        if (!RequireLiveContact()) return;
         if (_scanCooldown > 0 || _net?.IsScanPending == true)
             return;
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
@@ -332,6 +354,7 @@ public sealed partial class GameMain
 
     private void RequestWarp()
     {
+        if (!RequireLiveContact()) return;
         if (!_hasTarget || FindContact(_targetId) is not { } contact)
         {
             _hud.ShowToast(Locale.Text("choose_contact"), new Color(1f, 0.75f, 0.4f), 2.5f);
@@ -386,7 +409,7 @@ public sealed partial class GameMain
     {
         var player = PlayerPosition();
         foreach (var entry in _sensorContacts.ToArray())
-            if (_serverTick * .05 - entry.Value.ObservedAtMs / 1000.0 > 60) _sensorContacts.Remove(entry.Key);
+            if (_serverTick * _serverTickSeconds - entry.Value.ObservedAtMs / 1000.0 > 60) _sensorContacts.Remove(entry.Key);
         var contacts = new List<ContactRef>(_catalog.LocalBodies.Count + _remoteShips.Count);
         foreach (var body in _catalog.LocalBodies)
             contacts.Add(MakeContact(body, player));

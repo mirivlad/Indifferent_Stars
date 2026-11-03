@@ -22,6 +22,11 @@ public sealed partial class GameMain
     private void SetupNavigation()
     {
         _navigation = new NavigationPanel(); AddChild(_navigation);
+        _navigation.TransponderRequested += enabled =>
+        {
+            _net?.RequestTransponder(enabled);
+            _navigation.UpdateTransponder(_net?.TransponderEnabled ?? true, _net?.IsTransponderPending ?? false);
+        };
         _navigation.ContactSelected += (id, context) =>
         {
             _targetId=id; _hasTarget=true;
@@ -42,6 +47,7 @@ public sealed partial class GameMain
     private void ConnectNavigation()
     {
         if(_net is null)return;
+        _net.TransponderChanged += enabled => _navigation.UpdateTransponder(enabled, false);
         _net.OrbitCompleted += result =>
         {
             if (result.Accepted)
@@ -131,6 +137,7 @@ public sealed partial class GameMain
     }
     private void OpenNavigationDistance(bool orbit)
     {
+        if(!RequireLiveContact())return;
         if(_net?.State!=ConnectionState.Connected || _net.IsRoutePending || _net.IsOrbitPending || FindContact(_targetId) is not { } contact)return;
         var id=_targetId;
         var celestial=_catalog.FindCelestial((int)id);
@@ -143,6 +150,19 @@ public sealed partial class GameMain
                 if(orbit)_net.RequestOrbit(id,distance,retrograde);
                 else _net.RequestWarp(id,surfaceDistance:distance);
             });
+    }
+    private uint _radioSourceId;
+    private void OpenRadioSignal(uint sourceId, Vec3d position, DateTimeOffset reported)
+    {
+        _radioSourceId=sourceId; _mapDestination=position; ShowWaypointMenu();
+        var source=FindContact(sourceId);
+        var moved=source is null || Vec3d.Distance(source.Value.Position,position)>1000 ||
+            (_sensorContacts.TryGetValue(sourceId,out var sensor)&&sensor.Source is ContactSource.LastKnown or ContactSource.Lost);
+        _contactMenu.AddSeparator();
+        var age=Math.Max(0,(DateTimeOffset.UtcNow-reported).TotalSeconds);
+        _contactMenu.AddItem(Locale.Format(moved?"radio_source_departed":"radio_event_position",age),28);
+        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(28),true);
+        if(source is not null)_contactMenu.AddItem(Locale.Text("radio_select_source"),27);
     }
     private void ShowWaypointMenu()
     {
@@ -168,8 +188,8 @@ public sealed partial class GameMain
                 Locale.Text("npc_job_"+status.Occupation.ToString().ToLowerInvariant())+" · "+Locale.Text("npc_phase_"+status.Phase.ToString().ToLowerInvariant())+"\n"+
                 (_catalog.Find((int)status.TargetId)?.Name??_catalog.FindCelestial((int)status.TargetId)?.Name??"")+"\n":"")+
             (_sensorContacts.TryGetValue(_targetId,out var sensor) ?
-                SensorSource(sensor.Source)+" · "+Math.Max(0, _serverTick * .05 - sensor.ObservedAtMs/1000.0).ToString("F1")+" s\n"+
-                NavigationPanel.Distance(sensor.Velocity.Length)+"/s · "+sensor.Velocity.Normalized()+"\n"+
+                SensorSource(sensor.Source)+" · "+Math.Max(0, _serverTick * _serverTickSeconds - sensor.ObservedAtMs/1000.0).ToString("F1")+" s\n"+
+                (sensor.Kind==0 ? Locale.Text("sensor_velocity_unknown") : Locale.Text("sensor_velocity")+": "+NavigationPanel.Distance(sensor.Velocity.Length)+"/s · "+sensor.Velocity.Normalized())+"\n"+
                 (_catalog.Find((int)sensor.DestinationId)?.Name??"")+"\n" : "")+
             Locale.Text("information_sensors"));
     }
