@@ -200,6 +200,20 @@ public sealed partial class UdpGameServer : IDisposable
                 HandleScan(scanRequest, endpoint, now);
                 break;
 
+            case RouteRequestMessage route:
+                if (_sessionsByEndpoint.TryGetValue(endpoint, out var navigator))
+                {
+                    navigator.LastSeenSeconds = now;
+                    if (navigator.LastRouteResult is { } previous && route.RequestId <= previous.RequestId)
+                    {
+                        Send(endpoint, route.RequestId == previous.RequestId ? previous : new RouteResultMessage(route.RequestId, false));
+                        break;
+                    }
+                    var result = new RouteResultMessage(route.RequestId, _world.SetRoute(navigator.PlayerId, route));
+                    navigator.LastRouteResult = result;
+                    Send(endpoint, result);
+                }
+                break;
             case ApproachRequestMessage approach:
                 if (_sessionsByEndpoint.TryGetValue(endpoint, out var pilot))
                 {

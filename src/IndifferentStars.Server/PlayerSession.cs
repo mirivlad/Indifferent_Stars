@@ -14,6 +14,7 @@ public sealed class PlayerSession
     public required IPEndPoint Endpoint { get; set; }
     public required ShipState Ship { get; set; }
     public double LastSeenSeconds { get; set; }
+    public RouteResultMessage? LastRouteResult { get; set; }
     public uint LastInputSequence { get; set; }
     public uint? LastChatRequest { get; set; }
     public double LastChatAt { get; set; } = -100;

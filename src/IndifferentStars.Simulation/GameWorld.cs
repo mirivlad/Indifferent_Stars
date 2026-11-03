@@ -116,7 +116,10 @@ public sealed partial class GameWorld
             assistedShip.FlightAssist = input.FlightAssist;
         if (_players.TryGetValue(playerId, out var ship) &&
             (input.Throttle != 0 || input.Steer != 0 || input.Pitch != 0 || input.Vertical != 0 || input.Strafe != 0 || input.Roll != 0 || input.Brake || input.Cruise))
+        {
             ship.ApproachTargetId = 0;
+            ship.RouteActive = false;
+        }
         slot.AgeSeconds = 0;
     }
 
@@ -125,6 +128,7 @@ public sealed partial class GameWorld
         var ship = GetPlayer(playerId);
         if (ship is null || ship.Docked || ship.InWarp || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
             return false;
+        ship.RouteActive = false;
         ship.ApproachTargetId = ship.Id;
         ship.ApproachFollowing = false;
         ship.ApproachDestination = destination;
@@ -144,6 +148,7 @@ public sealed partial class GameWorld
         var away = (player.Position - targetPosition).Normalized();
         if (away.LengthSquared < 0.5)
             return false;
+        player.RouteActive = false;
         player.ApproachTargetId = targetId;
         player.ApproachFollowing = follow;
         player.DockingGranted = false;
@@ -163,6 +168,7 @@ public sealed partial class GameWorld
         player.ApproachFollowing = false;
         player.DockingPoint = station.Position + ModelPose.StationDockingOffset;
         player.ApproachDestination = player.DockingPoint;
+        player.RouteActive = false;
         player.ApproachTargetId = targetId;
         return true;
     }
@@ -307,7 +313,12 @@ public sealed partial class GameWorld
                 continue;
             }
             var input = slot.AgeSeconds <= InputTimeoutSeconds ? slot.Input : InputState.None;
-            if (ship.ApproachTargetId != 0)
+            if (ship.RouteActive)
+            {
+                input = StepRoute(ship, dt);
+                if (ship.InWarp) { warping.Add(ship.Id); continue; }
+            }
+            else if (ship.ApproachTargetId != 0)
             {
                 var targetShip = ship.ApproachFollowing
                     ? _players.GetValueOrDefault(ship.ApproachTargetId) ?? _npcs.FirstOrDefault(n => n.Id == ship.ApproachTargetId)
@@ -381,7 +392,7 @@ public sealed partial class GameWorld
     }
 
     private bool CanCruise(ShipState ship) =>
-        !ship.Docked && ship.ApproachTargetId == 0 &&
+        !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive) &&
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
         _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
         _npcs.All(other => CruiseClearOf(ship, other.Position, 20)) &&
@@ -510,7 +521,8 @@ public sealed partial class GameWorld
         ship.WarpStage,
         ship.WarpProgress,
         ship.InWarp ? ship.WarpDestination : null,
-        !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null);
+        !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null,
+        ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting);
 
     private static string DescribeVessel(ShipState npc, string language)
     {

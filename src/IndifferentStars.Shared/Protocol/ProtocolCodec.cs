@@ -127,6 +127,7 @@ public static class ProtocolCodec
                         writer.Write(impact.Sequence); WriteVec3(writer, impact.Point); WriteVec3(writer, impact.Normal);
                         writer.Write(impact.NormalSpeed); writer.Write(impact.TangentialSpeed);
                     }
+                    writer.Write(entity.RouteRevision); writer.Write(entity.RouteIndex); writer.Write(entity.RouteActive); writer.Write(entity.Boosting);
                 }
                 break;
 
@@ -192,6 +193,17 @@ public static class ProtocolCodec
                 WriteString(writer, disconnect.Reason, ProtocolConstants.MaxStringBytes);
                 break;
 
+            case RouteRequestMessage route:
+                if (route.Points.Length > RouteRequestMessage.MaxPoints) throw new ArgumentException("Too many route points.");
+                writer.Write(route.RequestId); writer.Write(route.Enabled); writer.Write((byte)route.Points.Length);
+                foreach (var stop in route.Points)
+                {
+                    writer.Write(stop.TargetId); writer.Write(stop.Position.HasValue);
+                    if (stop.Position is { } position) WriteVec3(writer, position);
+                }
+                break;
+            case RouteResultMessage routeResult:
+                writer.Write(routeResult.RequestId); writer.Write(routeResult.Accepted); break;
             case ApproachRequestMessage approach:
                 writer.Write(approach.TargetId);
                 writer.Write(approach.Follow);
@@ -364,6 +376,8 @@ public static class ProtocolCodec
                 MessageType.Disconnect => new DisconnectMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
 
+                MessageType.RouteRequest => ReadRoute(reader),
+                MessageType.RouteResult => new RouteResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.ApproachRequest => new ApproachRequestMessage(reader.ReadUInt32(), reader.ReadBoolean(), ReadOptionalVec3(reader)),
                 MessageType.ApproachResult => new ApproachResultMessage(reader.ReadUInt32(), reader.ReadBoolean()),
                 MessageType.DockRequest => new DockRequestMessage(reader.ReadUInt32(), reader.ReadBoolean()),
@@ -463,7 +477,11 @@ public static class ProtocolCodec
                 ReadWarpStage(reader),
                 ReadProgress(reader),
                 ReadOptionalVec3(reader),
-                ReadImpact(reader));
+                ReadImpact(reader),
+                reader.ReadUInt32(),
+                ReadRouteIndex(reader),
+                reader.ReadBoolean(),
+                reader.ReadBoolean());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
@@ -480,6 +498,22 @@ public static class ProtocolCodec
         if(!RadioChannels.BuiltIn(line.ChannelId)||line.SenderId==0||line.Timestamp<0||line.Timestamp>253402300799999||!RadioChannels.ValidText(line.Text))
             throw new InvalidDataException("Invalid chat line.");
         return line;
+    }
+
+    private static byte ReadRouteIndex(BinaryReader reader)
+    {
+        var index = reader.ReadByte();
+        if (index > RouteRequestMessage.MaxPoints) throw new InvalidDataException("Invalid route index.");
+        return index;
+    }
+
+    private static RouteRequestMessage ReadRoute(BinaryReader reader)
+    {
+        var id = reader.ReadUInt32(); var enabled = reader.ReadBoolean(); var count = reader.ReadByte();
+        if (count > RouteRequestMessage.MaxPoints) throw new InvalidDataException("Too many route points.");
+        var points = new NavigationPoint[count];
+        for (var i = 0; i < count; i++) points[i] = new NavigationPoint(reader.ReadUInt32(), ReadOptionalVec3(reader));
+        return new RouteRequestMessage(id, points, enabled);
     }
 
     private static ImpactState? ReadImpact(BinaryReader reader)

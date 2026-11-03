@@ -92,6 +92,21 @@ public sealed partial class ServerIntegrationTests
                 entity => entity.Id == welcome!.PlayerId && entity.ApproachPoint is { } point && point.Equals(destination))));
             Send(pilot, new ApproachRequestMessage(0, Waypoint: new IndifferentStars.Shared.Vec3d(double.NaN, 0, 0)));
             Assert.False(WaitFor<ApproachResultMessage>(pilot, message => message.TargetId == 0)?.Accepted);
+            var route = new RouteRequestMessage(100,new[]{new NavigationPoint(0,destination),new NavigationPoint((uint)catalog.Star.Id)},false);
+            Send(pilot,route);
+            Assert.True(WaitFor<RouteResultMessage>(pilot,r=>r.RequestId==100)?.Accepted);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer,m=>m.Entities.Any(e=>e.Id==welcome.PlayerId&&e.RouteRevision==100&&!e.RouteActive)));
+            Send(pilot,route with { RequestId=101,Enabled=true });
+            Assert.True(WaitFor<RouteResultMessage>(pilot,r=>r.RequestId==101)?.Accepted);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer,m=>m.Entities.Any(e=>e.Id==welcome.PlayerId&&e.RouteRevision==101&&e.RouteActive)));
+            Send(pilot,route with { RequestId=101,Enabled=true });
+            Assert.True(WaitFor<RouteResultMessage>(pilot,r=>r.RequestId==101)?.Accepted);
+            Send(pilot,route);
+            Assert.False(WaitFor<RouteResultMessage>(pilot,r=>r.RequestId==100)?.Accepted);
+            Send(pilot,route with { RequestId=102,Enabled=false });
+            Assert.True(WaitFor<RouteResultMessage>(pilot,r=>r.RequestId==102)?.Accepted);
+            Assert.NotNull(WaitFor<SnapshotMessage>(observer,m=>m.Entities.Any(e=>e.Id==welcome.PlayerId&&e.RouteRevision==102&&!e.RouteActive)));
+
         }
         finally
         {

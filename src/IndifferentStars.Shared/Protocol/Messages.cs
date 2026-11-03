@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 15;
+    public const byte Version = 16;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -47,6 +47,8 @@ public enum MessageType : byte
     ChatLine = 24,
     ChatAck = 25,
     ChatRejected = 26,
+    RouteRequest = 27,
+    RouteResult = 28,
 }
 
 public enum EntityKind : byte
@@ -130,7 +132,11 @@ public sealed record EntitySnapshot(
     WarpStage WarpStage = WarpStage.None,
     float WarpProgress = 0,
     Vec3d? WarpDestination = null,
-    ImpactState? Impact = null)
+    ImpactState? Impact = null,
+    uint RouteRevision = 0,
+    byte RouteIndex = 0,
+    bool RouteActive = false,
+    bool Boosting = false)
 {
 }
 
@@ -271,4 +277,15 @@ public static class WarpFlight
     public const double ChargeSeconds = 2;
     public const double TravelSeconds = 4;
     public const double ExitSeconds = 1;
+}
+
+public sealed record NavigationPoint(uint TargetId, Vec3d? Position = null);
+public sealed record RouteRequestMessage(uint RequestId, NavigationPoint[] Points, bool Enabled) : IProtocolMessage
+{
+    public MessageType Type => MessageType.RouteRequest;
+    public const int MaxPoints = 24;
+}
+public sealed record RouteResultMessage(uint RequestId, bool Accepted) : IProtocolMessage
+{
+    public MessageType Type => MessageType.RouteResult;
 }

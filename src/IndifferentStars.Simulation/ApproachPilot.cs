@@ -8,12 +8,12 @@ namespace IndifferentStars.Simulation;
 /// <summary>Generates ordinary flight inputs towards a stationary arrival point.</summary>
 public static class ApproachPilot
 {
-    public static InputState Steer(ShipState ship, Vec3d destination, Vec3d targetVelocity = default)
+    public static InputState Steer(ShipState ship, Vec3d destination, Vec3d targetVelocity = default, double maxSpeed = WorldCatalog.MaxSpeed * 0.65)
     {
         var offset = destination - ship.Position;
         var distance = offset.Length;
         var direction = offset.Normalized();
-        var desiredSpeed = Math.Min(WorldCatalog.MaxSpeed * 0.65, Math.Sqrt(2 * FlightModel.VerticalAcceleration * distance) * 0.55);
+        var desiredSpeed = Math.Min(maxSpeed, Math.Sqrt(2 * FlightModel.VerticalAcceleration * distance) * 0.55);
         var desiredAcceleration = (targetVelocity + direction * desiredSpeed - ship.Velocity) * 0.8;
         var f = Vector3.Transform(-Vector3.UnitZ, ship.Orientation);
         var r = Vector3.Transform(Vector3.UnitX, ship.Orientation);

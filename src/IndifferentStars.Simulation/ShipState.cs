@@ -60,6 +60,13 @@ public sealed class ShipState
     public Quaternion WarpInitialOrientation { get; set; }
     public Quaternion WarpOrientation { get; set; }
     public bool InWarp => WarpStage != WarpStage.None;
+    public NavigationPoint[] NavigationRoute { get; set; } = Array.Empty<NavigationPoint>();
+    public uint RouteRevision { get; set; }
+    public byte RouteIndex { get; set; }
+    public bool RouteActive { get; set; }
+    public bool RouteWarping { get; set; }
+    public bool RouteAdvanceAfterWarp { get; set; }
+    public double RouteCruiseSeconds { get; set; }
     public NpcRoute? Route { get; set; }
 
     public Vec3d Forward

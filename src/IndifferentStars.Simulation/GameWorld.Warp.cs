@@ -13,7 +13,7 @@ public sealed partial class GameWorld
     public static WarpResultMessage StaleWarp(uint requestId, uint targetId) => new(requestId, targetId, false,
         ServerText.Get("en", "warp_stale"), Vec3d.Zero, 0, 0, ServerText.Get("ru", "warp_stale"));
 
-    public WarpOutcome Warp(uint playerId, uint targetId, Vec3d? destination = null)
+    public WarpOutcome Warp(uint playerId, uint targetId, Vec3d? destination = null, bool fromRoute = false)
     {
         var player = GetPlayer(playerId);
         if (player is null) return WarpFail(targetId, "unknown_ship");
@@ -70,6 +70,7 @@ public sealed partial class GameWorld
             return WarpFail(targetId, "warp_blocked");
         var directionToArrival = (arrival - player.Position).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(directionToArrival);
+        if (!fromRoute) player.RouteActive = false;
         player.WarpStart = player.Position;
         player.WarpDestination = arrival;
         player.WarpInitialOrientation = player.Orientation;
