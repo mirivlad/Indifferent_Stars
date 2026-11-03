@@ -1,0 +1,180 @@
+{
+  "baseline_50s": {
+    "ticks": 1000,
+    "npcs": 13,
+    "bodies": 758,
+    "p50": 2.061,
+    "p95": 4.5719,
+    "max": 32.8976,
+    "events": 13
+  },
+  "candidate_50s": {
+    "seed": 20261101,
+    "system": 0,
+    "ticks": 1000,
+    "npcs": 19,
+    "bodies": 758,
+    "activity": 1,
+    "mean": 2.3982669000000003,
+    "p50": 2.0217,
+    "p95": 5.2468,
+    "max": 36.9058,
+    "route_ms_per_tick": 0.07266839999999822,
+    "safety_ms_per_tick": 0.040913000000000005,
+    "collision_ms_per_tick": 2.2374508000000004,
+    "static_ms_per_tick": 2.0278745000000007,
+    "dynamic_ms_per_tick": 0.20726160000000013,
+    "near_mean": 6,
+    "near_max": 6,
+    "departures": 8,
+    "arrivals": 0,
+    "extraction": 0,
+    "deliveries": 0,
+    "phases": {
+      "Docking": 10,
+      "Travelling": 8,
+      "Loading": 1
+    }
+  },
+  "candidate_10min": {
+    "seed": 20261101,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 19,
+    "bodies": 758,
+    "activity": 1,
+    "mean": 8.402234024999983,
+    "p50": 2.7843,
+    "p95": 21.8612,
+    "max": 267.9875,
+    "route_ms_per_tick": 0.4858183666669039,
+    "safety_ms_per_tick": 0.34946673333333245,
+    "collision_ms_per_tick": 7.702921516666675,
+    "static_ms_per_tick": 7.305855225000003,
+    "dynamic_ms_per_tick": 0.3963392916666644,
+    "near_mean": 4.3589166666666666,
+    "near_max": 6,
+    "departures": 132,
+    "arrivals": 41,
+    "extraction": 5,
+    "deliveries": 41,
+    "phases": {
+      "Unloading": 2,
+      "Travelling": 14,
+      "Docking": 1,
+      "Disabled": 2
+    }
+  },
+  "dense_100s": {
+    "seed": 20261101,
+    "system": 7,
+    "ticks": 2000,
+    "npcs": 39,
+    "bodies": 839,
+    "activity": 3,
+    "mean": 4.7238082499999985,
+    "p50": 4.2785,
+    "p95": 6.2121,
+    "max": 55.9575,
+    "route_ms_per_tick": 0.40747864999994254,
+    "safety_ms_per_tick": 0.3184530000000011,
+    "collision_ms_per_tick": 4.068829499999998,
+    "static_ms_per_tick": 3.197495500000001,
+    "dynamic_ms_per_tick": 0.8698707500000001,
+    "near_mean": 10,
+    "near_max": 10,
+    "departures": 36,
+    "arrivals": 0,
+    "extraction": 0,
+    "deliveries": 0,
+    "phases": {
+      "Docking": 15,
+      "Travelling": 21,
+      "Working": 3
+    }
+  },
+  "census": [
+    {
+      "system": 0,
+      "npcs": 19,
+      "activity": 1,
+      "bodies": 758
+    },
+    {
+      "system": 1,
+      "npcs": 31,
+      "activity": 2,
+      "bodies": 867
+    },
+    {
+      "system": 2,
+      "npcs": 35,
+      "activity": 3,
+      "bodies": 773
+    },
+    {
+      "system": 3,
+      "npcs": 31,
+      "activity": 3,
+      "bodies": 936
+    },
+    {
+      "system": 4,
+      "npcs": 20,
+      "activity": 2,
+      "bodies": 871
+    },
+    {
+      "system": 5,
+      "npcs": 25,
+      "activity": 3,
+      "bodies": 899
+    },
+    {
+      "system": 6,
+      "npcs": 15,
+      "activity": 1,
+      "bodies": 858
+    },
+    {
+      "system": 7,
+      "npcs": 39,
+      "activity": 3,
+      "bodies": 839
+    },
+    {
+      "system": 8,
+      "npcs": 24,
+      "activity": 2,
+      "bodies": 827
+    },
+    {
+      "system": 9,
+      "npcs": 20,
+      "activity": 2,
+      "bodies": 947
+    },
+    {
+      "system": 10,
+      "npcs": 35,
+      "activity": 3,
+      "bodies": 878
+    },
+    {
+      "system": 11,
+      "npcs": 27,
+      "activity": 1,
+      "bodies": 826
+    }
+  ],
+  "conditions": {
+    "cpu": "Intel Xeon E5-2680 v4 @ 2.40GHz",
+    "os": "Linux x86_64",
+    "sdk": ".NET 10",
+    "build": "Debug",
+    "seed": 20261101,
+    "tick_seconds": 0.05,
+    "network_players": 0,
+    "timing": "Stopwatch around GameWorld.Tick; JIT/GC/scheduling included; runs have different NPC populations and durations"
+  }
+}

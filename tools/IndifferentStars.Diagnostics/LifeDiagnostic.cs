@@ -16,6 +16,7 @@ public static class LifeDiagnostic
         {
             var start=Stopwatch.GetTimestamp();world.Tick(.05);times.Add(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
             near.Add(world.Npcs.Count(n=>!n.InWarp&&Vec3d.Distance(n.Position,world.Catalog.Station.Position)<150000));
+            if (i%2000==1999) Console.Error.WriteLine($"life progress: tick={i+1}, time={world.TimeSeconds:F0}s, deliveries={world.Npcs.Sum(n=>n.Work!.Deliveries)}");
             while(world.TryTakeActivity(out var activity))
             {if(activity.Kind=="departure")departures++;if(activity.Kind=="arrival")arrivals++;if(activity.Kind=="extraction")extraction++;}
         }
