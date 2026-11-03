@@ -52,8 +52,8 @@ rg 'WARP FRAME TELEMETRY|WARP CHECKS PASSED' "$CHECK_DIR/WarpChecks.log"
 IS_CAMERA_CAPTURE="$CHECK_DIR/camera" timeout 80 "$GODOT" --path client res://tests/CameraChecks.tscn --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/CameraChecks.log" 2>&1
 check_log "$CHECK_DIR/CameraChecks.log"
 rg 'CAMERA CHECKS PASSED' "$CHECK_DIR/CameraChecks.log"
-for scene in ImpactChecks ScanRecoveryChecks; do
-    IS_IMPACT_CAPTURE="$CHECK_DIR/impacts" timeout 45 "$GODOT" --path client "res://tests/$scene.tscn" --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/$scene.log" 2>&1
+for scene in ImpactChecks ScanRecoveryChecks RadioChecks; do
+    IS_IMPACT_CAPTURE="$CHECK_DIR/impacts" IS_RADIO_CAPTURE="$CHECK_DIR/radio" timeout 45 "$GODOT" --path client "res://tests/$scene.tscn" --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/$scene.log" 2>&1
     check_log "$CHECK_DIR/$scene.log"
     rg 'CHECKS PASSED' "$CHECK_DIR/$scene.log"
 done
