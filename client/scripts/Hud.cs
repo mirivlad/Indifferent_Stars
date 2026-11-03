@@ -144,7 +144,7 @@ public sealed partial class Hud : CanvasLayer
         _reticle.QueueRedraw();
     }
 
-    public void SetTelemetry(float speed, float throttle, float altitude, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following, bool cruising, bool cruiseRequested, bool cruiseBraking)
+    public void SetTelemetry(float speed, float throttle, string surfaceInfo, bool boosting, float warpCooldown, float scanRangeKm, bool autopilot, bool assist, bool following, bool cruising, bool cruiseRequested, bool cruiseBraking)
     {
         _speedLabel.Text = $"{speed,5:F0} m/s";
         _speedLabel.AddThemeColorOverride("font_color", boosting ? Warm : Cyan);
@@ -153,7 +153,7 @@ public sealed partial class Hud : CanvasLayer
         var warp = warpCooldown <= 0 ? Locale.Text("ready") : $"{warpCooldown:F1}s";
         var auto = following ? Locale.Text("following") : autopilot ? Locale.Text("cockpit_autopilot") : Locale.Text("off");
         _telemetryLabel.Text =
-            Locale.Format("telemetry_throttle", throttle >= 0 ? "+" : "", throttle * 100, altitude >= 0 ? "+" : "", altitude) + "\n" +
+            Locale.Format("telemetry_throttle", throttle >= 0 ? "+" : "", throttle * 100)+"\n"+surfaceInfo + "\n" +
             Locale.Format("telemetry_status", scanRangeKm, warp, auto, assist ? Locale.Text("cockpit_assist") : Locale.Text("off"));
         _warpLabel.Text = cruiseBraking ? Locale.Text("cruise_braking") : cruising ? Locale.Text("cruise_active") : cruiseRequested ? Locale.Text("cruise_pending") : boosting ? Locale.Text("boost_short") : "";
     }

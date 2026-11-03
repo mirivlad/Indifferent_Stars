@@ -52,7 +52,7 @@ public sealed partial class VesperVisualChecks : Node3D
                     await Pause(.2);await Capture(shot.Item1+"_ship");
                     var previous=camera.Transform;
                     var cockpit=new CockpitView();ship.AddChild(cockpit);ship.SetExternalModelVisible(false);
-                    cockpit.UpdateInstruments(0,0,false,"Vesper",(float)(shot.Item2-catalog.Star.Radius),0,true,false,false,false);
+                    cockpit.UpdateInstruments(0,0,false,"Vesper",(float)(shot.Item2-catalog.Star.Radius),"Vesper",shot.Item2-catalog.Star.Radius,true,false,false,false);
                     camera.GlobalTransform=new Transform3D(ship.GlobalBasis,ship.GlobalPosition+ship.GlobalBasis*CockpitView.EyePosition);
                     builder.Process(0,observer,observer);SetTime(star,12);await Pause(.2);await Capture(shot.Item1+"_cockpit");
                     camera.Transform=previous;ship.QueueFree();builder.Process(0,observer,observer);SetTime(star,12);await Pause(.1);

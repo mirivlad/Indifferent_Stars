@@ -152,7 +152,8 @@ public sealed partial class CockpitView : Node3D
         bool docked,
         string? targetName,
         float rangeMeters,
-        float relativeAltitude,
+        string nearestBodyName,
+        double nearestSurfaceDistance,
         bool hasTarget,
         bool assist,
         bool autopilot,
@@ -173,15 +174,15 @@ public sealed partial class CockpitView : Node3D
         else if (following) mode = Locale.Text("following");
         else if (autopilot) mode = Locale.Text("cockpit_autopilot");
         else mode = Locale.Text("cockpit_cruise");
-        _centerScreen.Text = Locale.Format("cockpit_status", mode,
-            assist ? Locale.Text("cockpit_assist") : "");
+        _centerScreen.FontSize=22;
+        _centerScreen.Text=mode+(assist?" · "+Locale.Text("cockpit_assist"):"")+"\n"+
+            Locale.Format("surface_clearance_compact",nearestBodyName,NavigationPanel.Distance(nearestSurfaceDistance));
 
         if (hasTarget && !string.IsNullOrEmpty(targetName))
         {
-            var sign = relativeAltitude >= 0 ? "+" : "";
             _rightScreen.Text =
                 Locale.Format("cockpit_target", targetName.ToUpperInvariant()) + "\n" +
-                Locale.Format("cockpit_range", rangeMeters / 1000f, sign, relativeAltitude);
+                Locale.Text("range")+" "+NavigationPanel.Distance(rangeMeters);
         }
         else
         {

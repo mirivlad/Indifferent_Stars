@@ -49,9 +49,9 @@
   "server_start_hint":"Start the server with:\n  tools/run-server.sh\n\nThen the client reconnects automatically.",
   "system_line":"{0}\nSEED {1}   SHIP #{2}", "tab_hint":"TAB cycles nearby contacts",
   "scan_hint":"PRESS {0} TO SCAN   •   {1} WARP",
-  "telemetry_throttle":"THROTTLE {0}{1:F0}%    ALT {2}{3:F0} m",
+  "telemetry_throttle":"THROTTLE {0}{1:F0}%",
   "telemetry_status":"SCAN {0:F1} km  WARP {1}  AUTO {2}  ASSIST {3}",
-  "target_range_line":"{0}\nRANGE {1:F2} km    ALT {2}{3:F0} m",
+  "target_range_line":"{0}\nRANGE {1:F2} km",
   "station_docked":"{0} — DOCKED",
   "trade_title":"TRADE", "trade_credits":"CREDITS: {0}", "trade_cargo":"CARGO: {0}/{1}",
   "trade_stock":"STOCK", "trade_you":"ABOARD", "trade_buy":"Buy", "trade_sell":"Sell",
@@ -132,5 +132,8 @@
   "information_sensors": "Sensor data. Scan for a detailed report.",
   "close": "Close",
   "notifications_sender": "System",
-  "distance_million_km": "{0:F2} million km"
+  "distance_million_km": "{0:F2} million km",
+  "surface_clearance": "SURFACE {0}: {1}",
+  "surface_clearance_compact": "{0}\nSURFACE {1}",
+  "relative_vertical": "Relative coordinate ΔY"
 }

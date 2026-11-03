@@ -737,7 +737,6 @@ public sealed partial class GameMain : Node3D
         var velocity = _playerShip?.Track.Velocity ?? Vector3.Zero;
         _tactical.PlayerVelocity = new Vec3d(velocity.X, velocity.Y, velocity.Z);
         _tactical.PlayerYaw = _playerShip?.Track.Yaw ?? 0;
-        _tactical.PlayerAltitude = (float)playerPosition.Y;
         _tactical.PlayerId = _playerId;
         _tactical.TargetId = _targetId;
         _tactical.HasTarget = _hasTarget;
@@ -817,7 +816,8 @@ public sealed partial class GameMain : Node3D
     {
         var speed = 0f;
         var throttle = 0f;
-        var altitude = 0f;
+        var nearest=SurfaceNavigation.Nearest(_catalog,_catalog.LocalFrameOrigin+(_playerShip?.Track.WorldPosition??Vec3d.Zero));
+        var surfaceInfo=Locale.Format("surface_clearance",nearest.Body.Name,NavigationPanel.Distance(nearest.DistanceMetres));
         var docked = false;
         var assist = false;
         var autopilot = false;
@@ -828,12 +828,11 @@ public sealed partial class GameMain : Node3D
             var track = _playerShip.Track;
             speed = track.Velocity.Length();
             throttle = track.Throttle;
-            altitude = track.Position.Y;
             docked = track.Docked;
             assist = track.FlightAssist;
             autopilot = track.ApproachTargetId != 0;
             following = track.ApproachFollowing;
-            _hud.SetTelemetry(speed, throttle, altitude, _playerShip.Boosting, 0, _scanRange / 1000f,
+            _hud.SetTelemetry(speed, throttle, surfaceInfo, _playerShip.Boosting, 0, _scanRange / 1000f,
                 autopilot, assist, following, track.Cruising, _cruise, track.CruiseBraking);
         }
 
@@ -864,7 +863,7 @@ public sealed partial class GameMain : Node3D
                 _cockpit.UpdateFlight(_playerShip.GlobalBasis.Inverse() * _playerShip.Track.Velocity,
                     _playerShip.GlobalBasis.GetEuler(), _input.Brake, _input.Boost, _playerShip.Track.WarpStage != WarpStage.None);
             _cockpit.UpdateInstruments(speed, throttle, docked,
-                contact?.Name, contact?.Distance ?? 0, contact?.RelativeAltitude ?? 0,
+                contact?.Name, contact?.Distance ?? 0, nearest.Body.Name, nearest.DistanceMetres,
                 contact is not null, assist, autopilot, following, _playerShip?.Track.WarpStage ?? WarpStage.None);
         }
     }

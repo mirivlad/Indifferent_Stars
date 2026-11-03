@@ -120,7 +120,7 @@ public sealed partial class GameMain
         _navigation.ShowInformation(contact.Name,
             Locale.Text("type_"+contact.Type.ToLowerInvariant())+"\n"+
             Locale.Text("distance_label")+": "+NavigationPanel.Distance(contact.Distance)+"\n"+
-            Locale.Text("altitude")+": "+(contact.RelativeAltitude<0?"−":"+")+NavigationPanel.Distance(Math.Abs(contact.RelativeAltitude))+"\n"+
+            Locale.Text("relative_vertical")+": "+(contact.RelativeAltitude<0?"−":"+")+NavigationPanel.Distance(Math.Abs(contact.RelativeAltitude))+"\n"+
             Locale.Text("information_sensors"));
     }
 }

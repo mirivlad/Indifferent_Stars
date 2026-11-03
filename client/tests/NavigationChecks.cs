@@ -48,7 +48,7 @@ public sealed partial class NavigationChecks : Node3D
             camera.Position = ship.Position + ship.Basis * new Vector3(1, 9, 34);
             camera.LookAt(ship.Position - ship.Basis.Z * 12, ship.Basis.Y);
             var layer = new CanvasLayer(); AddChild(layer);
-            var map = new TacticalView { Catalog = catalog, PlayerId = 10000, PlayerPosition = position, PlayerAltitude = (float)y };
+            var map = new TacticalView { Catalog = catalog, PlayerId = 10000, PlayerPosition = position };
             layer.AddChild(map); map.Visible = true;
             await Pause(0.15);
             var starLocal = catalog.Star.SystemPosition - catalog.LocalFrameOrigin;
@@ -70,7 +70,7 @@ public sealed partial class NavigationChecks : Node3D
             camera.GlobalTransform = new Transform3D(ship.Basis, ship.Position + ship.Basis * CockpitView.EyePosition);
             camera.Fov = 78; camera.Near = 0.05f;
             Check(cockpit.IsVisibleInTree(), "Cockpit must remain visible after rebasing this distant position.");
-            cockpit.UpdateInstruments(0, 0, false, catalog.Planet.Name, (float)navigation.DistanceMetres, (float)-height, true, false, false, false);
+            cockpit.UpdateInstruments(0, 0, false, catalog.Planet.Name, (float)navigation.DistanceMetres, catalog.Planet.Name, navigation.DistanceMetres, true, false, false, false);
             await Capture("05_same_position_cockpit");
             GD.Print("Navigation checks passed: reported position, ring radius, selectable bearing panel, local/AU scale, cockpit after rebase.");
             GetTree().Quit();

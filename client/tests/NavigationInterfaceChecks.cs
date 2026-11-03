@@ -31,6 +31,8 @@ public sealed partial class NavigationInterfaceChecks : Node
             var radio=game.GetNode<RadioChat>("RadioChat");
             var tabs=(TabBar)radio.FindChild("RadioTabs",true,false);var log=(RichTextLabel)radio.FindChild("RadioHistory",true,false);
             await Pause(.5);
+            var telemetry=Field<Label>(Field<Hud>(game,"_hud"),"_telemetryLabel").Text;
+            Check(telemetry.Contains("ДО ПОВЕРХНОСТИ")&&!telemetry.Contains("ВЫСОТА"),"HUD must show nearest celestial surface clearance instead of frame Y.");
             Check(tree.GetRoot().GetChildCount()==6,"Six groups required.");
             var sortPanel=new NavigationPanel {Visible=false};AddChild(sortPanel);
             var sortTree=(Tree)sortPanel.FindChild("NavigationTree",true,false);

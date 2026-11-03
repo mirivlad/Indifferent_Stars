@@ -49,9 +49,9 @@
   "server_start_hint":"Запустите сервер командой:\n  tools/run-server.sh\n\nКлиент подключится автоматически.",
   "system_line":"{0}\nЗЕРНО {1}   КОРАБЛЬ #{2}", "tab_hint":"TAB переключает ближайшие контакты",
   "scan_hint":"{0} — СКАНИРОВАТЬ   •   {1} — ВАРП",
-  "telemetry_throttle":"ТЯГА {0}{1:F0}%    ВЫСОТА {2}{3:F0} м",
+  "telemetry_throttle":"ТЯГА {0}{1:F0}%",
   "telemetry_status":"СКАНЕР {0:F1} км  ВАРП {1}  АВТО {2}  СТАБ {3}",
-  "target_range_line":"{0}\nДИСТАНЦИЯ {1:F2} км    ВЫСОТА {2}{3:F0} м",
+  "target_range_line":"{0}\nДИСТАНЦИЯ {1:F2} км",
   "station_docked":"{0} — СТЫКОВКА",
   "trade_title":"ТОРГОВЛЯ", "trade_credits":"КРЕДИТЫ: {0}", "trade_cargo":"ТРЮМ: {0}/{1}",
   "trade_stock":"СКЛАД", "trade_you":"НА БОРТУ", "trade_buy":"Купить", "trade_sell":"Продать",
@@ -132,5 +132,8 @@
   "information_sensors": "Данные сенсоров. Для подробного отчёта используйте сканирование.",
   "close": "Закрыть",
   "notifications_sender": "Система",
-  "distance_million_km": "{0:F2} млн км"
+  "distance_million_km": "{0:F2} млн км",
+  "surface_clearance": "ДО ПОВЕРХНОСТИ {0}: {1}",
+  "surface_clearance_compact": "{0}\nПОВЕРХНОСТЬ {1}",
+  "relative_vertical": "Относительная координата ΔY"
 }

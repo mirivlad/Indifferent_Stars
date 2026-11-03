@@ -33,7 +33,6 @@ public sealed partial class TacticalView : Control
     public Vec3d PlayerPosition { get; set; }
     public Vec3d PlayerVelocity { get; set; }
     public float PlayerYaw { get; set; }
-    public float PlayerAltitude { get; set; }
     public uint PlayerId { get; set; }
     public uint TargetId { get; set; }
     public bool HasTarget { get; set; }
@@ -395,7 +394,11 @@ public sealed partial class TacticalView : Control
         DrawLine(center - right * 30, center - right * 40, new Color(PlayerColor.R, PlayerColor.G, PlayerColor.B, 0.3f), 1.0f);
 
         DrawLabel(Locale.Text("you"), center + new Vector2(0, 26), PlayerColor, 12);
-        DrawLabel($"{Locale.Text("altitude")} {(PlayerAltitude >= 0 ? "+" : "")}{PlayerAltitude:F0} m", center + new Vector2(0, 40), TextDim, 11);
+        if(Catalog is { } catalog)
+        {
+            var nearest=SurfaceNavigation.Nearest(catalog,catalog.LocalFrameOrigin+PlayerPosition);
+            DrawLabel(Locale.Format("surface_clearance",nearest.Body.Name,NavigationPanel.Distance(nearest.DistanceMetres)),center+new Vector2(0,40),TextDim,11);
+        }
     }
 
     private void DrawAltitudeTick(Vector2 screen, float relativeAltitude, Color color)
