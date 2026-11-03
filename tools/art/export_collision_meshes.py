@@ -79,7 +79,18 @@ def bake(path):
     for i, (name, triangles) in enumerate(groups):
         output_name = f"asteroid_{i}" if path.stem == "asteroids" else path.stem
         data = b"ISCM" + hashlib.sha256(raw).digest() + struct.pack("<I", len(triangles))
-        data += b"".join(struct.pack("<9f", *tri) for tri in triangles)
+        def pack_triangle(triangle):
+            packed = struct.pack("<9f", *triangle)
+            t = struct.unpack("<9f", packed)
+            a = tuple(t[3+i]-t[i] for i in range(3))
+            b = tuple(t[6+i]-t[i] for i in range(3))
+            c = tuple(t[6+i]-t[3+i] for i in range(3))
+            normal = (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
+            edge = max(sum(v*v for v in axis) for axis in (a,b,c))
+            if sum(v*v for v in normal) <= edge*edge*1e-24:
+                raise ValueError(f"Degenerate triangle in {path.name}/{name}; regenerate a clean source model.")
+            return packed
+        data += b"".join(pack_triangle(tri) for tri in triangles)
         outputs[output_name + ".bin"] = data
         print(f"{output_name}: {len(triangles)} triangles ({name})")
     return outputs

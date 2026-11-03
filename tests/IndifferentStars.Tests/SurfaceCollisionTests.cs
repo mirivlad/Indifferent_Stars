@@ -8,6 +8,33 @@ namespace IndifferentStars.Tests;
 
 public sealed class SurfaceCollisionTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ZeroAreaFacesAreNotSolidSurfaces(bool reverse)
+    {
+        var point = new Triangle(new(-100,0,0),new(-100,0,0),new(-100,0,0));
+        var face = new Triangle(new(100,0,0),new(100,1,0),new(100,0,1));
+        var narrowPhase = typeof(SurfaceContact).GetMethod("Triangles",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var result = narrowPhase.Invoke(null, new object[]
+        {
+            reverse ? face : point, reverse ? point : face,
+            new Vec3d(reverse ? -200 : 200,0,0), 0d, 0d, 1d,
+        });
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void OpposingDetailedHullsMeetAtTheShellRatherThanAtTheSweepStart()
+    {
+        var contact = SurfaceContact.Sweep(SurfaceMesh.Ship, 1,
+            new Vec3d(-100,0,0), new Vec3d(100,0,0), Quaternion.Identity, Quaternion.Identity,
+            SurfaceMesh.Ship, 1, new Vec3d(100,0,0), new Vec3d(-100,0,0), Quaternion.Identity, Quaternion.Identity);
+        Assert.NotNull(contact);
+        Assert.InRange(contact.Value, .47, .49);
+    }
+
     [Fact]
     public void MovingObstacleCannotBeCulledUsingOnlyItsStartingDistance()
     {
@@ -41,7 +68,7 @@ public sealed class SurfaceCollisionTests
     }
 
     [Fact]
-    public void WingTipsCollideButEmptySpaceBetweenParallelShipsDoesNot()
+    public void NacellesCollideButEmptySpaceBetweenParallelShipsDoesNot()
     {
         double? Sweep(double x) => SurfaceContact.Sweep(
             SurfaceMesh.Ship, 1, new Vec3d(x, 0, 20), new Vec3d(x, 0, -20), Quaternion.Identity, Quaternion.Identity,
@@ -51,9 +78,9 @@ public sealed class SurfaceCollisionTests
     }
 
     [Fact]
-    public void RotationAloneCanBringAWingIntoContact()
+    public void RotationAloneCanBringANacelleIntoContact()
     {
-        var above = new Vec3d(0, 4, 0);
+        var above = new Vec3d(0, 5.6, 0);
         Assert.Null(SurfaceContact.Sweep(SurfaceMesh.Ship, 1, Vec3d.Zero, Vec3d.Zero,
             Quaternion.Identity, Quaternion.Identity, SurfaceMesh.Ship, 1, above, above,
             Quaternion.Identity, Quaternion.Identity));
@@ -83,7 +110,7 @@ public sealed class SurfaceCollisionTests
     public void SurfaceMatchesTheResourceRatherThanCatalogRadius()
     {
         Assert.True(SurfaceMesh.Station.Radius * ModelPose.StationScale > 380);
-        Assert.InRange(SurfaceMesh.Ship.Radius, 4, 8);
+        Assert.InRange(SurfaceMesh.Ship.Radius, 11, 13);
         Assert.Equal(64, SurfaceMesh.Station.SourceHash.Length);
     }
 }

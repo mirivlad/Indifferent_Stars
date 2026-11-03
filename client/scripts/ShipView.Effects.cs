@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Godot;
 using IndifferentStars.Shared;
-using IndifferentStars.Shared.Collision;
 
 namespace IndifferentStars.Client;
 
@@ -28,25 +27,15 @@ public sealed partial class ShipView
             AlbedoColor = new Color(0.35f, 0.75f, 1, 0.65f),
         };
         var mesh = new CylinderMesh { BottomRadius = 0.13f, TopRadius = 0.01f, Height = 1, RadialSegments = 8 };
-        var scale = IsPlayer ? 1f : (float)ModelPose.NpcScale;
-        foreach (var sign in new[] { -1f, 1f })
-        {
-            // Retro-thrusters, side ports and dorsal/ventral pairs also provide visible rotation torque.
-            AddJet(new Vector3(sign * 0.85f, 0, -3.5f), Vector3.Forward);
-            foreach (var z in new[] { -1.5f, 2.2f })
-            {
-                AddJet(new Vector3(sign * 3.4f, 0, z), Vector3.Right * sign);
-                foreach (var y in new[] { -1f, 1f })
-                    AddJet(new Vector3(sign * 2f, y * 0.3f, z), Vector3.Up * y);
-            }
-        }
+        foreach (var (position, exhaust) in _maneuverSockets)
+            AddJet(position, exhaust);
 
         void AddJet(Vector3 position, Vector3 exhaust)
         {
             var nozzle = new Node3D
             {
                 Name = $"ManeuverJet_{_maneuverJets.Count}",
-                Position = position * scale,
+                Position = position,
                 Basis = Basis.LookingAt(-exhaust, Mathf.Abs(exhaust.Y) > 0.9f ? Vector3.Right : Vector3.Up)
                     * new Basis(Vector3.Right, Mathf.Pi / 2),
                 Visible = false,
@@ -92,9 +81,8 @@ public sealed partial class ShipView
             nozzle.Scale = new Vector3(1, 0.15f + load * 1.6f, 1);
         }
         _ionTrail.Visible = _externalVisible && _engineEffects && _particles && !Track.Docked;
-        var scale = IsPlayer ? 1f : (float)ModelPose.NpcScale;
-        var left = Basis * new Vector3(-0.78f, 0, 4.52f) * scale;
-        var right = Basis * new Vector3(0.78f, 0, 4.52f) * scale;
+        var left = Basis * _mainNozzles[0];
+        var right = Basis * _mainNozzles[1];
         _ionTrail.UpdateTrail(delta, renderOrigin,
             Track.WorldPosition + new Vec3d(left.X, left.Y, left.Z),
             Track.WorldPosition + new Vec3d(right.X, right.Y, right.Z), thrust > 0.05f);

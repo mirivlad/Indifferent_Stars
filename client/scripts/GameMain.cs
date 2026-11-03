@@ -731,7 +731,7 @@ public sealed partial class GameMain : Node3D
             case ViewMode.External:
             {
                 var orbit = basis * new Basis(Quaternion.FromEuler(new Vector3(_cameraOrbit.Y, _cameraOrbit.X, 0)));
-                var desiredOffset = orbit * new Vector3(1, 5.4f, 17);
+                var desiredOffset = orbit * new Vector3(1, 9, 34);
                 var lookAt = position;
                 if (_cameraSnap)
                 {

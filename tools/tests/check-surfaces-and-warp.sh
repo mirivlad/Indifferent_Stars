@@ -22,8 +22,8 @@ if [[ -n "${BLENDER_BIN:-}" ]]; then
     if rg -q 'Traceback|Error:' "$CHECK_DIR/blender.log"; then cat "$CHECK_DIR/blender.log"; exit 1; fi
     rg 'BLENDER SURFACE VERIFIED' "$CHECK_DIR/blender.log"
 fi
-dotnet build -m:1 -v minimal
-dotnet test --no-build -v minimal
+dotnet build -c Release -m:1 -v minimal
+dotnet test -c Release --no-build -v minimal
 dotnet build client/IndifferentStars.Client.csproj -m:1 -v minimal
 timeout 60 "$GODOT" --headless --path client --editor --import --quit > "$CHECK_DIR/import.log" 2>&1
 check_log() {
@@ -37,7 +37,7 @@ for scene in SurfaceGeometryChecks ShipTrackChecks EffectsChecks NavigationCheck
 done
 IS_SURFACE_CAPTURE="$CHECK_DIR/surfaces" timeout 45 "$GODOT" --path client res://tests/SurfaceFlightChecks.tscn --resolution 1600x900 --audio-driver Dummy > "$CHECK_DIR/SurfaceFlightChecks.log" 2>&1
 check_log "$CHECK_DIR/SurfaceFlightChecks.log"
-dotnet src/IndifferentStars.Server/bin/Debug/net10.0/IndifferentStars.Server.dll --port "$PORT" > "$CHECK_DIR/server.log" 2>&1 &
+dotnet src/IndifferentStars.Server/bin/Release/net10.0/IndifferentStars.Server.dll --port "$PORT" > "$CHECK_DIR/server.log" 2>&1 &
 SERVER_PID=$!
 for _ in $(seq 1 50); do
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then cat "$CHECK_DIR/server.log"; exit 1; fi

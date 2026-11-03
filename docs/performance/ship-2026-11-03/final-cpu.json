@@ -1,0 +1,145 @@
+{
+  "seed": 20261101,
+  "samples": 64,
+  "tick_seconds": 0.05,
+  "station_scale": 275,
+  "station_triangles": 15676,
+  "ship_triangles": 16740,
+  "geometry": "5895b442f4adaeffcd8efafec122b531b82b07de53f137d26c76c95365f04ae8",
+  "runtime": "10.0.14",
+  "os": "Unix 6.5.0.1",
+  "stopwatch_frequency": 1000000000,
+  "processor_count": 28,
+  "tiered_compilation": "0",
+  "configuration": "Release",
+  "metrics": [
+    {
+      "metric": "surface_sweep",
+      "scenario": "far",
+      "p50_ms": 0,
+      "p95_ms": 0,
+      "max_ms": 0,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "far",
+      "p50_ms": 0.2762,
+      "p95_ms": 0.3035,
+      "max_ms": 0.3333,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "open_ring",
+      "p50_ms": 0.0382,
+      "p95_ms": 0.0579,
+      "max_ms": 0.076,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "open_ring",
+      "p50_ms": 0.3291,
+      "p95_ms": 0.3594,
+      "max_ms": 0.3713,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rim_hover",
+      "p50_ms": 0.0373,
+      "p95_ms": 0.0568,
+      "max_ms": 0.0723,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "rim_hover",
+      "p50_ms": 0.3238,
+      "p95_ms": 0.3511,
+      "max_ms": 0.3752,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rim_close",
+      "p50_ms": 0.0558,
+      "p95_ms": 0.0672,
+      "max_ms": 0.0731,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "rim_close",
+      "p50_ms": 0.3412,
+      "p95_ms": 0.3692,
+      "max_ms": 0.3775,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rim_contact",
+      "p50_ms": 0.055,
+      "p95_ms": 0.0637,
+      "max_ms": 0.0711,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "rim_contact",
+      "p50_ms": 0.3444,
+      "p95_ms": 0.3796,
+      "max_ms": 0.441,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "hub_near",
+      "p50_ms": 0.0624,
+      "p95_ms": 0.0698,
+      "max_ms": 0.0886,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "hub_near",
+      "p50_ms": 0.3424,
+      "p95_ms": 0.3556,
+      "max_ms": 0.3644,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "dock_hover",
+      "p50_ms": 0.0497,
+      "p95_ms": 0.0642,
+      "max_ms": 0.0742,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "dock_hover",
+      "p50_ms": 0.3425,
+      "p95_ms": 0.3921,
+      "max_ms": 0.5458,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "opposing_ships",
+      "p50_ms": 1.2534,
+      "p95_ms": 1.2883,
+      "max_ms": 1.325,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rotating_ship",
+      "p50_ms": 0.217,
+      "p95_ms": 0.2312,
+      "max_ms": 0.2544,
+      "allocated_bytes_per_call": 0
+    }
+  ]
+}
