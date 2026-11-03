@@ -36,7 +36,7 @@ public sealed class GameWorldTests
         var result = world.Scan(ship.Id, (uint)world.Catalog.Station.Id);
 
         Assert.True(result.Success, result.Body);
-        Assert.Contains("Kestrel Reach", result.Title);
+        Assert.Equal(world.Catalog.Station.Name, result.Title);
         Assert.Contains("Traffic control", result.Body);
     }
 

@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 18;
+    public const byte Version = 19;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -143,7 +143,8 @@ public sealed record EntitySnapshot(
     uint OrbitTargetId = 0,
     double OrbitAltitude = 0,
     bool OrbitRetrograde = false,
-    bool OrbitEstablished = false)
+    bool OrbitEstablished = false,
+    uint DockingStationId = 0)
 {
 }
 

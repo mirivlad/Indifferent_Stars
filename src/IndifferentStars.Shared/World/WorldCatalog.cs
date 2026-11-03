@@ -19,6 +19,8 @@ public enum BodyKind : byte
 /// Only nearby, directly simulated objects live here; see <see cref="CelestialBody"/>
 /// for stars and planets at astronomical distances.
 /// </summary>
+public enum StationPurpose : byte { Trade, Mining, Research, Freight }
+
 public sealed class StaticBody
 {
     public required int Id { get; init; }
@@ -28,6 +30,11 @@ public sealed class StaticBody
     public required double Radius { get; init; }
     public float Rotation { get; init; }
     public int Variant { get; init; }
+    public int DesignSeed { get; init; }
+    private StationAssembly? _assembly;
+    public StationAssembly? Assembly => Kind==BodyKind.Station && DesignSeed!=0 ? _assembly??=StationAssembly.Generate(DesignSeed,Purpose) : null;
+    public bool Icy { get; init; }
+    public StationPurpose Purpose { get; init; }
 }
 
 /// <summary>
@@ -106,6 +113,10 @@ public sealed partial class WorldCatalog
     /// <summary>Station in sector-local metres.</summary>
     public required StaticBody Station { get; init; }
 
+    public IReadOnlyList<StaticBody> AdditionalStations { get; init; } = Array.Empty<StaticBody>();
+    private IReadOnlyList<StaticBody>? _stations;
+    public IReadOnlyList<StaticBody> Stations => _stations ??= new[] {Station}.Concat(AdditionalStations).ToArray();
+    public IReadOnlyList<AsteroidBand> Bands { get; init; } = Array.Empty<AsteroidBand>();
     public required IReadOnlyList<StaticBody> Asteroids { get; init; }
 
     /// <summary>Named areas of interest within the local frame.</summary>
@@ -144,13 +155,16 @@ public sealed partial class WorldCatalog
     }
 
     /// <summary>Nearby contacts that the authoritative simulation can target.</summary>
+    private IReadOnlyList<StaticBody>? _localBodies;
     public IReadOnlyList<StaticBody> LocalBodies
     {
         get
         {
-            var all = new List<StaticBody>(Asteroids.Count + 1) { Station };
+            if(_localBodies is not null)return _localBodies;
+            var all = new List<StaticBody>(Asteroids.Count + Stations.Count);
+            all.AddRange(Stations);
             all.AddRange(Asteroids);
-            return all;
+            return _localBodies=all.AsReadOnly();
         }
     }
 
@@ -195,13 +209,15 @@ public sealed partial class WorldCatalog
         // Sector origin: station in a polar orbit above the planet's day/night terminator.
         var localFrameOrigin = planetPosition + new Vec3d(0, planetRadius + StationOrbitAltitude, 0);
 
+        var stationSeed=new SeedStream(seed,systemIndex,"station-primary").Range(1,int.MaxValue);
         var station = new StaticBody
         {
             Id = 3,
             Kind = BodyKind.Station,
-            Name = "Kestrel Reach Station",
+            Name = planet.Name+" Exchange",
             Position = Vec3d.Zero,
-            Radius = ModelPose.StationScale * (160.0 / 55),
+            DesignSeed=stationSeed,
+            Radius = StationAssembly.Generate(stationSeed,StationPurpose.Trade).RadiusMetres,
             Rotation = -0.55f,
         };
 
@@ -278,6 +294,9 @@ public sealed partial class WorldCatalog
             Bodies = beltBodies,
         };
 
+        var regions=GenerateRegions(seed,systemIndex,star,planet,additional,localFrameOrigin);
+        var sectors=new[] {orbitSector,beltSector}.Concat(regions.Sectors).ToArray();
+        var combinedAsteroids=allAsteroids.Concat(regions.Sectors.SelectMany(s=>s.Bodies).Where(b=>b.Kind==BodyKind.Asteroid)).ToArray();
         return new WorldCatalog
         {
             Seed = seed,
@@ -290,8 +309,10 @@ public sealed partial class WorldCatalog
             Star = star,
             Planet = planet,
             Station = station,
-            Asteroids = allAsteroids,
-            Sectors = new ReadOnlyCollection<SectorDefinition>(new[] { orbitSector, beltSector }),
+            AdditionalStations = regions.Stations,
+            Bands = regions.Bands,
+            Asteroids = Array.AsReadOnly(combinedAsteroids),
+            Sectors = Array.AsReadOnly(sectors),
         };
     }
 }

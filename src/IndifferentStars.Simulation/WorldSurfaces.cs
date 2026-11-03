@@ -24,7 +24,7 @@ public static class WorldSurfaces
 
     public static SurfacePose Body(WorldCatalog catalog, StaticBody body, double time) =>
         body.Kind == BodyKind.Station
-            ? new(SurfaceMesh.Station, ModelPose.StationScale, body.Position, ModelPose.StationRotation(body, time))
+            ? new(body.Assembly?.Surface??SurfaceMesh.Station, ModelPose.StationScale, body.Position, ModelPose.StationRotation(body, time))
             : new(SurfaceMesh.Asteroids[body.Variant % SurfaceMesh.Asteroids.Length], ModelPose.AsteroidScale(body), body.Position, ModelPose.AsteroidRotation(body, catalog.Seed));
 
     public static double? Contact(SurfacePose fromA, SurfacePose toA, SurfacePose fromB, SurfacePose toB) =>

@@ -39,6 +39,7 @@ public sealed partial class GameWorld
 
     private sealed class PlayerAccount
     {
+        public int StationId = 3;
         public int Credits = CommodityCatalog.StartingCredits;
         public readonly Dictionary<ushort, int> Cargo = new();
     }
@@ -46,7 +47,7 @@ public sealed partial class GameWorld
     private readonly Dictionary<uint, ShipState> _players = new();
     private readonly Dictionary<uint, PlayerInputSlot> _inputs = new();
     private readonly Dictionary<uint, PlayerAccount> _accounts = new();
-    private readonly Dictionary<ushort, int> _stationStock = new();
+    private readonly Dictionary<int,Dictionary<ushort,int>> _stationStocks = new();
     private readonly List<ShipState> _npcs = new();
     private readonly IReadOnlyList<StaticBody> _collisionBodies;
     private readonly Dictionary<int, SurfacePose> _fixedSurfaces;
@@ -57,8 +58,9 @@ public sealed partial class GameWorld
         Catalog = catalog;
         _collisionBodies = catalog.LocalBodies;
         _fixedSurfaces = catalog.Asteroids.ToDictionary(body => body.Id, body => WorldSurfaces.Body(catalog, body, 0));
-        foreach (var commodity in CommodityCatalog.All)
-            _stationStock[commodity.Id] = commodity.InitialStock;
+        foreach(var station in catalog.Stations)
+            _stationStocks[station.Id]=CommodityCatalog.All.ToDictionary(c=>c.Id,c=>c.InitialStock);
+        BuildCollisionRegions();
         SpawnNpcs();
     }
 
@@ -162,11 +164,12 @@ public sealed partial class GameWorld
     public bool RequestDocking(uint playerId, uint targetId)
     {
         var player = GetPlayer(playerId);
-        var station = Catalog.Station;
-        if (player is null || player.Docked || player.InWarp || targetId != (uint)station.Id)
+        var station = Catalog.Find((int)targetId);
+        if (player is null || player.Docked || player.InWarp || station?.Kind != BodyKind.Station)
             return false;
-        if (_players.Values.Any(other => other.Id != playerId && (other.Docked || other.DockingGranted)))
+        if (_players.Values.Any(other => other.Id != playerId && (other.Docked || other.DockingGranted) && other.DockingStationId==targetId))
             return false;
+        player.DockingStationId = targetId;
         player.DockingGranted = true;
         player.ApproachFollowing = false;
         player.DockingPoint = station.Position + ModelPose.StationDockingOffset;
@@ -183,6 +186,7 @@ public sealed partial class GameWorld
         if (player is null || !player.Docked)
             return false;
         player.Docked = false;
+        player.DockingStationId = 0;
         player.DockingGranted = false;
         return true;
     }
@@ -209,7 +213,8 @@ public sealed partial class GameWorld
         if (commodity is null)
             return TradeFail(account, "trade_unknown");
 
-        var stock = _stationStock.GetValueOrDefault(commodityId);
+        var stationStock = _stationStocks[account.StationId];
+        var stock = stationStock.GetValueOrDefault(commodityId);
         var held = account.Cargo.GetValueOrDefault(commodityId);
         var cargoUsed = CargoUsed(account);
         var name = commodity.Key;
@@ -226,7 +231,7 @@ public sealed partial class GameWorld
 
             account.Credits -= total;
             account.Cargo[commodityId] = held + quantity;
-            _stationStock[commodityId] = stock - quantity;
+            stationStock[commodityId] = stock - quantity;
             return TradeSuccess(account, "trade_bought", name, quantity, total);
         }
 
@@ -235,7 +240,7 @@ public sealed partial class GameWorld
         var revenue = commodity.SellPrice * quantity;
         account.Credits += revenue;
         account.Cargo[commodityId] = held - quantity;
-        _stationStock[commodityId] = stock + quantity;
+        stationStock[commodityId] = stock + quantity;
         return TradeSuccess(account, "trade_sold", name, quantity, revenue);
     }
 
@@ -247,7 +252,7 @@ public sealed partial class GameWorld
             var commodity = CommodityCatalog.All[i];
             entries[i] = new MarketEntry(
                 commodity.Id,
-                _stationStock.GetValueOrDefault(commodity.Id),
+                _stationStocks[account.StationId].GetValueOrDefault(commodity.Id),
                 account.Cargo.GetValueOrDefault(commodity.Id));
         }
 
@@ -310,6 +315,7 @@ public sealed partial class GameWorld
             if (ship.DockingGranted && ApproachPilot.Arrived(ship, ship.DockingPoint))
             {
                 ship.Docked = true;
+                _accounts[ship.Id].StationId=(int)ship.DockingStationId;
                 ship.DockingGranted = false;
                 ship.ApproachTargetId = 0;
                 ship.Velocity = Vec3d.Zero;
@@ -452,12 +458,13 @@ public sealed partial class GameWorld
     {
         var player = GetPlayer(playerId);
         var npc = _npcs.FirstOrDefault(ship => ship.Id == targetId);
-        var station = targetId == (uint)Catalog.Station.Id;
-        var position = station ? Catalog.Station.Position : npc?.Position;
+        var body=Catalog.Find((int)targetId);
+        var station = body?.Kind==BodyKind.Station;
+        var position = station ? body!.Position : npc?.Position;
         var success = player is not null && position is { } point &&
             Vec3d.Distance(player.Position, point) <= WorldCatalog.RelevanceRange;
         var key = !success ? "comms_unavailable" : station ? "comms_station" : "comms_npc";
-        var name = station ? Catalog.Station.Name : npc?.Name ?? "";
+        var name = station ? body!.Name : npc?.Name ?? "";
         return new CommsResultMessage(targetId, success,
             ServerText.Get("en", key, name), ServerText.Get("ru", key, name));
     }
@@ -528,7 +535,7 @@ public sealed partial class GameWorld
         ship.InWarp ? ship.WarpDestination : null,
         !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null,
         ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting,
-        ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished);
+        ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished, ship.DockingStationId);
 
     private static string DescribeVessel(ShipState npc, string language)
     {
@@ -542,28 +549,28 @@ public sealed partial class GameWorld
         return body.Kind switch
         {
             BodyKind.Asteroid => DescribeAsteroid(body, distance, language),
-            BodyKind.Station => ServerText.Get(language, "station", distance / 1000),
+            BodyKind.Station => ServerText.Get(language, "station", body.Name,ServerText.Get(language,"station_"+body.Purpose.ToString().ToLowerInvariant()),distance/1000),
             _ => ServerText.Get(language, "unclassified"),
         };
     }
 
     private string DescribeCelestial(CelestialBody body, double distance, string language) => body.Kind switch
     {
-        CelestialKind.Planet =>
-            ServerText.Get(language, "planet", body.Radius / 1000,
+        CelestialKind.Planet or CelestialKind.Moon =>
+            ServerText.Get(language, "planet", ServerText.Get(language,"surface_"+body.Surface.ToString().ToLowerInvariant()),body.Radius / 1000,
                 body.RingOuterRadii > 0 ? ServerText.Get(language, "rings") : "",
                 body.AtmosphereHeight > 0 ? ServerText.Get(language, "atmosphere", body.AtmosphereHeight / 1000) : "", distance / 1000),
         CelestialKind.Star =>
-            ServerText.Get(language, "star", body.Radius / 1000, distance / 1_000_000),
+            ServerText.Get(language, "star", ServerText.Get(language,"stellar_"+body.StellarClass.ToString().ToLowerInvariant()),body.TemperatureKelvin,body.Radius / 1000,distance/1_000_000_000),
         _ => ServerText.Get(language, "unclassified"),
     };
 
     private string DescribeAsteroid(StaticBody body, double distance, string language)
     {
-        var random = new Random(unchecked(Catalog.Seed * 73856093 ^ body.Id * 19349663));
+        var random = new SeedStream(Catalog.Seed,body.Id,"asteroid-composition");
         var silicate = 25 + random.Next(0, 30);
         var carbon = 15 + random.Next(0, 28);
-        var ice = 8 + random.Next(0, 18);
+        var ice = body.Icy?random.Range(55,81):8+random.Range(0,18);
         var iron = Math.Max(2, 100 - silicate - carbon - ice);
         var total = silicate + carbon + ice + iron;
         silicate = silicate * 100 / total;

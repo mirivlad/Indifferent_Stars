@@ -40,7 +40,7 @@ public sealed partial class GameWorld
                 if(candidate is not { } hit||first is { } known&&hit.Time>=known.Time)return;
                 first=hit;contactBody=body;
             }
-            foreach(var body in _collisionBodies)
+            foreach(var body in CollisionCandidates(before.Position,ship.Position,from.Radius))
                 Hit(WorldSurfaces.ContactHit(from,to,BodySurface(body,TimeSeconds),BodySurface(body,TimeSeconds+dt)),body);
             foreach(var celestial in Catalog.Celestials)
                 Hit(WorldSurfaces.SphereHit(from,to,Catalog.CelestialOffset(celestial),celestial.Radius));

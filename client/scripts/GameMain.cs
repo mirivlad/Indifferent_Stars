@@ -156,7 +156,7 @@ public sealed partial class GameMain : Node3D
         _net.CommsCompleted += reply =>
         {
             _audio.RadioCue();
-            var sender=reply.TargetId==(uint)_catalog.Station.Id?_catalog.Station.Name:
+            var sender=_catalog.Find((int)reply.TargetId) is {Kind:BodyKind.Station} respondingStation?respondingStation.Name:
                 _remoteShips.TryGetValue(reply.TargetId,out var ship)?ship.DisplayName:Locale.Text("radio_heading");
             var text=_settings.Language == "ru" ? reply.RussianMessage : reply.Message;
             if(text.StartsWith(sender+": ",StringComparison.Ordinal))text=text[(sender.Length+2)..];
@@ -293,7 +293,7 @@ public sealed partial class GameMain : Node3D
             var docked = _playerShip.Track.Docked;
             if (_stationView.Visible != docked)
             {
-                _stationView.SetDocked(docked, _catalog.Station.Name);
+                _stationView.SetDocked(docked, _catalog.Find((int)_playerShip.Track.DockingStationId)?.Name??_catalog.Station.Name);
                 _marketRetry = 0;
                 if (docked)
                     Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -584,7 +584,7 @@ public sealed partial class GameMain : Node3D
             else if (id == 10) _net?.RequestComms(_targetId);
             else if (id == 11)
             {
-                if (_playerShip?.Track.Docked == true) _stationView.Visible = true;
+                if (_playerShip?.Track is {Docked:true} dockedTrack && dockedTrack.DockingStationId==_targetId) _stationView.Visible = true;
                 else _hud.ShowToast(Locale.Text("trade_dock_first"), duration: 5);
             }
             else if (id == 1) RequestApproach();
@@ -600,7 +600,7 @@ public sealed partial class GameMain : Node3D
 
         _stationView = new StationView();
         AddChild(_stationView);
-        _stationView.CommsRequested += () => _net?.RequestComms((uint)_catalog.Station.Id);
+        _stationView.CommsRequested += () => _net?.RequestComms(_playerShip?.Track.DockingStationId??(uint)_catalog.Station.Id);
         _stationView.UndockRequested += RequestUndock;
         _stationView.TradeRequested += (commodity, quantity, buy) => _net?.RequestTrade(commodity, quantity, buy);
     }
@@ -618,19 +618,19 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem(Locale.Text("context_warp_distance"), 25);
         if (_catalog.FindCelestial((int)_targetId) is not null)
             _contactMenu.AddItem(Locale.Text("context_orbit"),24);
-        if (_targetId == (uint)_catalog.Station.Id) _contactMenu.AddItem(Locale.Text("context_dock"), 4);
+        if (_catalog.Find((int)_targetId)?.Kind==BodyKind.Station) _contactMenu.AddItem(Locale.Text("context_dock"), 4);
         if (_remoteShips.ContainsKey(_targetId)) _contactMenu.AddItem(Locale.Text("context_follow"), 7);
         _contactMenu.AddSeparator();
         _contactMenu.AddItem(Locale.Text("context_comms"), 10);
         _contactMenu.AddItem(Locale.Text("context_trade"), 11);
-        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(11), _targetId != (uint)_catalog.Station.Id);
+        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(11), _catalog.Find((int)_targetId)?.Kind!=BodyKind.Station);
         _contactMenu.AddItem(Locale.Text("context_attack_unavailable"), 12);
         _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(12), true);
         _contactMenu.AddItem(Locale.Text("context_mine_unavailable"), 13);
         _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(13), true);
     }
 
-    private void RequestUndock() => _net?.RequestDock((uint)_catalog.Station.Id, true);
+    private void RequestUndock() => _net?.RequestDock(_playerShip?.Track.DockingStationId??(uint)_catalog.Station.Id, true);
 
     private void RebuildStaticWorld(int seed, int systemIndex = 0)
     {
@@ -886,8 +886,8 @@ public sealed partial class GameMain : Node3D
         }
     }
 
-    private Vector3 PlayerPosition() =>
-        _playerShip is not null && _playerShip.Track.HasData ? _playerShip.Track.Position : Vector3.Zero;
+    private Vec3d PlayerPosition() =>
+        _playerShip is not null && _playerShip.Track.HasData ? _playerShip.Track.WorldPosition : Vec3d.Zero;
 
     private void UpdateRenderOrigin(double frameTime)
     {

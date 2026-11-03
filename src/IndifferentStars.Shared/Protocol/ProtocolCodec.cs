@@ -129,7 +129,7 @@ public static class ProtocolCodec
                         writer.Write(impact.NormalSpeed); writer.Write(impact.TangentialSpeed);
                     }
                     writer.Write(entity.RouteRevision); writer.Write(entity.RouteIndex); writer.Write(entity.RouteActive); writer.Write(entity.Boosting);
-                    writer.Write(entity.OrbitTargetId); writer.Write(entity.OrbitAltitude); writer.Write(entity.OrbitRetrograde); writer.Write(entity.OrbitEstablished);
+                    writer.Write(entity.OrbitTargetId); writer.Write(entity.OrbitAltitude); writer.Write(entity.OrbitRetrograde); writer.Write(entity.OrbitEstablished); writer.Write(entity.DockingStationId);
                 }
                 break;
 
@@ -494,7 +494,7 @@ public static class ProtocolCodec
                 ReadRouteIndex(reader),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
-                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean());
+                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean(), reader.ReadUInt32());
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);

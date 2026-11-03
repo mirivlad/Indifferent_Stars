@@ -307,13 +307,28 @@ public sealed partial class TacticalView : Control
 
         if (Catalog is not null)
         {
-            DrawBody(Catalog.Station, center, scale, new Color(0.45f, 0.92f, 1.0f), Locale.Text("type_station"));
+            foreach(var station in Catalog.Stations)DrawBody(station, center, scale, new Color(.45f,.92f,1),Locale.Text("type_station"));
         }
     }
 
     private void DrawSystemBodies(Vector2 center, float scale, Vector2 size)
     {
         if (Catalog is null) return;
+        foreach(var band in Catalog.Bands)
+        {
+            var starScreen=Project(center,scale,Catalog.CelestialOffset(Catalog.Star));
+            var radius=(float)(band.Radius*scale);
+            if(radius>2&&radius<10000)
+            {
+                var tint=band.Icy?new Color(.45f,.7f,.8f,.28f):new Color(.65f,.5f,.28f,.28f);
+                for(var i=-2;i<=2;i++)DrawArc(starScreen,radius+(float)(band.Width*scale*i/4),0,Mathf.Tau,256,tint,2);
+                DrawLabel(band.Name,starScreen+new Vector2(radius,0),tint,12,true);
+            }
+        }
+        foreach(var sector in Catalog.Sectors.Where(s=>s.Kind==SectorKind.Asteroid&&s.Id.StartsWith("resource-")))
+        {
+            var at=Project(center,scale,sector.Center);DrawCircle(at,3,new Color(.8f,.66f,.38f));
+        }
         foreach(var body in Catalog.Celestials)
         {
             if(body.Kind==CelestialKind.Moon && Catalog.FindCelestial(body.ParentId) is { } moonParent &&

@@ -19,6 +19,7 @@ public sealed partial class WorldBuilder
     private readonly Node3D _root;
     private readonly bool _highQuality;
     private Node3D? _stationNode;
+    private readonly Dictionary<int,Node3D> _stationNodes = new();
     private WorldEnvironment? _worldEnvironment;
     private CelestialRenderer? _celestial;
     private ShaderMaterial? _skyMaterial;
@@ -42,7 +43,7 @@ public sealed partial class WorldBuilder
     {
         BuildEnvironment();
         _celestial = new CelestialRenderer(_root, Catalog, _highQuality);
-        BuildStation();
+        foreach(var station in Catalog.Stations)BuildStation(station);
         UpdateAsteroidSectors(Vec3d.Zero);
         BuildLights();
     }
@@ -57,11 +58,16 @@ public sealed partial class WorldBuilder
         }
         UpdateAsteroidSectors(observerLocal);
 
-        if (_stationNode is not null)
+        foreach(var station in Catalog.Stations)
         {
-            var rotation = ModelPose.StationRotation(Catalog.Station, SimulationTime);
-            _stationNode.Quaternion = new Quaternion(rotation.X, rotation.Y, rotation.Z, rotation.W);
+            var node=_stationNodes[station.Id];
+            node.Position=ToVector3(station.Position-renderOrigin);
+            node.Visible=Vec3d.Distance(observerLocal,station.Position)<WorldCatalog.RelevanceRange+5000;
+            var rotation=ModelPose.StationRotation(station,SimulationTime);
+            node.Quaternion=new Quaternion(rotation.X,rotation.Y,rotation.Z,rotation.W);
         }
+        foreach(var sector in Catalog.Sectors)
+            if(_asteroidSectors.TryGetValue(sector.Id,out var loaded))loaded.Position=ToVector3(sector.Center-renderOrigin);
     }
 
     private void UpdateAsteroidSectors(Vec3d observer)
@@ -80,9 +86,9 @@ public sealed partial class WorldBuilder
             else if (distance <= WorldCatalog.RelevanceRange)
             {
                 _asteroidMeshes ??= LoadAsteroidMeshes();
-                var node = new Node3D { Name = sector.Id };
+                var node = new Node3D { Name = sector.Id, TopLevel=true, Position=ToVector3(sector.Center) };
                 _root.AddChild(node);
-                BuildAsteroidBelt(node, sector.Bodies.Where(body => body.Kind == BodyKind.Asteroid), _asteroidMeshes);
+                BuildAsteroidBelt(node, sector.Bodies.Where(body => body.Kind == BodyKind.Asteroid), _asteroidMeshes, sector.Center);
                 _asteroidSectors.Add(sector.Id, node);
             }
         }
@@ -132,13 +138,13 @@ public sealed partial class WorldBuilder
         _root.AddChild(_worldEnvironment);
     }
 
-    private void BuildStation()
+    private void BuildStation(StaticBody station)
     {
-        var station = Catalog.Station;
         var node = new Node3D
         {
-            Name = "StationKestrelReach",
-            Position = ToVector3(station.Position),
+            Name = station.Id==Catalog.Station.Id?"StationKestrelReach":$"Station_{station.Id}",
+            TopLevel = true,
+            Position = Vector3.Zero,
             Rotation = new Vector3(0, station.Rotation, 0),
         };
 
@@ -156,9 +162,10 @@ public sealed partial class WorldBuilder
         }
 
         _root.AddChild(node);
+        AddStationModules(node,station);
         BuildStationLights(node);
-        _stationNode = node;
-        StationNode = node;
+        _stationNodes[station.Id]=node;
+        if(station.Id==Catalog.Station.Id){_stationNode=node;StationNode=node;}
     }
 
     private void BuildLights()

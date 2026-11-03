@@ -63,6 +63,8 @@ public sealed class SurfaceMesh
         return new(index, bounds, start, count, Build(start, half), Build(start + half, count - half));
     }
 
+    public static SurfaceMesh Compose(IEnumerable<Triangle> triangles,string hash) => new(triangles.ToArray(),hash);
+
     public static SurfaceMesh Load(string name)
     {
         using var stream = typeof(SurfaceMesh).Assembly.GetManifestResourceStream(
@@ -87,7 +89,7 @@ public sealed class SurfaceMesh
 
     public static string Fingerprint => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
         System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash +
-            FormattableString.Invariant($"|pose-v1|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
+            FormattableString.Invariant($"|pose-v2|assembly-{StationAssembly.Version}|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
 
     public static readonly SurfaceMesh Ship = Load("ship_player");
     public static readonly SurfaceMesh Station = Load("station_kestrel");
@@ -106,7 +108,7 @@ public static class ModelPose
 
     public static Quaternion AsteroidRotation(StaticBody body, int seed)
     {
-        var random = new Random(unchecked(seed * 397 ^ body.Id));
+        var random = new SeedStream(seed,body.Id,"asteroid-rotation");
         return Quaternion.CreateFromYawPitchRoll(body.Rotation,
             (float)(random.NextDouble() * Math.PI * 2),
             (float)(random.NextDouble() * Math.PI * 2 - Math.PI));

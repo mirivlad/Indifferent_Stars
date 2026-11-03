@@ -51,6 +51,7 @@ public sealed class ShipState
     public Vec3d ApproachDestination { get; set; }
     public bool DockingGranted { get; set; }
     public bool Docked { get; set; }
+    public uint DockingStationId { get; set; }
     public Vec3d DockingPoint { get; set; }
     public WarpStage WarpStage { get; set; }
     public float WarpProgress { get; set; }

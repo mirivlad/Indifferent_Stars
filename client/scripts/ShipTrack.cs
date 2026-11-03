@@ -43,6 +43,7 @@ public sealed class ShipTrack
     public uint OrbitTargetId { get; private set; }
     public double OrbitAltitude { get; private set; }
     public bool OrbitRetrograde { get; private set; }
+    public uint DockingStationId { get; private set; }
     public bool OrbitEstablished { get; private set; }
     public bool HasData => _points.Count > 0;
     public string Name { get; private set; } = string.Empty;
@@ -70,7 +71,7 @@ public sealed class ShipTrack
             _points.Clear();
         Boosting = snapshot.Boosting;
         OrbitTargetId=snapshot.OrbitTargetId; OrbitAltitude=snapshot.OrbitAltitude;
-        OrbitRetrograde=snapshot.OrbitRetrograde; OrbitEstablished=snapshot.OrbitEstablished;
+        OrbitRetrograde=snapshot.OrbitRetrograde; OrbitEstablished=snapshot.OrbitEstablished; DockingStationId=snapshot.DockingStationId;
         RouteRevision = snapshot.RouteRevision; RouteIndex = snapshot.RouteIndex; RouteActive = snapshot.RouteActive;
         Impact = snapshot.Impact;
         Name = snapshot.Name;

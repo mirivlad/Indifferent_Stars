@@ -10,7 +10,7 @@ namespace IndifferentStars.Client;
 
 public sealed partial class WorldBuilder
 {
-    private void BuildAsteroidBelt(Node3D parent, IEnumerable<StaticBody> bodies, Mesh[] meshes)
+    private void BuildAsteroidBelt(Node3D parent, IEnumerable<StaticBody> bodies, Mesh[] meshes, Vec3d regionOrigin)
     {
         var groups = bodies.GroupBy(a => a.Variant % meshes.Length).ToArray();
 
@@ -30,14 +30,16 @@ public sealed partial class WorldBuilder
                 var rotation = ModelPose.AsteroidRotation(body, Catalog.Seed);
                 var scale = (float)ModelPose.AsteroidScale(body);
                 var basis = new Basis(new Quaternion(rotation.X, rotation.Y, rotation.Z, rotation.W)).Scaled(Vector3.One * scale);
-                multiMesh.SetInstanceTransform(i, new Transform3D(basis, ToVector3(body.Position)));
+                multiMesh.SetInstanceTransform(i, new Transform3D(basis, ToVector3(body.Position-regionOrigin)));
             }
 
+            var material=new ShaderMaterial {Shader=GD.Load<Shader>("res://assets/shaders/rock.gdshader")};
+            material.SetShaderParameter("ice_fraction",asteroids[0].Icy?1f:0f);
             var instance = new MultiMeshInstance3D
             {
                 Name = $"AsteroidBelt_{group.Key}",
                 Multimesh = multiMesh,
-                MaterialOverride = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/rock.gdshader") },
+                MaterialOverride = material,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
             parent.AddChild(instance);

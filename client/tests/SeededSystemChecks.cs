@@ -32,6 +32,40 @@ public sealed partial class SeededSystemChecks : Node3D
                 GetViewport().GetTexture().GetImage().SavePng(Path.Combine(output,$"planet_{body.Id}_{body.Surface}.png"));
                 GD.Print($"BODY {body.Id}: {body.Name}, {body.Surface}, radius {body.Radius/1000:F0} km");
             }
+            foreach(var station in catalog.Stations)
+            {
+                var observer=station.Position+new Vec3d(1800,1700,3200);
+                var origin=RenderFrame.ChooseOrigin(observer,Vec3d.Zero);
+                world.Position=-ShipTrack.ToVector3(origin);camera.Position=ShipTrack.ToVector3(observer-origin);
+                builder.Process(0,observer,origin);camera.Far=builder.RequiredFarPlane;camera.Near=Math.Max(.35f,camera.Far/8000000);
+                var node=station.Id==catalog.Station.Id?builder.StationNode:world.GetNode<Node3D>($"Station_{station.Id}");
+                if(node.GlobalPosition.DistanceTo(ShipTrack.ToVector3(station.Position-origin))>.02)throw new Exception("Station lost floating-origin precision.");
+                if(station.Assembly is { } assembly)
+                {
+                    for(var i=0;i<assembly.Modules.Count;i++)
+                    {
+                        var faces=node.GetNode<MeshInstance3D>($"AssemblyModule_{i}").Mesh.GetFaces();
+                        var expected=assembly.Modules[i].Triangles().SelectMany(t=>new[]{t.A,t.B,t.C}).ToArray();
+                        if(faces.Length!=expected.Length)throw new Exception("Station module triangle count mismatch.");
+                        for(var j=0;j<faces.Length;j++)if(faces[j].DistanceTo(ShipTrack.ToVector3(expected[j]))>.001)throw new Exception("Station module render/physics mismatch.");
+                    }
+                }
+                camera.LookAt(node.GlobalPosition,Vector3.Up);
+                await Pause(.2);await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);
+                GetViewport().GetTexture().GetImage().SavePng(Path.Combine(output,$"station_{station.Id}_{station.Purpose}.png"));
+            }
+            foreach(var sector in catalog.Sectors.Where(s=>s.Id.StartsWith("resource-")))
+            {
+                var observer=sector.Center+new Vec3d(0,5000,10000);var origin=RenderFrame.ChooseOrigin(observer,Vec3d.Zero);
+                world.Position=-ShipTrack.ToVector3(origin);camera.Position=ShipTrack.ToVector3(observer-origin);builder.Process(0,observer,origin);
+                if(builder.LoadedAsteroidSectors==0)throw new Exception("Distant resource pocket must stream in.");
+                var body=sector.Bodies.First(b=>b.Kind==BodyKind.Asteroid);var node=world.GetNode<Node3D>(sector.Id);
+                var mesh=node.GetNode<MultiMeshInstance3D>($"AsteroidBelt_{body.Variant}");
+                var shown=node.GlobalPosition+mesh.Multimesh.GetInstanceTransform(0).Origin;
+                if(shown.DistanceTo(ShipTrack.ToVector3(body.Position-origin))>.05)throw new Exception("Asteroid render/collision offset mismatch.");
+                camera.LookAt(ShipTrack.ToVector3(sector.Center-origin),Vector3.Up);
+                await Pause(.1);
+            }
             var layer=new CanvasLayer();AddChild(layer);
             var map=new TacticalView {Catalog=catalog,PlayerPosition=new Vec3d(0,0,0)};layer.AddChild(map);map.Visible=true;map.ShowSystem();map._Process(2);map.QueueRedraw();
             await Pause(.2);await ToSignal(RenderingServer.Singleton,RenderingServer.SignalName.FramePostDraw);

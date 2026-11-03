@@ -16,7 +16,7 @@ public sealed partial class GameMain
         uint Id,
         string Name,
         string Type,
-        Vector3 Position,
+        Vec3d Position,
         float Radius,
         bool IsShip,
         float Distance,
@@ -348,23 +348,23 @@ public sealed partial class GameMain
         {
             var local = celestial.SystemPosition - _catalog.LocalFrameOrigin;
             var observer = _playerShip?.Track.WorldPosition ?? Vec3d.Zero;
-            return new ContactRef(id, celestial.Name, celestial.Kind.ToString(), ShipTrack.ToVector3(local),
+            return new ContactRef(id, celestial.Name, celestial.Kind.ToString(), local,
                 (float)celestial.Radius, false, (float)Math.Max(0, Vec3d.Distance(observer, local) - celestial.Radius),
                 (float)(local.Y - observer.Y));
         }
 
         if (_remoteShips.TryGetValue(id, out var ship) && ship.Track.HasData)
         {
-            var distance = player.DistanceTo(ship.Track.Position);
+            var distance = (float)Vec3d.Distance(player,ship.Track.WorldPosition);
             return new ContactRef(
                 id,
                 ship.DisplayName,
                 ship.Track.Kind == EntityKind.Player ? "PLAYER" : "NPC",
-                ship.Track.Position,
+                ship.Track.WorldPosition,
                 8,
                 true,
                 distance,
-                ship.Track.Position.Y - player.Y);
+                (float)(ship.Track.WorldPosition.Y - player.Y));
         }
 
         return null;
@@ -386,20 +386,20 @@ public sealed partial class GameMain
                 ship.Id,
                 ship.DisplayName,
                 ship.Track.Kind == EntityKind.Player ? "PLAYER" : "NPC",
-                ship.Track.Position,
+                ship.Track.WorldPosition,
                 8,
                 true,
-                player.DistanceTo(ship.Track.Position),
-                ship.Track.Position.Y - player.Y));
+                (float)Vec3d.Distance(player,ship.Track.WorldPosition),
+                (float)(ship.Track.WorldPosition.Y - player.Y)));
         }
 
         return contacts;
     }
 
-    private static ContactRef MakeContact(StaticBody body, Vector3 player)
+    private static ContactRef MakeContact(StaticBody body, Vec3d player)
     {
-        var position = new Vector3((float)body.Position.X, (float)body.Position.Y, (float)body.Position.Z);
-        var centerDistance = player.DistanceTo(position);
+        var position = body.Position;
+        var centerDistance = (float)Vec3d.Distance(player,position);
         var surfaceDistance = Mathf.Max(0f, centerDistance - (float)body.Radius);
         var type = body.Kind switch
         {
@@ -416,7 +416,7 @@ public sealed partial class GameMain
             (float)body.Radius,
             false,
             surfaceDistance,
-            position.Y - player.Y);
+            (float)(position.Y - player.Y));
     }
 
     private void UpdateCapture(float dt)

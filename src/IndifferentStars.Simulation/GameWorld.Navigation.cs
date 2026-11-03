@@ -87,6 +87,7 @@ public sealed partial class GameWorld
         foreach (var body in Catalog.LocalBodies)
         {
             var surface = BodySurface(body, TimeSeconds);
+            if(Vec3d.Distance(ship.Position,body.Position)-surface.Radius>=nearest)continue;
             var gap = surface.Distance(ship.Position);
             if (gap >= nearest) continue;
             nearest = gap;
