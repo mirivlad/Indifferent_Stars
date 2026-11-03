@@ -67,7 +67,7 @@ public sealed class SectorDefinition
     public required IReadOnlyList<StaticBody> Bodies { get; init; }
 }
 
-public sealed class WorldCatalog
+public sealed partial class WorldCatalog
 {
     public const double ScanRange = 4200.0;
     /// <summary>Dynamic entities farther than this are not sent to a client.</summary>
@@ -80,6 +80,12 @@ public sealed class WorldCatalog
 
     /// <summary>Altitude of the station above the planet surface, in metres.</summary>
     public const double StationOrbitAltitude = 1_400_000.0;
+
+    public int SystemIndex { get; init; }
+    public int GeneratorVersion => GalaxyLayout.GeneratorVersion;
+    public IReadOnlyList<CelestialBody> AdditionalCelestials { get; init; } = Array.Empty<CelestialBody>();
+    private IReadOnlyList<CelestialBody>? _celestials;
+    public IReadOnlyList<CelestialBody> Celestials => _celestials ??= new[] { Star, Planet }.Concat(AdditionalCelestials).ToArray();
 
     public required int Seed { get; init; }
     public required string SystemName { get; init; }
@@ -159,7 +165,7 @@ public sealed class WorldCatalog
 
     public CelestialBody? FindCelestial(int id)
     {
-        _celestialById ??= new[] { Star, Planet }.ToDictionary(b => b.Id);
+        _celestialById ??= Celestials.ToDictionary(b => b.Id);
         return _celestialById.TryGetValue(id, out var body) ? body : null;
     }
 
@@ -176,38 +182,15 @@ public sealed class WorldCatalog
         return distance <= body.Radius ? Math.PI / 2 : Math.Asin(body.Radius / distance);
     }
 
-    public static WorldCatalog Generate(int seed)
+    public static WorldCatalog Generate(int seed, int systemIndex = 0)
     {
-        var random = new Random(seed);
+        var random = new SeedStream(seed,systemIndex,"local-debris");
 
-        // Real astronomical values: a Sun-like star one AU away and an Earth-sized
-        // planet with a fictional ring system. The station sits in a low polar orbit.
-        const double au = 149_597_870_700.0;
-        var starRadius = 696_000_000.0;
-        var planetRadius = 7_450_000.0;
-        var planetPosition = new Vec3d(au, 0, 0);
-
-        var star = new CelestialBody
-        {
-            Id = 1,
-            Kind = CelestialKind.Star,
-            Name = "Vesper",
-            SystemPosition = Vec3d.Zero,
-            Radius = starRadius,
-        };
-
-        var planet = new CelestialBody
-        {
-            Id = 2,
-            Kind = CelestialKind.Planet,
-            Name = "Aster Reach",
-            SystemPosition = planetPosition,
-            Radius = planetRadius,
-            AxialTilt = 0.62f,
-            AtmosphereHeight = 140_000,
-            RingInnerRadii = 1.55,
-            RingOuterRadii = 2.35,
-        };
+        var layout = GalaxyLayout.Generate(seed);
+        if(systemIndex<0 || systemIndex>=layout.Systems.Count)throw new ArgumentOutOfRangeException(nameof(systemIndex));
+        var (star,planet,additional) = GenerateCelestials(seed,systemIndex,layout.Systems[systemIndex].Name);
+        var planetPosition=planet.SystemPosition;
+        var planetRadius=planet.Radius;
 
         // Sector origin: station in a polar orbit above the planet's day/night terminator.
         var localFrameOrigin = planetPosition + new Vec3d(0, planetRadius + StationOrbitAltitude, 0);
@@ -248,6 +231,7 @@ public sealed class WorldCatalog
         // A second, contiguous area of interest: a denser outer belt 18 km from
         // the station. It is reachable by short warp or by flying, and is used to
         // demonstrate streaming without loading a separate scene.
+        random = new SeedStream(seed,systemIndex,"near-belt");
         var beltCenter = new Vec3d(0, 0, 18_000);
         var beltAsteroids = new List<StaticBody>(140);
         const int beltCount = 120;
@@ -297,7 +281,9 @@ public sealed class WorldCatalog
         return new WorldCatalog
         {
             Seed = seed,
-            SystemName = "Vesper — Kestrel Reach",
+            SystemIndex = systemIndex,
+            SystemName = star.Name,
+            AdditionalCelestials = additional,
             SectorId = orbitSector.Id,
             SectorKind = orbitSector.Kind,
             LocalFrameOrigin = localFrameOrigin,

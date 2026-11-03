@@ -70,8 +70,18 @@ public sealed class CelestialRenderer
         _root.AddChild(_sunLight);
 
         BuildPlanet(catalog.Planet);
+        foreach(var body in catalog.AdditionalCelestials)BuildPlanet(body);
         BuildStar();
 
+        var stellarColor=catalog.Star.StellarClass switch {
+            StellarClass.RedDwarf=>new Color(1,.5f,.3f),StellarClass.OrangeDwarf=>new Color(1,.75f,.5f),
+            StellarClass.WhiteStar=>new Color(.85f,.92f,1),StellarClass.BlueStar=>new Color(.55f,.72f,1),_=>new Color(1,.92f,.8f)};
+        _sunLight.LightColor=stellarColor;
+        foreach(var material in _stellarMaterials)
+        {
+            material.SetShaderParameter("stellar_tint",stellarColor);
+            material.SetShaderParameter("hot_star",(float)Math.Clamp((catalog.Star.TemperatureKelvin-6200)/6000,0,1));
+        }
         Update(Vec3d.Zero, Vec3d.Zero, 0f);
     }
 
@@ -188,7 +198,8 @@ public sealed class CelestialRenderer
         _starHolder.Position = cameraRender;
         var proximity=(float)Math.Clamp((_catalog.Star.Radius/distance-.035)/.65,0,1);
         // Illumination depends on distance; only the smoothly adapting iris depends on the viewing direction.
-        var irradiance=(float)Math.Clamp(Math.Pow(149_597_870_700.0/distance,.55),1,7);
+        var luminosity=Math.Pow(_catalog.Star.Radius/696_000_000,2)*Math.Pow(_catalog.Star.TemperatureKelvin/5778,4);
+        var irradiance=(float)Math.Clamp(Math.Pow(Math.Sqrt(luminosity)*149_597_870_700.0/distance,.55),.25,7);
         _sunLight.LightEnergy=_baseSunEnergy*irradiance;
         var facing=camera is null?0:Mathf.SmoothStep(0,1,Mathf.Clamp(((-camera.GlobalBasis.Z).Dot(ToVector3(offset.Normalized()))+.15f),0,1));
         var exposureTarget=1-proximity*(.22f+.2f*facing);
@@ -208,7 +219,7 @@ public sealed class CelestialRenderer
     {
         var holder = new Node3D
         {
-            Name = "PlanetAsterReach",
+            Name = planet.Id==_catalog.Planet.Id?"PlanetAsterReach":$"Celestial_{planet.Id}",
             Rotation = new Vector3(planet.AxialTilt, 0, 0.12f),
         };
         _celestialRoot.AddChild(holder);
@@ -219,10 +230,21 @@ public sealed class CelestialRenderer
             Mesh = new SphereMesh { Radius = 1, Height = 2, RadialSegments = 96, Rings = 64 },
             MaterialOverride = new ShaderMaterial
             {
-                Shader = GD.Load<Shader>("res://assets/shaders/planet.gdshader"),
+                Shader = GD.Load<Shader>(planet.Surface==PlanetSurface.Gas?"res://assets/shaders/planet.gdshader":"res://assets/shaders/planet_solid.gdshader"),
             },
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         };
+        if(surface.MaterialOverride is ShaderMaterial terrain)
+        {
+            terrain.SetShaderParameter("surface_kind",(int)planet.Surface);
+            terrain.SetShaderParameter("surface_seed",(float)planet.SurfaceSeed);
+            if(planet.Surface==PlanetSurface.Gas)
+            {
+                var colors=new SeedStream(planet.SurfaceSeed,planet.Id,"gas-palette");
+                terrain.SetShaderParameter("band_deep",new Color((float)colors.Between(.1,.35),(float)colors.Between(.12,.35),(float)colors.Between(.15,.4)));
+                terrain.SetShaderParameter("band_light",new Color((float)colors.Between(.5,.8),(float)colors.Between(.45,.75),(float)colors.Between(.4,.7)));
+            }
+        }
         holder.AddChild(surface);
 
         if (planet.AtmosphereHeight > 0)

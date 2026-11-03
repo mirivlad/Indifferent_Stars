@@ -56,9 +56,10 @@ void fragment(){
         vec3 p=ray*sample_t-center;
         vec2 layers=stellar_layers(p,animation_time);
         vec3 radiance=layers.x*vec3(1.0,.36,.055)*2.8+layers.y*vec3(1.0,.25,.04)*1.4;
+        radiance=mix(radiance,stellar_tint*dot(layers,vec2(2.8,1.4)),hot_star);
         accumulated+=transmittance*radiance*weight;
         transmittance*=exp(-dot(layers,vec2(.28,.12))*weight);
     }
-    ALBEDO=accumulated;EMISSION=vec3(0.0);ALPHA=1.0;
+    ALBEDO=accumulated*stellar_tint;EMISSION=vec3(0.0);ALPHA=1.0;
     DEPTH=stellar_depth(ray,min(entry*distance_metres*radius_ratio,149000.0),VIEW_MATRIX,PROJECTION_MATRIX);
 }

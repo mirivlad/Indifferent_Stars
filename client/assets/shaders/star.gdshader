@@ -28,11 +28,12 @@ void fragment(){
     float filament=pow(max(0.0,1.0-abs(plasma_noise(normal*27.0+flow*3.0)-.5)*12.0),2.0);
     heat-=penumbra*.36+filament*penumbra*.12;
     vec3 cool=vec3(.75,.045,.002), warm=vec3(1.0,.32,.025), hot=vec3(1.0,.76,.27);
+    cool=mix(cool,stellar_tint*.25,hot_star);warm=mix(warm,stellar_tint*.7,hot_star);hot=mix(hot,stellar_tint,hot_star);
     vec3 color=mix(cool,warm,smoothstep(.25,.65,heat));
     color=mix(color,hot,smoothstep(.67,.95,heat));
     float limb=clamp(dot(normal,-ray),0.0,1.0);
     float radiance=(.18+pow(heat,3.0)*3.5)*(.6+.4*pow(limb,.35));
-    ALBEDO=color*radiance;
+    ALBEDO=color*radiance*stellar_tint;
     EMISSION=vec3(0.0);
     DEPTH=stellar_depth(ray,travel*distance_metres,VIEW_MATRIX,PROJECTION_MATRIX);
 }

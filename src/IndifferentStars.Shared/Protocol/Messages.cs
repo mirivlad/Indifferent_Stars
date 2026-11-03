@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 17;
+    public const byte Version = 18;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -80,7 +80,8 @@ public sealed record HelloAcceptedMessage(
     float WarpClearance,
     float MaxSpeed,
     ulong ServerTick,
-    byte TickRate) : IProtocolMessage
+    byte TickRate,
+    int SystemIndex = 0) : IProtocolMessage
 {
     public MessageType Type => MessageType.HelloAccepted;
 }

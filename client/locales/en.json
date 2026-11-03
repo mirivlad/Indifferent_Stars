@@ -154,5 +154,6 @@
   "orbit_error_stale": "Stale orbit command rejected.",
   "orbit_error_timeout": "Orbit command was not acknowledged.",
   "orbit_active": "Orbit established",
-  "orbit_transfer": "Orbit transfer"
+  "orbit_transfer": "Orbit transfer",
+  "type_moon": "Moon"
 }

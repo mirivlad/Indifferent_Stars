@@ -102,12 +102,13 @@ public sealed partial class GameWorld
     private bool WarpSafe(ShipState player, Vec3d position, double time, uint targetId = 0, double targetMinimum = 0)
     {
         var clearance = WarpFlight.Clearance + SurfaceMesh.Ship.Radius;
+        var tolerance = Math.Max(1e-5, position.Length * 2e-15);
         foreach (var body in _collisionBodies)
         {
             var pose = BodySurface(body, time);
             var gap = body.Id == targetId ? targetMinimum : clearance;
             if (Vec3d.Distance(position, pose.Position) < pose.Radius + gap &&
-                pose.Distance(position) < gap - 1e-5) return false;
+                pose.Distance(position) < gap - tolerance) return false;
         }
         foreach (var other in _players.Values.Concat(_npcs))
         {
@@ -115,10 +116,10 @@ public sealed partial class GameWorld
             var pose = WorldSurfaces.Ship(other, other.Position, other.Orientation);
             var gap = other.Id == targetId ? targetMinimum : clearance;
             if (Vec3d.Distance(position, other.Position) < pose.Radius + gap &&
-                pose.Distance(position) < gap - 1e-5) return false;
+                pose.Distance(position) < gap - tolerance) return false;
         }
-        return new[] { Catalog.Planet, Catalog.Star }.All(body =>
-            Vec3d.Distance(position, Catalog.CelestialOffset(body)) >= body.Radius + (body.Id == targetId ? targetMinimum : Math.Max(body.AtmosphereHeight + clearance, NavigationLimits.CelestialWarpMinimum(body))) - 1e-5);
+        return Catalog.Celestials.All(body =>
+            Vec3d.Distance(position, Catalog.CelestialOffset(body)) >= body.Radius + (body.Id == targetId ? targetMinimum : Math.Max(body.AtmosphereHeight + clearance, NavigationLimits.CelestialWarpMinimum(body))) - tolerance);
     }
 
     private void StepWarp(ShipState ship, double dt)

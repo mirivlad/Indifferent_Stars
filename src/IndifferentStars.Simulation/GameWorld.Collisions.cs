@@ -42,8 +42,8 @@ public sealed partial class GameWorld
             }
             foreach(var body in _collisionBodies)
                 Hit(WorldSurfaces.ContactHit(from,to,BodySurface(body,TimeSeconds),BodySurface(body,TimeSeconds+dt)),body);
-            Hit(WorldSurfaces.SphereHit(from,to,Catalog.CelestialOffset(Catalog.Planet),Catalog.Planet.Radius));
-            Hit(WorldSurfaces.SphereHit(from,to,Catalog.CelestialOffset(Catalog.Star),Catalog.Star.Radius));
+            foreach(var celestial in Catalog.Celestials)
+                Hit(WorldSurfaces.SphereHit(from,to,Catalog.CelestialOffset(celestial),celestial.Radius));
             if(first is not { } impact)continue;
             var angular=SurfaceContact.AngularMotion(before.Orientation,ship.Orientation)/dt;
             AtContact(ship,impact.Time);

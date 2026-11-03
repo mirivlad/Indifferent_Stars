@@ -6,6 +6,9 @@ namespace IndifferentStars.Shared.World;
 /// proportions. Rendering maps them into a nearby display frame (see client
 /// CelestialRenderer); gameplay never stores these huge coordinates in a float.
 /// </summary>
+public enum PlanetSurface { Gas, Scorched, Cratered, Terrestrial, Ice }
+public enum StellarClass { RedDwarf, OrangeDwarf, YellowDwarf, WhiteStar, BlueStar }
+
 public sealed class CelestialBody
 {
     public required int Id { get; init; }
@@ -17,6 +20,12 @@ public sealed class CelestialBody
 
     /// <summary>Real equatorial radius, in metres.</summary>
     public required double Radius { get; init; }
+
+    public PlanetSurface Surface { get; init; } = PlanetSurface.Gas;
+    public StellarClass StellarClass { get; init; } = StellarClass.YellowDwarf;
+    public double TemperatureKelvin { get; init; } = 5778;
+    public int ParentId { get; init; } = 1;
+    public int SurfaceSeed { get; init; }
 
     /// <summary>Axial tilt used only by the renderer, in radians.</summary>
     public float AxialTilt { get; init; }

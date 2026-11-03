@@ -11,7 +11,7 @@ public static class Program
     public static int Main(string[] args)
     {
         var config = ServerConfig.Parse(args);
-        var catalog = WorldCatalog.Generate(config.WorldSeed);
+        var catalog = WorldCatalog.Generate(config.WorldSeed, config.SystemIndex);
         var world = new GameWorld(catalog);
 
         try

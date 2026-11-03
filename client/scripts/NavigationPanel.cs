@@ -103,7 +103,7 @@ public sealed partial class NavigationPanel : CanvasLayer
     }
 
     private void ResizeList() => _tree.CustomMinimumSize = new Vector2(0, Mathf.Clamp(GetViewport().GetVisibleRect().Size.Y * .36f, 120, 360));
-    private static string Group(string kind) => kind.ToLowerInvariant() switch { "player" or "npc" => "ship", "star" or "planet" or "asteroid" or "station" => kind.ToLowerInvariant(), _ => "other" };
+    private static string Group(string kind) => kind.ToLowerInvariant() switch { "player" or "npc" => "ship", "moon" => "planet", "star" or "planet" or "asteroid" or "station" => kind.ToLowerInvariant(), _ => "other" };
     public static string Distance(double metres)
     {
         metres = Math.Max(0,metres);

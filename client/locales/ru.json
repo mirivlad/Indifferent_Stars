@@ -154,5 +154,6 @@
   "orbit_error_stale": "Устаревшая команда орбиты отклонена.",
   "orbit_error_timeout": "Нет подтверждения команды орбиты от сервера.",
   "orbit_active": "Орбита",
-  "orbit_transfer": "Перелёт на орбиту"
+  "orbit_transfer": "Перелёт на орбиту",
+  "type_moon": "Спутник"
 }

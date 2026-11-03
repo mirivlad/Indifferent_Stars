@@ -10,6 +10,7 @@ public sealed record ServerConfig
     public int TickRate { get; init; } = 20;
     public int SnapshotRate { get; init; } = 20;
     public int WorldSeed { get; init; } = 20261101;
+    public int SystemIndex { get; init; }
     public int MaxPlayers { get; init; } = 8;
 
     public TimeSpan TickInterval => TimeSpan.FromSeconds(1.0 / TickRate);
@@ -42,6 +43,9 @@ public sealed record ServerConfig
                     break;
                 case "--snapshot-rate":
                     config = config with { SnapshotRate = ParseInt(Next(), "--snapshot-rate", 1, 120) };
+                    break;
+                case "--system":
+                    config = config with { SystemIndex = ParseInt(Next(), "--system", 0, 95) };
                     break;
                 case "--seed":
                     config = config with { WorldSeed = ParseInt(Next(), "--seed", int.MinValue, int.MaxValue) };
@@ -77,6 +81,7 @@ public sealed record ServerConfig
               --tick-rate <1-120>     Simulation ticks per second (default 20)
               --snapshot-rate <1-120> Snapshots per second (default 20)
               --seed <int>            Star system seed (default 20261101, env IS_SEED)
+              --system <index>        Seeded system index (default 0; available count depends on seed)
               --max-players <1-64>    Player cap (default 8)
               --help                  Show this help
             """);

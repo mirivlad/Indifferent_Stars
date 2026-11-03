@@ -401,7 +401,7 @@ public sealed partial class GameWorld
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
         _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
         _npcs.All(other => CruiseClearOf(ship, other.Position, 20)) &&
-        new[] { Catalog.Star, Catalog.Planet }.All(body =>
+        Catalog.Celestials.All(body =>
             CruiseClearOf(ship, body.SystemPosition - Catalog.LocalFrameOrigin, body.Radius + body.AtmosphereHeight));
 
     private static bool CruiseClearOf(ShipState ship, Vec3d target, double radius)

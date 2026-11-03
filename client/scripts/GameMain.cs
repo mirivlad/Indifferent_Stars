@@ -466,7 +466,7 @@ public sealed partial class GameMain : Node3D
                 var selectedDistance = selectedId == 0 ? float.MaxValue : contact.Distance;
                 if (_tactical.ZoomRange >= 100_000_000)
                 {
-                    foreach (var celestial in new[] { _catalog.Star, _catalog.Planet })
+                    foreach (var celestial in _catalog.Celestials)
                     {
                         var distance = _tactical.ScreenPosition(celestial.SystemPosition - _catalog.LocalFrameOrigin).DistanceTo(mouse.Position);
                         if (distance < 20 && distance < selectedDistance)
@@ -632,9 +632,9 @@ public sealed partial class GameMain : Node3D
 
     private void RequestUndock() => _net?.RequestDock((uint)_catalog.Station.Id, true);
 
-    private void RebuildStaticWorld(int seed)
+    private void RebuildStaticWorld(int seed, int systemIndex = 0)
     {
-        _catalog = WorldCatalog.Generate(seed);
+        _catalog = WorldCatalog.Generate(seed,systemIndex);
         if (_worldBuilder is not null)
         {
             _staticRoot.QueueFree();

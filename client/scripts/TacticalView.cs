@@ -146,15 +146,16 @@ public sealed partial class TacticalView : Control
     private void DrawPlanetaryContext(Vector2 center, float scale)
     {
         if (Catalog is null || ZoomRange >= 100_000_000) return;
-        var planet = Catalog.Planet;
+        foreach(var planet in Catalog.Celestials.Where(b=>b.Kind!=CelestialKind.Star))
+        {
         var radius = (float)(planet.Radius * scale);
-        if (radius < 12 || radius > 10_000) return;
+        if (radius < 12 || radius > 10_000) continue;
         var position = planet.SystemPosition - Catalog.LocalFrameOrigin;
         var screen = Project(center, scale, position);
         var color = new Color(0.4f, 0.65f, 0.9f, 0.65f);
         DrawArc(screen, radius, 0, Mathf.Tau, 256, color, 1.5f);
         var rotation = Basis.FromEuler(new Vector3(planet.AxialTilt, 0, 0.12f));
-        foreach (var ringRadius in new[] { planet.RingInnerRadii, planet.RingOuterRadii })
+        foreach (var ringRadius in new[] { planet.RingInnerRadii, planet.RingOuterRadii }.Where(r=>r>0))
         {
             var points = new Vector2[129];
             for (var i = 0; i < points.Length; i++)
@@ -166,6 +167,7 @@ public sealed partial class TacticalView : Control
             DrawPolyline(points, new Color(0.85f, 0.72f, 0.52f, 0.55f), 1.5f);
         }
         DrawLabel(Locale.Format("map_planet_projection", planet.Name), screen + new Vector2(radius + 6, 0), color, 13, true);
+        }
     }
 
     public override void _Process(double delta)
@@ -182,7 +184,7 @@ public sealed partial class TacticalView : Control
 
     public void ZoomAt(Vector2 screen, double factor)
     {
-        var next = Math.Clamp(_targetZoom * factor, 300, 250_000_000_000.0);
+        var next = Math.Clamp(_targetZoom * factor, 300, Math.Max(250_000_000_000.0,(Catalog?.Celestials.Max(b=>b.SystemPosition.Length)??0)*1.5));
         var pixels = Math.Min(Size.X, Size.Y) * 0.43;
         var offset = screen - Size * 0.5f;
         var difference = (_targetZoom - next) / pixels;
@@ -209,7 +211,7 @@ public sealed partial class TacticalView : Control
         if (Catalog is null) return;
         _followPlayer=false;
         _targetCenter = Catalog.Star.SystemPosition - Catalog.LocalFrameOrigin;
-        _targetZoom = 200_000_000_000;
+        _targetZoom = Math.Max(200_000_000_000,Catalog.Celestials.Max(b=>b.SystemPosition.Length)*1.2);
     }
 
     public Vector2 ScreenPosition(Vec3d world) =>
@@ -312,14 +314,19 @@ public sealed partial class TacticalView : Control
     private void DrawSystemBodies(Vector2 center, float scale, Vector2 size)
     {
         if (Catalog is null) return;
-        var starPosition = Catalog.Star.SystemPosition - Catalog.LocalFrameOrigin;
-        var planetPosition = Catalog.Planet.SystemPosition - Catalog.LocalFrameOrigin;
-        var starScreen = Project(center, scale, starPosition);
-        var orbitRadius = (float)(Vec3d.Distance(Catalog.Star.SystemPosition, Catalog.Planet.SystemPosition) * scale);
-        if (orbitRadius > 2 && orbitRadius < 10000)
-            DrawArc(starScreen, orbitRadius, 0, Mathf.Tau, 256, RingColor, 1);
-        DrawSystemBody(Catalog.Star, starPosition, center, scale, size, new Color(1, 0.72f, 0.36f));
-        DrawSystemBody(Catalog.Planet, planetPosition, center, scale, size, new Color(0.92f, 0.8f, 0.55f));
+        foreach(var body in Catalog.Celestials)
+        {
+            if(body.Kind==CelestialKind.Moon && Catalog.FindCelestial(body.ParentId) is { } moonParent &&
+                Vec3d.Distance(body.SystemPosition,moonParent.SystemPosition)*scale<12 && body.Id!=TargetId)continue;
+            var position=Catalog.CelestialOffset(body);
+            if(body.Kind!=CelestialKind.Star && Catalog.FindCelestial(body.ParentId) is { } parent)
+            {
+                var orbitRadius=(float)(Vec3d.Distance(body.SystemPosition,parent.SystemPosition)*scale);
+                if(orbitRadius>2&&orbitRadius<10000)DrawArc(Project(center,scale,Catalog.CelestialOffset(parent)),orbitRadius,0,Mathf.Tau,256,RingColor,1);
+            }
+            DrawSystemBody(body,position,center,scale,size,body.Kind==CelestialKind.Star?new Color(1,.72f,.36f):
+                body.Surface==PlanetSurface.Terrestrial?new Color(.3f,.7f,1):body.Surface==PlanetSurface.Ice?new Color(.75f,.88f,1):new Color(.92f,.8f,.55f));
+        }
     }
 
     private void DrawSystemBody(CelestialBody body, Vec3d position, Vector2 center, float scale, Vector2 size, Color color)

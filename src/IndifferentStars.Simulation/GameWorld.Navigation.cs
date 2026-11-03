@@ -94,7 +94,7 @@ public sealed partial class GameWorld
             double D(double x, double y, double z) => surface.Distance(ship.Position + new Vec3d(x, y, z));
             escape = new Vec3d(D(h,0,0)-D(-h,0,0), D(0,h,0)-D(0,-h,0), D(0,0,h)-D(0,0,-h)).Normalized();
         }
-        foreach (var body in new[] { Catalog.Star, Catalog.Planet })
+        foreach (var body in Catalog.Celestials)
         {
             var offset = ship.Position - Catalog.CelestialOffset(body);
             var gap = offset.Length - body.Radius - body.AtmosphereHeight;

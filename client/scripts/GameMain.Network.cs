@@ -125,8 +125,8 @@ public sealed partial class GameMain
         _playerId = welcome.PlayerId;
         _scanRange = welcome.ScanRange;
 
-        if (_catalog.Seed != welcome.WorldSeed)
-            RebuildStaticWorld(welcome.WorldSeed);
+        if (_catalog.Seed != welcome.WorldSeed || _catalog.SystemIndex != welcome.SystemIndex)
+            RebuildStaticWorld(welcome.WorldSeed,welcome.SystemIndex);
 
         var createShip = _playerShip is null || _playerShip.Id != welcome.PlayerId;
         if (createShip)
@@ -376,7 +376,7 @@ public sealed partial class GameMain
         var contacts = new List<ContactRef>(_catalog.LocalBodies.Count + _remoteShips.Count);
         foreach (var body in _catalog.LocalBodies)
             contacts.Add(MakeContact(body, player));
-        foreach (var body in new[] { _catalog.Planet, _catalog.Star })
+        foreach (var body in _catalog.Celestials)
             if (FindContact((uint)body.Id) is { } celestial)
                 contacts.Add(celestial);
 

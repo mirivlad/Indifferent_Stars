@@ -1,3 +1,5 @@
+uniform float hot_star = 0.0;
+uniform vec3 stellar_tint : source_color = vec3(1.0);
 // Ratios come from double-precision world coordinates; geometry stays in the camera frustum.
 uniform vec3 star_direction = vec3(-1.0, 0.0, 0.0);
 uniform float radius_ratio = 0.00465;

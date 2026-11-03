@@ -67,6 +67,7 @@ public static class ProtocolCodec
                 writer.Write(accepted.MaxSpeed);
                 writer.Write(accepted.ServerTick);
                 writer.Write(accepted.TickRate);
+                writer.Write(accepted.SystemIndex);
                 break;
 
             case HelloRejectedMessage rejected:
@@ -325,7 +326,7 @@ public static class ProtocolCodec
                     reader.ReadSingle(),
                     reader.ReadSingle(),
                     reader.ReadUInt64(),
-                    reader.ReadByte()),
+                    reader.ReadByte(), reader.ReadInt32()),
 
                 MessageType.HelloRejected => new HelloRejectedMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),

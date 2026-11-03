@@ -343,7 +343,7 @@ public sealed partial class UdpGameServer : IDisposable
             (float)WarpFlight.Clearance,
             (float)WorldCatalog.MaxBoostSpeed,
             _world.TickCount,
-            (byte)_config.TickRate));
+            (byte)_config.TickRate, _catalog.SystemIndex));
     }
 
     private void HandleScan(ScanRequestMessage request, IPEndPoint endpoint, double now)

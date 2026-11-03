@@ -37,7 +37,7 @@ void fragment(){
     float facing=abs(dot(normalize(tube_normal),-ray));
     float streams=.65+.35*sin(UV.x*45.0-animation_time*.8+sin(UV.y*13.0+phase));
     float activity=.65+.35*sin(animation_time*.055+phase);
-    ALBEDO=mix(vec3(1.0,.12,.008),vec3(1.0,.65,.12),pow(facing,3.0))*streams*activity*3.5;
+    ALBEDO=mix(vec3(1.0,.12,.008),vec3(1.0,.65,.12),pow(facing,3.0))*streams*activity*3.5*stellar_tint;
     ALPHA=pow(facing,.7)*.55;
     DEPTH=stellar_depth(ray,min(length(relative)*distance_metres*radius_ratio,149000.0),VIEW_MATRIX,PROJECTION_MATRIX);
 }
