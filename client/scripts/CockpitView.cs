@@ -6,7 +6,7 @@ namespace IndifferentStars.Client;
 /// <summary>
 /// Minimal procedural cockpit interior. It exists only as client-side decoration;
 /// the camera inside uses exactly the same authoritative ship transform as other views.
-/// Geometry is laid out around an eye point at (0, 1.0, 0.1) looking down -Z, so the
+/// Interior geometry is translated to the Wren's eye point, looking down -Z, so the
 /// dashboard sits in the lower part of the view and the forward view stays clear.
 /// </summary>
 public sealed partial class CockpitView : Node3D
@@ -42,11 +42,12 @@ public sealed partial class CockpitView : Node3D
     public CockpitView()
     {
         Name = "CockpitInterior";
+        Position = EyePosition - new Vector3(0, 1, .1f);
         Build();
     }
 
     /// <summary>Eye position in ship-local metres. Shared with the camera code.</summary>
-    public static readonly Vector3 EyePosition = new(0f, 1.0f, 0.1f);
+    public static readonly Vector3 EyePosition = new(0f, 1.85f, -5.25f);
 
     private void Build()
     {
@@ -69,7 +70,7 @@ public sealed partial class CockpitView : Node3D
         };
 
         // Dashboard shelf running across the lower view, with a sloped panel under it.
-        AddBox(new Vector3(3.2f, 0.08f, 0.62f), new Vector3(0, 0.5f, -1.3f), HullMaterial);
+        AddBox(new Vector3(3.2f, 0.08f, 1.7f), new Vector3(0, 0.5f, -1.7f), HullMaterial);
         AddBox(new Vector3(3.2f, 0.55f, 0.08f), new Vector3(0, 0.2f, -1.62f), HullMaterial, new Vector3(-26, 0, 0));
         AddBox(new Vector3(3.2f, 0.02f, 0.035f), new Vector3(0, 0.512f, -1.0f), AccentMaterial);
         AddBox(new Vector3(0.6f, 0.012f, 0.03f), new Vector3(0, 0.5f, -1.55f), warm);
@@ -97,9 +98,11 @@ public sealed partial class CockpitView : Node3D
             AlbedoColor = new Color(0.24f, 0.28f, 0.32f),
             Metallic = 0.85f, Roughness = 0.33f,
         };
-        AddRail(new Vector3(-1.5f, 0.48f, -1.3f), new Vector3(-1.82f, 1.85f, -1.7f), metal);
-        AddRail(new Vector3(1.5f, 0.48f, -1.3f), new Vector3(1.82f, 1.85f, -1.7f), metal);
-        AddRail(new Vector3(-1.82f, 1.85f, -1.7f), new Vector3(1.82f, 1.85f, -1.7f), metal);
+        AddRail(new Vector3(-1.5f, 0.48f, -2.4f), new Vector3(-1.55f, 1.6f, -1.5f), metal);
+        AddRail(new Vector3(1.5f, 0.48f, -2.4f), new Vector3(1.55f, 1.6f, -1.5f), metal);
+        AddRail(new Vector3(-1.55f, 1.6f, -1.5f), new Vector3(-.95f, 1.85f, -1.3f), metal);
+        AddRail(new Vector3(1.55f, 1.6f, -1.5f), new Vector3(.95f, 1.85f, -1.3f), metal);
+        AddRail(new Vector3(-.95f, 1.85f, -1.3f), new Vector3(.95f, 1.85f, -1.3f), metal);
         AddScreen(new Vector3(0, 0.32f, -1.48f), screen, new Vector3(0.9f, 0.24f, 0.02f));
         _flightScreen = AddInstrumentText(new Vector3(0, 0.32f, -1.455f), new Color(0.62f, 0.92f, 1), 22);
 

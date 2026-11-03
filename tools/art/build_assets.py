@@ -387,9 +387,7 @@ def main():
     clear_scene()
     setup_render_environment()
 
-    ship_objects = build_ship()
-    export_selected(os.path.join(MODELS, "ship_player.glb"), ship_objects)
-    render_view(os.path.join(MEDIA, "ship_preview.png"), (10.5, -14.0, 7.0), (0, 0.4, 0.1), lens=50)
+    print("Detailed ship is built separately with tools/art/build_ship.py")
 
     print("Detailed station is built separately with tools/art/build_station.py")
 

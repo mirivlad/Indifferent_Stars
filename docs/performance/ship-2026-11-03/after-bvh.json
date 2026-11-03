@@ -1,0 +1,128 @@
+{
+  "seed": 20261101,
+  "samples": 64,
+  "tick_seconds": 0.05,
+  "station_scale": 275,
+  "station_triangles": 15676,
+  "geometry": "1a3194ea8e4d907d465b72795ae35b7da7a2c68a7abe54b67451b4ffe5102bd7",
+  "runtime": "10.0.14",
+  "os": "Unix 6.5.0.1",
+  "stopwatch_frequency": 1000000000,
+  "processor_count": 28,
+  "tiered_compilation": "0",
+  "configuration": "Release",
+  "metrics": [
+    {
+      "metric": "surface_sweep",
+      "scenario": "far",
+      "p50_ms": 0,
+      "p95_ms": 0,
+      "max_ms": 0,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "far",
+      "p50_ms": 0.2792,
+      "p95_ms": 0.2953,
+      "max_ms": 0.3085,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "open_ring",
+      "p50_ms": 0.0348,
+      "p95_ms": 0.0526,
+      "max_ms": 0.0619,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "open_ring",
+      "p50_ms": 0.3268,
+      "p95_ms": 0.3453,
+      "max_ms": 0.3616,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rim_hover",
+      "p50_ms": 0.0358,
+      "p95_ms": 0.0456,
+      "max_ms": 0.0498,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "rim_hover",
+      "p50_ms": 0.3225,
+      "p95_ms": 0.3398,
+      "max_ms": 0.3435,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rim_close",
+      "p50_ms": 0.0553,
+      "p95_ms": 0.0706,
+      "max_ms": 0.0911,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "rim_close",
+      "p50_ms": 0.342,
+      "p95_ms": 0.3603,
+      "max_ms": 0.369,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "rim_contact",
+      "p50_ms": 0.0529,
+      "p95_ms": 0.0649,
+      "max_ms": 0.0732,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "rim_contact",
+      "p50_ms": 0.347,
+      "p95_ms": 0.3738,
+      "max_ms": 0.3821,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "hub_near",
+      "p50_ms": 0.051,
+      "p95_ms": 0.0634,
+      "max_ms": 0.0845,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "hub_near",
+      "p50_ms": 0.3388,
+      "p95_ms": 0.3614,
+      "max_ms": 0.3672,
+      "allocated_bytes_per_call": 2120
+    },
+    {
+      "metric": "surface_sweep",
+      "scenario": "dock_hover",
+      "p50_ms": 0.049,
+      "p95_ms": 0.0706,
+      "max_ms": 0.0855,
+      "allocated_bytes_per_call": 0
+    },
+    {
+      "metric": "world_tick_8_npc",
+      "scenario": "dock_hover",
+      "p50_ms": 0.3393,
+      "p95_ms": 0.364,
+      "max_ms": 0.4018,
+      "allocated_bytes_per_call": 2120
+    }
+  ]
+}

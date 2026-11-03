@@ -45,7 +45,7 @@ public sealed partial class NavigationChecks : Node3D
             ship.Track.Push(new EntitySnapshot(10000, EntityKind.Player, "Navigation", position, (float)angles.Yaw,
                 (float)angles.Pitch, Vec3d.Zero, 0, System.Numerics.Quaternion.CreateFromYawPitchRoll((float)angles.Yaw, (float)angles.Pitch, 0)), 0, 1);
             ship.UpdateVisual(origin, 0.016f);
-            camera.Position = ship.Position + ship.Basis * new Vector3(1, 5.4f, 17);
+            camera.Position = ship.Position + ship.Basis * new Vector3(1, 9, 34);
             camera.LookAt(ship.Position - ship.Basis.Z * 12, ship.Basis.Y);
             var layer = new CanvasLayer(); AddChild(layer);
             var map = new TacticalView { Catalog = catalog, PlayerId = 10000, PlayerPosition = position, PlayerAltitude = (float)y };

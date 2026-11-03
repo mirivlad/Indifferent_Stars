@@ -17,6 +17,8 @@ public sealed partial class ShipView : Node3D
     private readonly List<MeshInstance3D> _engineGlows = new();
     private readonly List<OmniLight3D> _engineLights = new();
     private readonly List<Node3D> _engineTrails = new();
+    private readonly List<Vector3> _mainNozzles = new();
+    private readonly List<(Vector3 Position, Vector3 Exhaust)> _maneuverSockets = new();
     private Node3D? _modelRoot;
     private float _glowPhase;
     private bool _externalVisible = true;
@@ -123,6 +125,15 @@ public sealed partial class ShipView : Node3D
             if (!IsPlayer)
                 TintModel(model, Id);
             _modelRoot.AddChild(model);
+            foreach (var marker in model.FindChildren("MainNozzle_*", "Node3D", true, false).OfType<Node3D>().OrderBy(node => node.Name.ToString()))
+                _mainNozzles.Add(ModelTransform(marker).Origin);
+            foreach (var marker in model.FindChildren("Maneuver_*", "Node3D", true, false).OfType<Node3D>())
+            {
+                var transform = ModelTransform(marker);
+                _maneuverSockets.Add((transform.Origin, -transform.Basis.Z.Normalized()));
+            }
+            if (_mainNozzles.Count != 2 || _maneuverSockets.Count != 14)
+                throw new InvalidOperationException("The ship must export two main nozzles and fourteen maneuver outlets.");
         }
         else
         {
@@ -138,15 +149,15 @@ public sealed partial class ShipView : Node3D
             EmissionEnergyMultiplier = 6.0f,
         };
 
-        var engineScale = IsPlayer ? 1.0f : (float)ModelPose.NpcScale;
-        foreach (var x in new[] { -0.78f, 0.78f })
+        for (var index = 0; index < _mainNozzles.Count; index++)
         {
+            var position = _mainNozzles[index];
             var glow = new MeshInstance3D
             {
-                Name = $"EngineGlow_{x}",
-                Mesh = new SphereMesh { Radius = 0.32f, Height = 0.64f, RadialSegments = 12, Rings = 8 },
+                Name = $"EngineGlow_{index}",
+                Mesh = new SphereMesh { Radius = 0.52f, Height = 1.04f, RadialSegments = 12, Rings = 8 },
                 MaterialOverride = glowMaterial,
-                Position = new Vector3(x * engineScale, 0, 4.52f * engineScale),
+                Position = position,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
             _modelRoot.AddChild(glow);
@@ -154,8 +165,8 @@ public sealed partial class ShipView : Node3D
 
             var trailPivot = new Node3D
             {
-                Name = $"EngineTrail_{x}",
-                Position = new Vector3(x * engineScale, 0, 4.52f * engineScale),
+                Name = $"EngineTrail_{index}",
+                Position = position,
                 RotationDegrees = new Vector3(90, 0, 0),
             };
             trailPivot.AddChild(new MeshInstance3D
@@ -189,8 +200,8 @@ public sealed partial class ShipView : Node3D
             {
                 var light = new OmniLight3D
                 {
-                    Name = $"EngineLight_{x}",
-                    Position = new Vector3(x * engineScale, 0, 4.3f * engineScale),
+                    Name = $"EngineLight_{index}",
+                    Position = position - Vector3.Back * .22f,
                     LightColor = new Color(0.3f, 0.75f, 1.0f),
                     LightEnergy = 1.2f,
                     OmniRange = 18,
@@ -201,6 +212,14 @@ public sealed partial class ShipView : Node3D
             }
         }
         BuildManeuverEffects();
+    }
+
+    private Transform3D ModelTransform(Node3D marker)
+    {
+        var transform = marker.Transform;
+        for (var parent = marker.GetParent() as Node3D; parent is not null && parent != _modelRoot; parent = parent.GetParent() as Node3D)
+            transform = parent.Transform * transform;
+        return transform;
     }
 
     private static void TintModel(Node3D model, uint id)
@@ -219,7 +238,7 @@ public sealed partial class ShipView : Node3D
             if (meshInstance.Mesh is null)
                 continue;
             var material = meshInstance.Mesh.SurfaceGetMaterial(0);
-            if (material is StandardMaterial3D standard)
+            if (material is StandardMaterial3D standard && standard.ResourceName == "Paint")
             {
                 var duplicate = (StandardMaterial3D)standard.Duplicate();
                 duplicate.AlbedoColor = duplicate.AlbedoColor.Lerp(tint, 0.55f);

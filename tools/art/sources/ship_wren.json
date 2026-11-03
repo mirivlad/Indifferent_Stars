@@ -1,0 +1,277 @@
+{
+  "asset": "ship_player",
+  "design": "Wren utility courier",
+  "source": "tools/art/build_ship.py",
+  "helper": "tools/art/build_station.py",
+  "blender": "5.2.2 LTS",
+  "seed": 20261103,
+  "provenance": "original project geometry and textures; no third-party assets",
+  "license": "distribution license follows the project owner's decision; not yet declared in repository",
+  "scale_metres": 1,
+  "nose": "-Z",
+  "pilot_eye_metres": [
+    0,
+    1.85,
+    -5.25
+  ],
+  "triangles": 16740,
+  "materials": 7,
+  "mesh_nodes": 9,
+  "texture_size": 2048,
+  "markers": [
+    "MainNozzle_Left",
+    "Maneuver_Front_Left",
+    "Maneuver_Front_L_Down",
+    "Maneuver_Front_L_Up",
+    "Maneuver_Rear_Left",
+    "Maneuver_Rear_L_Down",
+    "Maneuver_Rear_L_Up",
+    "Maneuver_Retro_L",
+    "MainNozzle_Right",
+    "Maneuver_Front_Right",
+    "Maneuver_Front_R_Down",
+    "Maneuver_Front_R_Up",
+    "Maneuver_Rear_Right",
+    "Maneuver_Rear_R_Down",
+    "Maneuver_Rear_R_Up",
+    "Maneuver_Retro_R",
+    "PilotEye",
+    "RunningLight_L",
+    "RunningLight_R"
+  ],
+  "glb_sha256": "fe93fa148eea144a733bc7d585c9719173d555aa5b6ec7bce7bdb838673e2389",
+  "bounds_metres": {
+    "min": [
+      -4.619999885559082,
+      -1.899999976158142,
+      -11.800000190734863
+    ],
+    "max": [
+      4.619999885559082,
+      2.8299999237060547,
+      9.789999961853027
+    ],
+    "size": [
+      9.239999771118164,
+      4.729999899864197,
+      21.59000015258789
+    ]
+  },
+  "attachments": {
+    "MainNozzle_Left": {
+      "position_metres": [
+        -3.3499999046325684,
+        -0.6499999761581421,
+        9.850000381469727
+      ],
+      "exhaust_direction": [
+        8.742277657347586e-08,
+        0.0,
+        1.0
+      ]
+    },
+    "Maneuver_Front_Left": {
+      "position_metres": [
+        -2.2750000953674316,
+        -0.3499999940395355,
+        -7.099999904632568
+      ],
+      "exhaust_direction": [
+        -0.9999999403953552,
+        0.0,
+        -0.0
+      ]
+    },
+    "Maneuver_Front_L_Down": {
+      "position_metres": [
+        -1.5499999523162842,
+        -1.5950000286102295,
+        -7.099999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        -0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Front_L_Up": {
+      "position_metres": [
+        -1.850000023841858,
+        1.5950000286102295,
+        -7.099999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Rear_Left": {
+      "position_metres": [
+        -4.625,
+        -0.3499999940395355,
+        6.599999904632568
+      ],
+      "exhaust_direction": [
+        -0.9999999403953552,
+        0.0,
+        -0.0
+      ]
+    },
+    "Maneuver_Rear_L_Down": {
+      "position_metres": [
+        -1.5499999523162842,
+        -1.5950000286102295,
+        6.599999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        -0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Rear_L_Up": {
+      "position_metres": [
+        -1.5499999523162842,
+        1.5950000286102295,
+        6.599999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Retro_L": {
+      "position_metres": [
+        -1.0499999523162842,
+        -0.20000000298023224,
+        -11.305000305175781
+      ],
+      "exhaust_direction": [
+        0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    "MainNozzle_Right": {
+      "position_metres": [
+        3.3499999046325684,
+        -0.6499999761581421,
+        9.850000381469727
+      ],
+      "exhaust_direction": [
+        8.742277657347586e-08,
+        0.0,
+        1.0
+      ]
+    },
+    "Maneuver_Front_Right": {
+      "position_metres": [
+        2.2750000953674316,
+        -0.3499999940395355,
+        -7.099999904632568
+      ],
+      "exhaust_direction": [
+        0.9999999403953552,
+        0.0,
+        -0.0
+      ]
+    },
+    "Maneuver_Front_R_Down": {
+      "position_metres": [
+        1.5499999523162842,
+        -1.5950000286102295,
+        -7.099999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        -0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Front_R_Up": {
+      "position_metres": [
+        1.850000023841858,
+        1.5950000286102295,
+        -7.099999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Rear_Right": {
+      "position_metres": [
+        4.625,
+        -0.3499999940395355,
+        6.599999904632568
+      ],
+      "exhaust_direction": [
+        0.9999999403953552,
+        0.0,
+        -0.0
+      ]
+    },
+    "Maneuver_Rear_R_Down": {
+      "position_metres": [
+        1.5499999523162842,
+        -1.5950000286102295,
+        6.599999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        -0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Rear_R_Up": {
+      "position_metres": [
+        1.5499999523162842,
+        1.5950000286102295,
+        6.599999904632568
+      ],
+      "exhaust_direction": [
+        0.0,
+        0.9999999403953552,
+        -0.0
+      ]
+    },
+    "Maneuver_Retro_R": {
+      "position_metres": [
+        1.0499999523162842,
+        -0.20000000298023224,
+        -11.305000305175781
+      ],
+      "exhaust_direction": [
+        0.0,
+        0.0,
+        -1.0
+      ]
+    },
+    "PilotEye": {
+      "position_metres": [
+        0.0,
+        1.850000023841858,
+        -5.25
+      ]
+    },
+    "RunningLight_L": {
+      "position_metres": [
+        -2.1500000953674316,
+        0.30000001192092896,
+        -7.5
+      ]
+    },
+    "RunningLight_R": {
+      "position_metres": [
+        2.1500000953674316,
+        0.30000001192092896,
+        -7.5
+      ]
+    }
+  },
+  "generator_sha256": "3c6a8a08b8cac4756d23277ed3f4d8540855f25f55ce0bd335862b201f08c38e",
+  "helper_sha256": "524491c13767a45b3144c65d9cdbd29ec31f087cc39b34b556e63fe36b1f8fbf"
+}

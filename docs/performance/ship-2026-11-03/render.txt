@@ -1,0 +1,2 @@
+SHIP TELEMETRY: high=True, frames=300, p95=20.04ms, draw_calls=66, video_bytes=487761876, texture_bytes=427020868, viewport=(1600, 900), MSAA=Msaa4X.
+SHIP TELEMETRY: high=False, frames=301, p95=23.70ms, draw_calls=44, video_bytes=487761876, texture_bytes=427020868, viewport=(1600, 900), MSAA=Msaa4X.

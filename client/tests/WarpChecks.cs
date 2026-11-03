@@ -116,7 +116,8 @@ public sealed partial class WarpChecks : Node
             {
                 await Pause(0.05);
                 Check(_pilot.GlobalPosition.Length() < 15000, "AU warp must rebase around the rendered ship.");
-                Check(_game.GetNode<Camera3D>("ViewCamera").GlobalPosition.DistanceTo(_pilot.GlobalPosition) < 25,
+                var cameraDistance = _game.GetNode<Camera3D>("ViewCamera").GlobalPosition.DistanceTo(_pilot.GlobalPosition);
+                Check(cameraDistance > SurfaceMesh.Ship.Radius + 1 && cameraDistance < 40,
                     "The camera must stay with the AU-scale warp ship.");
             }
             await Capture("08_au_transit");

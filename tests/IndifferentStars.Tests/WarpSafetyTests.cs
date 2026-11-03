@@ -37,7 +37,8 @@ public sealed class WarpSafetyTests
         Finish(world, ship);
         Assert.Equal(result.Destination, ship.Position);
         Assert.InRange(Vec3d.Distance(ship.Position, world.Catalog.CelestialOffset(target)) -
-            target.Radius - target.AtmosphereHeight, 1000, 1010);
+            target.Radius - target.AtmosphereHeight - SurfaceMesh.Ship.Radius,
+            WarpFlight.Clearance - .001, WarpFlight.Clearance + .001);
         Assert.Equal(Vec3d.Zero, ship.Velocity);
         Assert.False(ship.Cruising);
     }
@@ -50,7 +51,8 @@ public sealed class WarpSafetyTests
         Assert.True(result.Success, result.Message);
         var atArrival = WorldSurfaces.Body(world.Catalog, world.Catalog.Station,
             WarpFlight.ChargeSeconds + WarpFlight.TravelSeconds);
-        Assert.InRange(atArrival.Distance(result.Destination), 1000, 1010);
+        Assert.InRange(atArrival.Distance(result.Destination) - SurfaceMesh.Ship.Radius,
+            WarpFlight.Clearance - .001, WarpFlight.Clearance + .001);
         Finish(world, ship);
         Assert.Equal(result.Destination, ship.Position);
     }

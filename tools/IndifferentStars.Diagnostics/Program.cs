@@ -41,10 +41,19 @@ foreach(var (name, local) in cases)
         world.ApplyInput(ship.Id,InputState.None);
     });
 }
+Measure("surface_sweep", "opposing_ships", () =>
+    _ = SurfaceContact.Sweep(SurfaceMesh.Ship, 1, new(-100,0,0), new(100,0,0),
+        Quaternion.Identity, Quaternion.Identity, SurfaceMesh.Ship, 1,
+        new(100,0,0), new(-100,0,0), Quaternion.Identity, Quaternion.Identity));
+Measure("surface_sweep", "rotating_ship", () =>
+    _ = SurfaceContact.Sweep(SurfaceMesh.Ship, 1, Vec3d.Zero, Vec3d.Zero,
+        Quaternion.CreateFromAxisAngle(Vector3.UnitZ,.2f), Quaternion.CreateFromAxisAngle(Vector3.UnitZ,.275f),
+        SurfaceMesh.Ship, 1, new(0,5.6,0), new(0,5.6,0), Quaternion.Identity, Quaternion.Identity));
 var result = new
 {
     seed=20261101, samples, tick_seconds=step, station_scale=ModelPose.StationScale,
-    station_triangles=SurfaceMesh.Station.Triangles.Length, geometry=SurfaceMesh.Fingerprint,
+    station_triangles=SurfaceMesh.Station.Triangles.Length, ship_triangles=SurfaceMesh.Ship.Triangles.Length,
+    geometry=SurfaceMesh.Fingerprint,
     runtime=Environment.Version.ToString(), os=Environment.OSVersion.ToString(),
     stopwatch_frequency=Stopwatch.Frequency, processor_count=Environment.ProcessorCount,
     tiered_compilation=Environment.GetEnvironmentVariable("DOTNET_TieredCompilation") ?? "runtime default",

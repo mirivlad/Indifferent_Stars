@@ -57,6 +57,8 @@ public sealed class CollisionTests
         b.Velocity = new Vec3d(-20000, 0, 0);
         world.Tick(0.05);
         Assert.True(a.Position.X < b.Position.X);
+        Assert.InRange(a.Position.X, -6, -3);
+        Assert.InRange(b.Position.X, 3, 6);
         Assert.True(Vec3d.Distance(a.Position, b.Position) > 1);
         Assert.Equal(Vec3d.Zero, a.Velocity);
         Assert.Equal(Vec3d.Zero, b.Velocity);

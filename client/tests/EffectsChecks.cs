@@ -100,7 +100,7 @@ public sealed partial class EffectsChecks : Node3D
                 builder.Build();
                 builder.Process(0, pilot.Position, Vec3d.Zero);
                 var basis = new Basis(new Quaternion(pilot.Orientation.X, pilot.Orientation.Y, pilot.Orientation.Z, pilot.Orientation.W));
-                camera.Position = ShipTrack.ToVector3(pilot.Position) + basis * new Vector3(1, 5.4f, 17);
+                camera.Position = ShipTrack.ToVector3(pilot.Position) + basis * new Vector3(1, 9, 34);
                 camera.LookAt(ShipTrack.ToVector3(pilot.Position) - basis.Z * 12, basis.Y);
                 camera.Far = builder.RequiredFarPlane;
                 var planet = root.GetNode<Node3D>("CelestialBodies/PlanetAsterReach");

@@ -62,7 +62,7 @@ public static class SurfaceContact
                             (mask & 2) == 0 ? low.Y : high.Y, (mask & 4) == 0 ? low.Z : high.Z));
                         result = result.Union(new Bounds(corner, corner));
                     }
-                    return result.Union(result.Move(delta)).Expand(padding + 1e-6);
+                    return result.Expand(padding + 1e-6);
                 }
                 // Each pose is invariant for this slice, even when BVH pairs revisit A.
                 Bounds NodeBounds(SurfaceMesh.Node node)
@@ -84,35 +84,75 @@ public static class SurfaceContact
                     }
                     return cachedTriangles[index];
                 }
-                void Visit(SurfaceMesh.Node nodeA, Bounds boundsA, SurfaceMesh.Node nodeB)
+                void Visit(SurfaceMesh.Node nodeA, Bounds boundsA, SurfaceMesh.Node nodeB, (double Enter, double Exit)? interval)
                 {
-                    if (first <= 1e-6 || !boundsA.Intersects(nodeB.Bounds)) return;
-                    if (nodeA.Left is not null && (nodeB.Left is null || nodeA.Count >= nodeB.Count))
+                    if (first <= 1e-6 || interval is null || first is { } known && interval.Value.Enter > known) return;
+                    if (nodeB.Left is null)
                     {
-                        Visit(nodeA.Left, NodeBounds(nodeA.Left), nodeB);
-                        Visit(nodeA.Right!, NodeBounds(nodeA.Right!), nodeB);
+                        // A leaf can span gaps between long triangles. Reject the gap
+                        // before descending the other mesh, not just at triangle pairs.
+                        var reachable = false;
+                        for (var ib = nodeB.Start; ib < nodeB.Start + nodeB.Count; ib++)
+                        {
+                            var candidate = BoxInterval(boundsA, b.TriangleBounds[ib], delta);
+                            if (candidate is not null && (first is null || candidate.Value.Enter <= first)) { reachable = true; break; }
+                        }
+                        if (!reachable) return;
+                    }
+                    // Split by spatial extent, not the number of triangles in an asset.
+                    var splitA = nodeA.Left is not null;
+                    if (splitA && nodeB.Left is not null)
+                        splitA = Area(boundsA.Max - boundsA.Min) >= Area(nodeB.Bounds.Max - nodeB.Bounds.Min);
+                    if (splitA)
+                    {
+                        var leftBounds = NodeBounds(nodeA.Left!);
+                        var rightBounds = NodeBounds(nodeA.Right!);
+                        var left = BoxInterval(leftBounds, nodeB.Bounds, delta);
+                        var right = BoxInterval(rightBounds, nodeB.Bounds, delta);
+                        if (right is { } r && (left is null || r.Enter < left.Value.Enter))
+                        {
+                            Visit(nodeA.Right!, rightBounds, nodeB, right);
+                            Visit(nodeA.Left!, leftBounds, nodeB, left);
+                        }
+                        else
+                        {
+                            Visit(nodeA.Left!, leftBounds, nodeB, left);
+                            Visit(nodeA.Right!, rightBounds, nodeB, right);
+                        }
                         return;
                     }
                     if (nodeB.Left is not null)
                     {
-                        Visit(nodeA, boundsA, nodeB.Left);
-                        Visit(nodeA, boundsA, nodeB.Right!);
+                        var left = BoxInterval(boundsA, nodeB.Left.Bounds, delta);
+                        var right = BoxInterval(boundsA, nodeB.Right!.Bounds, delta);
+                        if (right is { } r && (left is null || r.Enter < left.Value.Enter))
+                        {
+                            Visit(nodeA, boundsA, nodeB.Right!, right);
+                            Visit(nodeA, boundsA, nodeB.Left, left);
+                        }
+                        else
+                        {
+                            Visit(nodeA, boundsA, nodeB.Left, left);
+                            Visit(nodeA, boundsA, nodeB.Right!, right);
+                        }
                         return;
                     }
                     for (var ia = nodeA.Start; ia < nodeA.Start + nodeA.Count; ia++)
                     {
                         var triangle = TransformedTriangle(ia);
-                        var triangleBounds = triangle.Bounds;
-                        var sweptBounds = triangleBounds.Union(triangleBounds.Move(delta)).Expand(padding + 1e-6);
+                        var triangleBounds = triangle.Bounds.Expand(padding + 1e-6);
                         for (var ib = nodeB.Start; ib < nodeB.Start + nodeB.Count; ib++)
                         {
-                            if (!sweptBounds.Intersects(b.TriangleBounds[ib])) continue;
-                            var hit = Triangles(triangle, b.Triangles[ib], delta, padding);
+                            var candidate = BoxInterval(triangleBounds, b.TriangleBounds[ib], delta);
+                            if (candidate is null || first is { } earlier && candidate.Value.Enter > earlier) continue;
+                            var hit = Triangles(triangle, b.Triangles[ib], delta, padding,
+                                candidate.Value.Enter, Math.Min(candidate.Value.Exit, first ?? 1));
                             if (hit is not null && (first is null || hit < first)) first = hit;
                         }
                     }
                 }
-                Visit(a.Root, NodeBounds(a.Root), b.Root);
+                var rootBounds = NodeBounds(a.Root);
+                Visit(a.Root, rootBounds, b.Root, BoxInterval(rootBounds, b.Root.Bounds, delta));
                 if (first is { } contact) return (slice + contact) / slices;
             }
             return null;
@@ -126,6 +166,28 @@ public static class SurfaceContact
         }
     }
 
+    private static (double Enter, double Exit)? BoxInterval(Bounds a, Bounds b, Vec3d motion)
+    {
+        double enter = 0, exit = 1;
+        if (!Slab(a.Min.X, a.Max.X, b.Min.X, b.Max.X, motion.X, ref enter, ref exit) ||
+            !Slab(a.Min.Y, a.Max.Y, b.Min.Y, b.Max.Y, motion.Y, ref enter, ref exit) ||
+            !Slab(a.Min.Z, a.Max.Z, b.Min.Z, b.Max.Z, motion.Z, ref enter, ref exit)) return null;
+        return (enter, exit);
+    }
+
+    private static bool Slab(double minA, double maxA, double minB, double maxB, double speed, ref double enter, ref double exit)
+    {
+        if (Math.Abs(speed) < 1e-14) return maxA >= minB && minA <= maxB;
+        var near = (minB - maxA) / speed;
+        var far = (maxB - minA) / speed;
+        if (near > far) (near, far) = (far, near);
+        enter = Math.Max(enter, near); exit = Math.Min(exit, far);
+        return enter <= exit;
+    }
+
+    private static double Area(Vec3d extent) =>
+        extent.X * extent.Y + extent.Y * extent.Z + extent.Z * extent.X;
+
     private static double Angle(Quaternion a, Quaternion b)
     {
         if (a == b) return 0;
@@ -135,12 +197,15 @@ public static class SurfaceContact
         return 2 * Math.Acos(Math.Clamp(Math.Abs(dot) / Math.Sqrt(aa * bb), 0, 1));
     }
 
-    private static double? Triangles(Triangle a, Triangle b, Vec3d motion, double padding)
+    private static double? Triangles(Triangle a, Triangle b, Vec3d motion, double padding, double enter, double exit)
     {
         Span<Vec3d> ea = stackalloc Vec3d[] { a.B - a.A, a.C - a.B, a.A - a.C };
         Span<Vec3d> eb = stackalloc Vec3d[] { b.B - b.A, b.C - b.B, b.A - b.C };
         var na = Vec3d.Cross(ea[0], ea[1]);
         var nb = Vec3d.Cross(eb[0], eb[1]);
+        var sizeA = Math.Max(ea[0].LengthSquared, Math.Max(ea[1].LengthSquared, ea[2].LengthSquared));
+        var sizeB = Math.Max(eb[0].LengthSquared, Math.Max(eb[1].LengthSquared, eb[2].LengthSquared));
+        if (na.LengthSquared <= sizeA * sizeA * 1e-24 || nb.LengthSquared <= sizeB * sizeB * 1e-24) return null;
         Span<Vec3d> axes = stackalloc Vec3d[17];
         axes[0] = na; axes[1] = nb;
         var k = 2;
@@ -148,7 +213,6 @@ public static class SurfaceContact
         foreach (var y in eb) axes[k++] = Vec3d.Cross(x, y);
         foreach (var edge in ea) axes[k++] = Vec3d.Cross(na, edge);
         foreach (var edge in eb) axes[k++] = Vec3d.Cross(nb, edge);
-        double enter = 0, exit = 1;
         foreach (var axis in axes)
         {
             var length = axis.Length;
