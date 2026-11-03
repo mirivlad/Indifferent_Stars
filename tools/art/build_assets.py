@@ -3,6 +3,7 @@
 Run with:
     blender --background --factory-startup --python tools/art/build_assets.py
 
+Legacy ship/asteroid generator; the detailed station uses build_station.py.
 Creates GLB models in client/assets/models/ and preview renders in docs/media/.
 Only original procedural geometry and materials are used.
 """
@@ -390,11 +391,7 @@ def main():
     export_selected(os.path.join(MODELS, "ship_player.glb"), ship_objects)
     render_view(os.path.join(MEDIA, "ship_preview.png"), (10.5, -14.0, 7.0), (0, 0.4, 0.1), lens=50)
 
-    clear_scene()
-    setup_render_environment()
-    station_objects = build_station()
-    export_selected(os.path.join(MODELS, "station_kestrel.glb"), station_objects)
-    render_view(os.path.join(MEDIA, "station_preview.png"), (12.0, -15.0, 8.0), (0, 0, 0), lens=48)
+    print("Detailed station is built separately with tools/art/build_station.py")
 
     clear_scene()
     setup_render_environment()

@@ -1,0 +1,6 @@
+SURFACE VERIFIED: ship_player, 3180 triangles; largest importer deviation 0.2628 mm.
+SURFACE VERIFIED: station_kestrel, 15676 triangles; largest importer deviation 0.0773 mm.
+SURFACE VERIFIED: asteroid_0, 240 triangles; largest importer deviation 0.0901 mm.
+SURFACE VERIFIED: asteroid_1, 276 triangles; largest importer deviation 0.1072 mm.
+SURFACE VERIFIED: asteroid_2, 232 triangles; largest importer deviation 0.1050 mm.
+SURFACE GEOMETRY CHECKS PASSED: all visible GLB triangles match server surfaces.

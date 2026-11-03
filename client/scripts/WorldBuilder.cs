@@ -93,6 +93,8 @@ public sealed partial class WorldBuilder
     public void SetVisualQuality(bool shadows, int skyDetail)
     {
         if (_celestial is not null) _celestial.ShadowsEnabled = shadows;
+        foreach (var light in _stationLights)
+            light.ShadowEnabled = shadows && light is SpotLight3D;
         _skyMaterial?.SetShaderParameter("detail", skyDetail);
     }
 
@@ -149,6 +151,7 @@ public sealed partial class WorldBuilder
         }
 
         _root.AddChild(node);
+        BuildStationLights(node);
         _stationNode = node;
         StationNode = node;
     }

@@ -1,0 +1,8 @@
+{
+  "client.json": "9c5bf640aa953b20ac24b68a426a1bf007ab7293f065c5c3748412ad78852297",
+  "cpu-release.json": "5df6ff54653be9e5fea20680065de7cb301a4c14afb6bf38b10336cfc2bb2358",
+  "geometry.txt": "075f973f0473ca8258850334facc8ac4ace58e977895e5bf9ba22fbeb6592106",
+  "input-stages.txt": "069e39f1950852159ad9992a0728e207afd8abc4018ee28cbe4118efabf23543",
+  "lights-and-render.txt": "fc1738ea664193ec7c44bc598e5c901743fc2fb3cbf5c67fd76b41a9c1dd7875",
+  "verification.json": "dcc1f009811d771cfc40d1641f3b885fd9c16cdbc33e79db1c3ec595c29cc037"
+}

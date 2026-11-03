@@ -1,0 +1,6 @@
+Vulkan 1.4.354 - Forward+ - Using Device #0: AMD - AMD Radeon RX 580 2048SP (RADV POLARIS10)
+STATION LOCAL LIGHTS: identical materials, center brightness off=2513.05, on=6219.21.
+STATION DOCK LIGHTS: floor brightness off=0.00, on=1258.92.
+STATION TELEMETRY: high=True, frames=296, p95=17.36ms, draw_calls=94, video_bytes=373217360, texture_bytes=338485840, viewport=(1600, 900), MSAA=Msaa4X, scale=1, vsync=Enabled.
+STATION TELEMETRY: high=False, frames=301, p95=17.30ms, draw_calls=94, video_bytes=373217360, texture_bytes=338485840, viewport=(1600, 900), MSAA=Msaa4X, scale=1, vsync=Enabled.
+STATION DETAIL CHECKS PASSED: baseline=False, imported station and gameplay context captured.

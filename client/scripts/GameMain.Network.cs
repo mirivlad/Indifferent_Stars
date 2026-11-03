@@ -178,7 +178,7 @@ public sealed partial class GameMain
             return;
 
         _serverTick = snapshot.Tick;
-        var now = Time.GetTicksUsec() / 1_000_000.0;
+        var now = _net?.LastSnapshotReceivedAtSeconds ?? Time.GetTicksUsec() / 1_000_000.0;
 
         foreach (var entity in snapshot.Entities)
         {

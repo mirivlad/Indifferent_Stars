@@ -76,7 +76,7 @@ public sealed partial class GameWorld
         // Player slot on a wide parking arc in front of the station, facing the planet below.
         var angle = 0.35 + slot * 1.35;
         var radius = 900.0 + slot * 130.0;
-        var position = station + new Vec3d(Math.Cos(angle) * radius, 260 + slot * 70, Math.Sin(angle) * radius);
+        var position = station + new Vec3d(Math.Cos(angle) * radius, ModelPose.StationDockingOffset.Y + slot * 70, Math.Sin(angle) * radius);
         var toStation = (station - position).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(toStation);
 
@@ -146,6 +146,7 @@ public sealed partial class GameWorld
             return false;
         player.ApproachTargetId = targetId;
         player.ApproachFollowing = follow;
+        player.DockingGranted = false;
         player.ApproachDestination = targetPosition + away * (targetRadius + 500);
         return true;
     }
@@ -156,12 +157,11 @@ public sealed partial class GameWorld
         var station = Catalog.Station;
         if (player is null || player.Docked || player.InWarp || targetId != (uint)station.Id)
             return false;
-        var away = (player.Position - station.Position).Normalized();
-        if (away.LengthSquared < 0.5)
+        if (_players.Values.Any(other => other.Id != playerId && (other.Docked || other.DockingGranted)))
             return false;
         player.DockingGranted = true;
         player.ApproachFollowing = false;
-        player.DockingPoint = station.Position + away * (station.Radius + 100);
+        player.DockingPoint = station.Position + ModelPose.StationDockingOffset;
         player.ApproachDestination = player.DockingPoint;
         player.ApproachTargetId = targetId;
         return true;
@@ -546,7 +546,7 @@ public sealed partial class GameWorld
         ship.FlightAssist,
         ship.ApproachTargetId != 0 && ship.ApproachFollowing,
         ship.Cruising,
-        ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null,
+        ship.DockingGranted ? ship.DockingPoint : ship.ApproachTargetId == ship.Id ? ship.ApproachDestination : null,
         ship.CruiseInhibited,
         ship.CruiseBraking,
         ship.WarpStage,
@@ -601,11 +601,12 @@ public sealed partial class GameWorld
     private void SpawnNpcs()
     {
         var station = Catalog.Station.Position;
+        var stationSize = ModelPose.StationScale / 55;
 
-        AddOrbitNpc("Dawn Trader", "Courier", station, 620, 80, 1.7, 78, 0.0);
-        AddOrbitNpc("Wandering Kite", "Courier", station, 1050, 180, 4.1, 96, 1.1);
-        AddOrbitNpc("Pale Meridian", "Hauler", station, 1550, 120, 2.6, 58, 2.4);
-        AddOrbitNpc("Quiet Ledger", "Surveyor", station, 2050, 300, 5.4, 72, 0.6);
+        AddOrbitNpc("Dawn Trader", "Courier", station, 620 * stationSize, 80 * stationSize, 1.7, 78, 0.0);
+        AddOrbitNpc("Wandering Kite", "Courier", station, 1050 * stationSize, 180 * stationSize, 4.1, 96, 1.1);
+        AddOrbitNpc("Pale Meridian", "Hauler", station, 1550 * stationSize, 120 * stationSize, 2.6, 58, 2.4);
+        AddOrbitNpc("Quiet Ledger", "Surveyor", station, 2050 * stationSize, 300 * stationSize, 5.4, 72, 0.6);
 
         // Freighter lane: from the station down towards the planet's upper atmosphere.
         var midpoint = station + new Vec3d(2600, -900, -1800);
@@ -613,7 +614,7 @@ public sealed partial class GameWorld
         _npcs.Add(CreateNpc(
             "Long Cargo",
             "Hauler",
-            new[] { station + new Vec3d(400, 120, 0), midpoint, nearPlanet, midpoint, station + new Vec3d(400, 120, 0) },
+            new[] { station + new Vec3d(400, 120, 0) * stationSize, midpoint, nearPlanet, midpoint, station + new Vec3d(400, 120, 0) * stationSize },
             62,
             1));
 

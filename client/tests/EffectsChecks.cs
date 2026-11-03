@@ -43,6 +43,21 @@ public sealed partial class EffectsChecks : Node3D
             Check(trail.Mesh.GetSurfaceCount() == 0, "Warp must not draw a line across the system.");
             parent.QueueFree();
 
+            var lightRoot = new Node3D(); AddChild(lightRoot);
+            var lightCatalog = WorldCatalog.Generate(20261101);
+            var celestial = new CelestialRenderer(lightRoot, lightCatalog, true);
+            foreach(var systemPosition in new[] { lightCatalog.LocalFrameOrigin,
+                lightCatalog.Star.SystemPosition + new Vec3d(-2_000_000_000, 500_000_000, 0),
+                lightCatalog.Star.SystemPosition + new Vec3d(0, 2_000_000_000, 0) })
+            {
+                var local = systemPosition - lightCatalog.LocalFrameOrigin;
+                celestial.Update(local, local, 0);
+                var rays = -lightRoot.GetNode<DirectionalLight3D>("Starlight").GlobalBasis.Z;
+                var expected = ShipTrack.ToVector3((systemPosition-lightCatalog.Star.SystemPosition).Normalized());
+                Check(rays.Dot(expected) > .999999f,"Sunlight rays must travel from the star to the observer, including above its pole.");
+            }
+            lightRoot.QueueFree();
+
             var ship = new ShipView(10000, true, "Effects", true);
             AddChild(ship);
             ship.Track.Push(Snapshot(Vec3d.Zero), -1, 1);
@@ -69,7 +84,7 @@ public sealed partial class EffectsChecks : Node3D
                 "Map waypoints must invert projection and preserve the ship's height.");
             map.QueueFree();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            GD.Print("Effects checks passed: world trails, origin shift, hull rotation, expiry, warp reset, maneuver ports, quality switch.");
+            GD.Print("Effects checks passed: world trails, origin shift, hull rotation, expiry, warp reset, maneuver ports, quality switch, stellar light direction and pole.");
 
             var args = OS.GetCmdlineUserArgs();
             if (args.Length > 0)

@@ -402,7 +402,13 @@ public sealed partial class TacticalView : Control
 
     private void DrawPlayer(Vector2 center, float scale)
     {
+        var mapCenter = center;
         center = Project(center, scale, PlayerPosition);
+        if (center.X < -40 || center.Y < -40 || center.X > Size.X + 40 || center.Y > Size.Y + 40)
+        {
+            DrawOffscreenArrow(center, mapCenter, PlayerColor, Locale.Text("you"));
+            return;
+        }
         if (ZoomRange >= 100_000_000)
         {
             DrawCircle(center, 4, PlayerColor);

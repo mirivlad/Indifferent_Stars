@@ -1,0 +1,50 @@
+{
+  "seed": 20261101,
+  "geometry": "52a9266f22536e2a510f516bbd57eb022cc2590099e9b3cf9f8217bc64369baa",
+  "station_scale": 55,
+  "viewport": "(1600, 900)",
+  "scale": 1,
+  "msaa": "Msaa4X",
+  "glow": true,
+  "shadows": true,
+  "observer_count": 2,
+  "pilot_position": "(176.07, 34.77, 106.69)",
+  "metrics": [
+    {
+      "scenario": "approach",
+      "frames": 657,
+      "frame_p95_ms": 17.351,
+      "frame_p99_ms": 17.579,
+      "frame_max_ms": 22.76,
+      "snapshot_gap_p95_ms": 50.962,
+      "input_samples": 0,
+      "input_p95_ms": 0,
+      "input_max_ms": 0,
+      "render_age_p95_ms": 325.37100017070753
+    },
+    {
+      "scenario": "external",
+      "frames": 442,
+      "frame_p95_ms": 17.403,
+      "frame_p99_ms": 17.8,
+      "frame_max_ms": 18.157,
+      "snapshot_gap_p95_ms": 50.884,
+      "input_samples": 6,
+      "input_p95_ms": 417.291,
+      "input_max_ms": 417.291,
+      "render_age_p95_ms": 324.85800087452077
+    },
+    {
+      "scenario": "cockpit",
+      "frames": 438,
+      "frame_p95_ms": 17.359,
+      "frame_p99_ms": 17.561,
+      "frame_max_ms": 17.66,
+      "snapshot_gap_p95_ms": 50.717,
+      "input_samples": 6,
+      "input_p95_ms": 381.373,
+      "input_max_ms": 381.373,
+      "render_age_p95_ms": 324.77599978446744
+    }
+  ]
+}

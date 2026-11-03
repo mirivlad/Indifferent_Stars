@@ -10,9 +10,9 @@ cd "$ROOT"
 PORT="${IS_PORT:-7777}"
 LOG="${IS_SERVER_LOG:-$(mktemp /tmp/indifferent-stars-server-XXXXXX.log)}"
 
-dotnet build src/IndifferentStars.Server -v q --nologo >/dev/null
+dotnet build src/IndifferentStars.Server -c Release -v q --nologo >/dev/null
 
-dotnet src/IndifferentStars.Server/bin/Debug/net10.0/IndifferentStars.Server.dll --port "$PORT" >"$LOG" 2>&1 &
+dotnet src/IndifferentStars.Server/bin/Release/net10.0/IndifferentStars.Server.dll --port "$PORT" >"$LOG" 2>&1 &
 SERVER_PID=$!
 
 cleanup() {

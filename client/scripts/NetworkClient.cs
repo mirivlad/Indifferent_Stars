@@ -22,7 +22,7 @@ public enum ConnectionState
 /// </summary>
 public sealed partial class NetworkClient : IDisposable
 {
-    private readonly ConcurrentQueue<IProtocolMessage> _incoming = new();
+    private readonly ConcurrentQueue<(IProtocolMessage Message, double ReceivedAt)> _incoming = new();
     private readonly Guid _clientId = Guid.NewGuid();
     private readonly string _playerName;
     private readonly string _host;
@@ -50,6 +50,7 @@ public sealed partial class NetworkClient : IDisposable
     public uint PlayerId => Welcome?.PlayerId ?? 0;
     public ulong LastSnapshotTick { get; private set; }
     public double LastSnapshotAgeSeconds { get; private set; } = 999;
+    public double LastSnapshotReceivedAtSeconds { get; private set; }
     public int PingMs { get; private set; } = -1;
     public bool HasEverConnected { get; private set; }
 
@@ -126,8 +127,9 @@ public sealed partial class NetworkClient : IDisposable
 
     public void Poll()
     {
-        while (_incoming.TryDequeue(out var message))
+        while (_incoming.TryDequeue(out var packet))
         {
+            var message = packet.Message;
             switch (message)
             {
                 case HelloAcceptedMessage welcome:
@@ -147,7 +149,8 @@ public sealed partial class NetworkClient : IDisposable
 
                 case SnapshotMessage snapshot:
                     LastSnapshotTick = snapshot.Tick;
-                    LastSnapshotAgeSeconds = 0;
+                    LastSnapshotReceivedAtSeconds = packet.ReceivedAt;
+                    LastSnapshotAgeSeconds = Math.Max(0, Time.GetTicksUsec() / 1_000_000.0 - packet.ReceivedAt);
                     if (State != ConnectionState.Connected && Welcome is not null)
                     {
                         State = ConnectionState.Connected;
@@ -213,8 +216,9 @@ public sealed partial class NetworkClient : IDisposable
             {
                 var remote = new IPEndPoint(IPAddress.Any, 0);
                 var bytes = _udp!.Receive(ref remote);
+                var receivedAt = Time.GetTicksUsec() / 1_000_000.0;
                 if (ProtocolCodec.TryDecode(bytes, out var message, out _) && message is not null)
-                    _incoming.Enqueue(message);
+                    _incoming.Enqueue((message, receivedAt));
             }
             catch (SocketException ex) when (ex.SocketErrorCode is SocketError.TimedOut or SocketError.WouldBlock or SocketError.ConnectionReset)
             {
@@ -226,7 +230,7 @@ public sealed partial class NetworkClient : IDisposable
             }
             catch (SocketException ex)
             {
-                _incoming.Enqueue(new DisconnectMessage($"network error: {ex.SocketErrorCode}"));
+                _incoming.Enqueue((new DisconnectMessage($"network error: {ex.SocketErrorCode}"), Time.GetTicksUsec() / 1_000_000.0));
                 return;
             }
         }

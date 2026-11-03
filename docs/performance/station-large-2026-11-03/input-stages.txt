@@ -1,0 +1,3 @@
+INPUT STAGES external: raw=84.0,115.0,65.9,82.8,100.7,100.2, visible=100.1,133.4,100.9,116.7,116.7,117.8.
+INPUT STAGES cockpit: raw=33.2,50.8,83.9,99.4,84.6,100.5, visible=50.5,50.8,83.9,99.5,84.6,100.5.
+STATION APPROACH CHECKS PASSED: two clients, full-quality external/cockpit and real keyboard-to-camera response.

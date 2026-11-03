@@ -26,3 +26,8 @@ client/assets/music/*
 .vscode/
 .idea/
 *.swp
+
+# Blender's automatic previous-save copies (the current source is tracked).
+tools/art/sources/*.blend1
+# Reproducible intermediate PNGs are packed into the source .blend and final GLB.
+tools/art/sources/station_textures/

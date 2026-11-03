@@ -26,8 +26,11 @@ public readonly record struct Bounds(Vec3d Min, Vec3d Max)
 
 public sealed class SurfaceMesh
 {
-    public sealed record Node(Bounds Bounds, int Start, int Count, Node? Left, Node? Right);
+    public sealed record Node(int Index, Bounds Bounds, int Start, int Count, Node? Left, Node? Right);
+    private int _nodeCount;
+    public int NodeCount => _nodeCount;
     public Triangle[] Triangles { get; }
+    public Bounds[] TriangleBounds { get; }
     public Node Root { get; }
     public double Radius { get; }
     public string SourceHash { get; }
@@ -38,13 +41,15 @@ public sealed class SurfaceMesh
         SourceHash = hash;
         Radius = triangles.Max(t => Math.Max(t.A.Length, Math.Max(t.B.Length, t.C.Length)));
         Root = Build(0, triangles.Length);
+        TriangleBounds = Triangles.Select(triangle => triangle.Bounds).ToArray();
     }
 
     private Node Build(int start, int count)
     {
+        var index = _nodeCount++;
         var bounds = Triangles[start].Bounds;
         for (var i = start + 1; i < start + count; i++) bounds = bounds.Union(Triangles[i].Bounds);
-        if (count <= 8) return new(bounds, start, count, null, null);
+        if (count <= 8) return new(index, bounds, start, count, null, null);
         var size = bounds.Max - bounds.Min;
         var axis = size.X >= size.Y && size.X >= size.Z ? 0 : size.Y >= size.Z ? 1 : 2;
         static double Center(Triangle t, int axis) => axis switch
@@ -55,7 +60,7 @@ public sealed class SurfaceMesh
         };
         Array.Sort(Triangles, start, count, Comparer<Triangle>.Create((a, b) => Center(a, axis).CompareTo(Center(b, axis))));
         var half = count / 2;
-        return new(bounds, start, count, Build(start, half), Build(start + half, count - half));
+        return new(index, bounds, start, count, Build(start, half), Build(start + half, count - half));
     }
 
     public static SurfaceMesh Load(string name)
@@ -81,7 +86,8 @@ public sealed class SurfaceMesh
     }
 
     public static string Fingerprint => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
-        System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash)));
+        System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash +
+            FormattableString.Invariant($"|pose-v1|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
 
     public static readonly SurfaceMesh Ship = Load("ship_player");
     public static readonly SurfaceMesh Station = Load("station_kestrel");
@@ -91,8 +97,10 @@ public sealed class SurfaceMesh
 /// <summary>The same model scale and orientation contract is used by the renderer and server.</summary>
 public static class ModelPose
 {
-    public const double StationScale = 55;
+    public const double StationScale = 275;
     public const double StationSpin = 0.012;
+    public const double NpcScale = 0.82;
+    public static readonly Vec3d StationDockingOffset = new(0, StationScale * 4.48 + 13.6, 0);
     public static Quaternion StationRotation(StaticBody body, double seconds) =>
         Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)(body.Rotation + seconds * StationSpin));
 

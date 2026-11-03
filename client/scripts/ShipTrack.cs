@@ -57,6 +57,8 @@ public sealed class ShipTrack
     {
         if (_points.Count > 0 && _points[^1].ServerMs is { } latest && serverTimeMs <= latest)
             return false;
+        if (_points.Count == 1 && _points[0].ServerMs is null)
+            _points.Clear();
         Name = snapshot.Name;
         Kind = snapshot.Kind;
         ApproachTargetId = snapshot.ApproachTargetId;
@@ -82,7 +84,22 @@ public sealed class ShipTrack
             // Two datagrams processed in the same frame would otherwise get almost the
             // same local timestamp and produce a violent speed spike between them.
             if (last.ServerMs is { } previous)
+            {
                 sampleTime = last.Time + (serverTimeMs - previous) / 1000.0;
+                var correction = receivedAt - sampleTime;
+                // Queued packets cannot put samples in the future. A long server
+                // pause must also restore the buffer, rather than extrapolate forever.
+                if (correction < 0 || correction > 0.25)
+                {
+                    for (var i = 0; i < _points.Count; i++)
+                    {
+                        var point = _points[i];
+                        point.Time += correction;
+                        _points[i] = point;
+                    }
+                    sampleTime = receivedAt;
+                }
+            }
 
             if (Vec3d.Distance(position, last.Position) > 2500 &&
                 !(previousWarp != WarpStage.None && WarpStage != WarpStage.None))

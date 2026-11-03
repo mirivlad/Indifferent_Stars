@@ -46,12 +46,14 @@ public sealed partial class WarpChecks : Node
             }, 12, "Server connection required.");
             Tap(Key.F2);
             SetKey(Key.R, true);
-            await Pause(6.5);
+            await Until(() => _pilot.Track.WorldPosition.Y > ModelPose.StationDockingOffset.Y + 1500,
+                20, "Departure must clear the enlarged station by normal thrust.");
             SetKey(Key.R, false);
             SetKey(Key.Space, true);
             await Pause(1.4);
             SetKey(Key.Space, false);
-            Check(_pilot.Track.WorldPosition.Y > 1500, "Departure must clear nearby surfaces.");
+            Check(_pilot.Track.WorldPosition.Y > ModelPose.StationDockingOffset.Y + 1500,
+                "Departure must clear nearby surfaces.");
             Tap(Key.F1);
             var map = _game.FindChildren("*", "Control", true, false).OfType<TacticalView>().First();
             map.ZoomAt(map.Size * 0.5f, 3);

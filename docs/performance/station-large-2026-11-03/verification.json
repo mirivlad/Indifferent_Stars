@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-03",
+  "geometry": "a5fca29a1bca3a5cc7d11f6ac046e980b7873ede1b98166d91855cbc1184a21f",
+  "gate": "BLENDER_BIN=... GODOT_BIN=... tools/tests/check-surfaces-and-warp.sh",
+  "gate_exit_code": 0,
+  "dotnet_tests": {
+    "passed": 104,
+    "failed": 0,
+    "skipped": 0
+  },
+  "build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "additional_native_checks": [
+    "StationApproachChecks: two clients, full-quality F2/F3 input",
+    "StationDetailChecks --live: docking, market, undocking",
+    "StationDetailChecks: light on/off, high/low, orbit"
+  ],
+  "glb_sha256": "7452d654ae71561db8c601073d89c9364ae4b7dda9f72355152fd713f97cf360",
+  "repeat_build_matches": true,
+  "source_absolute_home_path_occurrences": 0,
+  "limitations": [
+    "Owner artistic assessment remains open",
+    "Frame times include VSync; engine memory excludes untracked driver allocations",
+    "Synthetic input excludes physical keyboard and display latency",
+    "Isolated approach frame max 110.44 ms"
+  ]
+}
