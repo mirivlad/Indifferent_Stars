@@ -18,15 +18,9 @@ public sealed partial class ShipView
     {
         _ionTrail = new IonTrail();
         AddChild(_ionTrail);
-        var material = new StandardMaterial3D
-        {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            AlbedoColor = new Color(0.35f, 0.75f, 1, 0.65f),
-        };
-        var mesh = new CylinderMesh { BottomRadius = 0.13f, TopRadius = 0.01f, Height = 1, RadialSegments = 8 };
+        var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/exhaust.gdshader") };
+        material.SetShaderParameter("energy", .65f);
+        var mesh = new CylinderMesh { BottomRadius = 0.13f, TopRadius = 0.003f, Height = 1, RadialSegments = 24 };
         foreach (var (position, exhaust) in _maneuverSockets)
             AddJet(position, exhaust);
 
@@ -39,6 +33,7 @@ public sealed partial class ShipView
                 Basis = Basis.LookingAt(-exhaust, Mathf.Abs(exhaust.Y) > 0.9f ? Vector3.Right : Vector3.Up)
                     * new Basis(Vector3.Right, Mathf.Pi / 2),
                 Visible = false,
+                Scale = new Vector3(1, .15f, 1),
             };
             nozzle.AddChild(new MeshInstance3D
             {
@@ -56,7 +51,11 @@ public sealed partial class ShipView
         {
             _effectsReady = false;
             EngineBraking = false;
-            foreach (var (nozzle, _) in _maneuverJets) nozzle.Visible = false;
+            foreach (var (nozzle, _) in _maneuverJets)
+            {
+                nozzle.Visible = false;
+                nozzle.Scale = new Vector3(1, .15f, 1);
+            }
             _ionTrail.UpdateTrail(delta, renderOrigin, Track.WorldPosition, Track.WorldPosition, false);
             _ionTrail.Visible = false;
             return;
@@ -77,8 +76,9 @@ public sealed partial class ShipView
         {
             var torque = nozzle.Position.Cross(-exhaust).Normalized();
             var load = Mathf.Clamp(acceleration.Dot(-exhaust) / 120 + angular.Dot(torque) * 0.8f, 0, 1);
-            nozzle.Visible = _externalVisible && _engineEffects && !Track.Docked && load > 0.06f;
-            nozzle.Scale = new Vector3(1, 0.15f + load * 1.6f, 1);
+            var intensity = Mathf.Lerp((nozzle.Scale.Y - .15f) / 1.6f, load, 1f - Mathf.Exp(-18f * delta));
+            nozzle.Visible = _externalVisible && _engineEffects && !Track.Docked && intensity > 0.06f;
+            nozzle.Scale = new Vector3(1, .15f + intensity * 1.6f, 1);
         }
         _ionTrail.Visible = _externalVisible && _engineEffects && _particles && !Track.Docked;
         var left = Basis * _mainNozzles[0];

@@ -74,8 +74,24 @@ public sealed partial class EffectsChecks : Node3D
             ship.Track.Push(Snapshot(Vec3d.Zero) with { Orientation = System.Numerics.Quaternion.CreateFromAxisAngle(System.Numerics.Vector3.UnitZ, 0.05f) }, -0.8, 201);
             ship.UpdateVisual(Vec3d.Zero, 0.05f);
             Check(jets.Any(jet => jet.Visible && Mathf.Abs(jet.Position.Y) > 0.2f), "Roll must fire dorsal/ventral maneuver pairs.");
+            ship.Track.Push(Snapshot(Vec3d.Zero) with { Throttle=127 }, -.75, 251);
+            ship.UpdateVisual(Vec3d.Zero,.05f);
+            var mainTrails=ship.FindChildren("EngineTrail_*","Node3D",true,false).OfType<Node3D>().ToArray();
+            var driven=mainTrails[0].Scale.Y;
+            ship.Track.Push(Snapshot(Vec3d.Zero),-.7,301);
+            ship.UpdateVisual(Vec3d.Zero,.01f);
+            Check(mainTrails[0].Scale.Y>0.08f && mainTrails[0].Scale.Y<driven,
+                "Exhaust must decay smoothly after authoritative thrust stops.");
+            ship.Track.Push(Snapshot(Vec3d.Zero) with { WarpStage=WarpStage.Travel },-.65,351);
+            ship.UpdateVisual(Vec3d.Zero,.01f);
+            ship.Track.Push(Snapshot(Vec3d.Zero),-.6,401);
+            ship.UpdateVisual(Vec3d.Zero,.01f);
+            Check(jets.All(jet=>!jet.Visible),"Warp exit must not replay a stale maneuver impulse.");
+            ship.SetExternalModelVisible(false);
+            Check(mainTrails.All(t=>!t.Visible),"Cockpit must hide the player's own exhaust.");
+            ship.SetExternalModelVisible(true);
             ship.SetEngineEffects(false);
-            Check(jets.All(jet => !jet.Visible), "Engine quality switch must hide maneuver effects.");
+            Check(jets.All(jet => !jet.Visible) && mainTrails.All(t=>!t.Visible), "Engine quality switch must hide all exhaust.");
             ship.QueueFree();
             var map = new TacticalView { PlayerPosition = new Vec3d(2000, 1500, 35000) };
             AddChild(map);

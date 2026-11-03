@@ -21,6 +21,8 @@ public sealed partial class ShipView : Node3D
     private readonly List<(Vector3 Position, Vector3 Exhaust)> _maneuverSockets = new();
     private Node3D? _modelRoot;
     private float _glowPhase;
+    private float _visualThrottle;
+    private float _visualBoost;
     private bool _externalVisible = true;
     private bool _engineEffects = true;
 
@@ -55,14 +57,17 @@ public sealed partial class ShipView : Node3D
         if (_modelRoot is not null)
             _modelRoot.Scale = new Vector3(1, 1, Track.WarpStage == WarpStage.Travel ? 1.8f : 1);
         var throttle = Track.Docked ? 0 : warp ? 1 : Mathf.Max(0, Track.Throttle);
-        var glow = 0.55f + throttle * 0.8f + (Boosting ? 0.9f : 0f);
+        var response = 1f - Mathf.Exp(-10f * delta);
+        _visualThrottle = Mathf.Lerp(_visualThrottle, throttle, response);
+        _visualBoost = Mathf.Lerp(_visualBoost, Boosting && throttle > 0 ? 1 : 0, response);
+        var glow = 0.82f + _visualThrottle * 0.24f + _visualBoost * 0.16f;
         var pulse = 1.0f + Mathf.Sin(_glowPhase * 2.1f) * 0.06f;
         foreach (var engine in _engineGlows)
             engine.Scale = new Vector3(glow, glow, glow) * pulse;
         foreach (var light in _engineLights)
             light.LightEnergy = 0.8f + glow * 0.9f;
 
-        var trailLength = 0.08f + throttle * 3.2f + (Boosting && throttle > 0 ? 4.2f : 0f);
+        var trailLength = 0.08f + _visualThrottle * 4.5f + _visualBoost * 5.5f;
         foreach (var trail in _engineTrails)
             trail.Scale = new Vector3(1f, trailLength, 1f);
         UpdateManeuverEffects(delta, renderOrigin, throttle);
@@ -146,7 +151,7 @@ public sealed partial class ShipView : Node3D
             AlbedoColor = new Color(0.35f, 0.85f, 1.0f),
             EmissionEnabled = true,
             Emission = new Color(0.3f, 0.8f, 1.0f),
-            EmissionEnergyMultiplier = 6.0f,
+            EmissionEnergyMultiplier = 2.2f,
         };
 
         for (var index = 0; index < _mainNozzles.Count; index++)
@@ -155,7 +160,7 @@ public sealed partial class ShipView : Node3D
             var glow = new MeshInstance3D
             {
                 Name = $"EngineGlow_{index}",
-                Mesh = new SphereMesh { Radius = 0.52f, Height = 1.04f, RadialSegments = 12, Rings = 8 },
+                Mesh = new SphereMesh { Radius = 0.3f, Height = 0.6f, RadialSegments = 12, Rings = 8 },
                 MaterialOverride = glowMaterial,
                 Position = position,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
@@ -173,22 +178,15 @@ public sealed partial class ShipView : Node3D
             {
                 Mesh = new CylinderMesh
                 {
-                    TopRadius = 0.03f,
-                    BottomRadius = 0.26f,
+                    TopRadius = 0.008f,
+                    BottomRadius = 0.42f,
                     Height = 1f,
-                    RadialSegments = 10,
+                    RadialSegments = 32,
                     Rings = 1,
                 },
-                MaterialOverride = new StandardMaterial3D
+                MaterialOverride = new ShaderMaterial
                 {
-                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                    BlendMode = BaseMaterial3D.BlendModeEnum.Add,
-                    CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-                    AlbedoColor = new Color(0.25f, 0.65f, 1f, 0.38f),
-                    EmissionEnabled = true,
-                    Emission = new Color(0.18f, 0.58f, 1f),
-                    EmissionEnergyMultiplier = 3.2f,
+                    Shader = GD.Load<Shader>("res://assets/shaders/exhaust.gdshader"),
                 },
                 Position = new Vector3(0, 0.5f, 0),
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,

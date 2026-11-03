@@ -1,0 +1,10 @@
+Passed!  - Failed:     0, Passed:   107, Skipped:     0, Total:   107, Duration: 32 s - IndifferentStars.Tests.dll (net10.0)
+SURFACE GEOMETRY CHECKS PASSED: all visible GLB triangles match server surfaces.
+Effects checks passed: world trails, origin shift, hull rotation, expiry, warp reset, maneuver ports, quality switch, stellar light direction and pole.
+Navigation checks passed: reported position, ring radius, selectable bearing panel, local/AU scale, cockpit after rebase.
+WARP FRAME TELEMETRY: frames=609, p95=20.48 ms, viewport=(1600, 900), scale=1, MSAA=Msaa2X.
+WARP CHECKS PASSED: free map point, charging/travel/exit, all views, authoritative route, no cooldown/cruise/range, 1 km arrival, bounded FOV, AU-scale origin and camera.
+CAMERA CHECKS PASSED: wheel bounds, middle orbit, safe arc, menus, F1/F2/F3, cockpit eye, warp, cruise and rebasing.
+COMPLETION CHECKS PASSED: Alt orbit, middle orbit, no ship steering, cockpit head look, forward reset, rivets.
+RCS reset regression: reproduced before fix; EffectsChecks passed after fix.
+VISUAL POLISH CAPTURES PASSED: fixed scenes, quality, effect states and planetary distances.

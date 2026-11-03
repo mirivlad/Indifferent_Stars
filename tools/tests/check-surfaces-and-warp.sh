@@ -48,4 +48,7 @@ rg -q 'Listening on udp' "$CHECK_DIR/server.log"
 IS_WARP_CAPTURE="$CHECK_DIR/warp" timeout 75 "$GODOT" --path client res://tests/WarpChecks.tscn --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/WarpChecks.log" 2>&1
 check_log "$CHECK_DIR/WarpChecks.log"
 rg 'WARP FRAME TELEMETRY|WARP CHECKS PASSED' "$CHECK_DIR/WarpChecks.log"
+IS_CAMERA_CAPTURE="$CHECK_DIR/camera" timeout 80 "$GODOT" --path client res://tests/CameraChecks.tscn --resolution 1600x900 --audio-driver Dummy -- --server "127.0.0.1:$PORT" > "$CHECK_DIR/CameraChecks.log" 2>&1
+check_log "$CHECK_DIR/CameraChecks.log"
+rg 'CAMERA CHECKS PASSED' "$CHECK_DIR/CameraChecks.log"
 echo "Third Flight checks passed. Screenshots and logs: $CHECK_DIR"

@@ -37,6 +37,7 @@ public sealed partial class WorldBuilder
             {
                 Name = $"AsteroidBelt_{group.Key}",
                 Multimesh = multiMesh,
+                MaterialOverride = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/rock.gdshader") },
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
             parent.AddChild(instance);
