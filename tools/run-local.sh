@@ -9,10 +9,11 @@ cd "$ROOT"
 
 PORT="${IS_PORT:-7777}"
 LOG="${IS_SERVER_LOG:-$(mktemp /tmp/indifferent-stars-server-XXXXXX.log)}"
+SAVE="${IS_SAVE:-${XDG_DATA_HOME:-$HOME/.local/share}/indifferent-stars/world-${IS_SEED:-20261101}-$PORT.save}"
 
 dotnet build src/IndifferentStars.Server -c Release -v q --nologo >/dev/null
 
-dotnet src/IndifferentStars.Server/bin/Release/net10.0/IndifferentStars.Server.dll --port "$PORT" >"$LOG" 2>&1 &
+dotnet src/IndifferentStars.Server/bin/Release/net10.0/IndifferentStars.Server.dll --bind 127.0.0.1 --port "$PORT" --save "$SAVE" >"$LOG" 2>&1 &
 SERVER_PID=$!
 
 cleanup() {

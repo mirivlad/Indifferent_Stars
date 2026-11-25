@@ -24,7 +24,15 @@ public sealed partial class GameWorld
     private void Activity(ShipState ship,string kind,string english,string russian,bool system=false)
     {
         if(_activities.Count>=128)_activities.Dequeue();
-        _activities.Enqueue(new(++_activitySequence,ship.Id,ship.Name,ship.Position,ship.Work!.TargetId,kind,english,russian,system));
+        var activity = new WorldActivity(++_activitySequence,ship.Id,ship.Name,ship.Position,ship.Work!.TargetId,kind,english,russian,system,TimeSeconds);
+        _activities.Enqueue(activity);
+        RecordActivity(activity);
+    }
+
+    private void RecordActivity(WorldActivity activity)
+    {
+        if (_activityHistory.Count >= 128) _activityHistory.Dequeue();
+        _activityHistory.Enqueue(activity);
     }
     private void SpawnWorkers()
     {

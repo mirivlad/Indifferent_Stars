@@ -11,6 +11,7 @@ public sealed class PlayerSession
     public uint TransponderSequence { get; set; }
 
     public required Guid ClientId { get; init; }
+    public string? ProfileKey { get; init; }
     public required uint PlayerId { get; init; }
     public required string Name { get; init; }
     public required IPEndPoint Endpoint { get; set; }

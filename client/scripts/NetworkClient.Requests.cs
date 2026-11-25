@@ -87,7 +87,7 @@ public sealed partial class NetworkClient
         var now = NowSeconds();
         var id = _requestSequence++;
         _pendingTrade = (id, commodityId, quantity, buy, now, now);
-        Send(new TradeRequestMessage(id, commodityId, quantity, buy));
+        Send(new TradeRequestMessage(id, commodityId, quantity, buy, _clientId));
     }
 
     public void RequestWarp(uint targetId, IndifferentStars.Shared.Vec3d? destination = null, double? surfaceDistance = null)
@@ -169,7 +169,7 @@ public sealed partial class NetworkClient
             else if (now - trade.LastResendAt > 0.5)
             {
                 _pendingTrade = (trade.Id, trade.Commodity, trade.Quantity, trade.Buy, trade.StartedAt, now);
-                Send(new TradeRequestMessage(trade.Id, trade.Commodity, trade.Quantity, trade.Buy));
+                Send(new TradeRequestMessage(trade.Id, trade.Commodity, trade.Quantity, trade.Buy, _clientId));
             }
         }
     }

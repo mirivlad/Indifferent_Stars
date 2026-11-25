@@ -12,6 +12,7 @@ public sealed record ServerConfig
     public int WorldSeed { get; init; } = 20261101;
     public int SystemIndex { get; init; }
     public int MaxPlayers { get; init; } = 8;
+    public string? SavePath { get; init; }
 
     public TimeSpan TickInterval => TimeSpan.FromSeconds(1.0 / TickRate);
     public TimeSpan SnapshotInterval => TimeSpan.FromSeconds(1.0 / SnapshotRate);
@@ -23,6 +24,7 @@ public sealed record ServerConfig
             Port = ReadInt("IS_PORT", 7777),
             BindAddress = Environment.GetEnvironmentVariable("IS_BIND") ?? "0.0.0.0",
             WorldSeed = ReadInt("IS_SEED", 20261101),
+            SavePath = Environment.GetEnvironmentVariable("IS_SAVE") is { Length: > 0 } save ? save : null,
         };
 
         for (var i = 0; i < args.Length; i++)
@@ -52,6 +54,11 @@ public sealed record ServerConfig
                     break;
                 case "--max-players":
                     config = config with { MaxPlayers = ParseInt(Next(), "--max-players", 1, 64) };
+                    break;
+                case "--save":
+                    if (Next() is not { Length: > 0 } path || path.StartsWith("--", StringComparison.Ordinal))
+                        throw new ArgumentException("--save requires a world file path.");
+                    config = config with { SavePath = path };
                     break;
                 case "--help" or "-h":
                     PrintHelp();
@@ -83,6 +90,7 @@ public sealed record ServerConfig
               --seed <int>            Star system seed (default 20261101, env IS_SEED)
               --system <index>        Seeded system index (default 0; available count depends on seed)
               --max-players <1-64>    Player cap (default 8)
+              --save <path>           Persistent local world file (env IS_SAVE)
               --help                  Show this help
             """);
     }

@@ -244,7 +244,7 @@ public sealed partial class GameWorld
             account.Credits -= total;
             account.Cargo[commodityId] = held + quantity;
             stationStock[commodityId] = stock - quantity;
-            return TradeSuccess(account, "trade_bought", name, quantity, total);
+            return TradeSuccess(player, account, "trade_bought", name, quantity, total);
         }
 
         if (held < quantity)
@@ -253,7 +253,7 @@ public sealed partial class GameWorld
         account.Credits += revenue;
         account.Cargo[commodityId] = held - quantity;
         stationStock[commodityId] = stock + quantity;
-        return TradeSuccess(account, "trade_sold", name, quantity, revenue);
+        return TradeSuccess(player, account, "trade_sold", name, quantity, revenue);
     }
 
     private MarketState BuildMarket(PlayerAccount account)
@@ -279,15 +279,15 @@ public sealed partial class GameWorld
         return used;
     }
 
-    private TradeOutcome TradeSuccess(PlayerAccount account, string key, string commodityKey, int quantity, int total)
+    private TradeOutcome TradeSuccess(ShipState ship, PlayerAccount account, string key, string commodityKey, int quantity, int total)
     {
         var enArgs = new object[] { ServerText.Get("en", "commodity_" + commodityKey), quantity, total };
         var ruArgs = new object[] { ServerText.Get("ru", "commodity_" + commodityKey), quantity, total };
-        return new TradeOutcome(
-            true,
-            ServerText.Get("en", key, enArgs),
-            ServerText.Get("ru", key, ruArgs),
-            BuildMarket(account));
+        var english = ServerText.Get("en", key, enArgs);
+        var russian = ServerText.Get("ru", key, ruArgs);
+        RecordActivity(new WorldActivity(++_activitySequence, ship.Id, ship.Name, ship.Position,
+            account.StationId, key, english, russian, false, TimeSeconds));
+        return new TradeOutcome(true, english, russian, BuildMarket(account));
     }
 
     private TradeOutcome TradeFail(PlayerAccount? account, string key, string? commodityKey = null, params object[] args)

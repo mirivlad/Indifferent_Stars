@@ -53,6 +53,12 @@ public static class ProtocolCodec
                 WriteGuid(writer, hello.ClientId);
                 WriteString(writer, hello.ClientName, ProtocolConstants.MaxNameBytes);
                 WriteString(writer, hello.GeometryHash, ProtocolConstants.MaxStringBytes);
+                WriteString(writer, hello.ProfileKey, 128);
+                WriteString(writer, hello.Proof, 160);
+                break;
+
+            case ProfileChallengeMessage challenge:
+                WriteString(writer, challenge.Challenge, 64);
                 break;
 
             case HelloAcceptedMessage accepted:
@@ -267,6 +273,7 @@ public static class ProtocolCodec
                 writer.Write(tradeRequest.CommodityId);
                 writer.Write(tradeRequest.Quantity);
                 writer.Write(tradeRequest.Buy);
+                WriteGuid(writer, tradeRequest.ClientId);
                 break;
 
             case TradeResultMessage tradeResult:
@@ -330,7 +337,11 @@ public static class ProtocolCodec
                 MessageType.Hello => new HelloMessage(
                     ReadGuid(reader),
                     ReadString(reader, ProtocolConstants.MaxNameBytes),
-                    ReadString(reader, ProtocolConstants.MaxStringBytes)),
+                    ReadString(reader, ProtocolConstants.MaxStringBytes),
+                    ReadString(reader, 128),
+                    ReadString(reader, 160)),
+
+                MessageType.ProfileChallenge => new ProfileChallengeMessage(ReadString(reader, 64)),
 
                 MessageType.HelloAccepted => new HelloAcceptedMessage(
                     reader.ReadUInt32(),
@@ -420,7 +431,8 @@ public static class ProtocolCodec
                     reader.ReadUInt32(),
                     reader.ReadUInt16(),
                     reader.ReadInt32(),
-                    reader.ReadBoolean()),
+                    reader.ReadBoolean(),
+                    ReadGuid(reader)),
                 MessageType.TradeResult => new TradeResultMessage(
                     reader.ReadUInt32(),
                     reader.ReadBoolean(),

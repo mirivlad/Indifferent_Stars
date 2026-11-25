@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 22;
+    public const byte Version = 23;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -53,6 +53,7 @@ public enum MessageType : byte
     OrbitResult = 30,
     SensorContacts = 31,
     Transponder = 32,
+    ProfileChallenge = 33,
 }
 
 public enum EntityKind : byte
@@ -66,9 +67,15 @@ public interface IProtocolMessage
     MessageType Type { get; }
 }
 
-public sealed record HelloMessage(Guid ClientId, string ClientName, string GeometryHash) : IProtocolMessage
+public sealed record HelloMessage(Guid ClientId, string ClientName, string GeometryHash,
+    string ProfileKey = "", string Proof = "") : IProtocolMessage
 {
     public MessageType Type => MessageType.Hello;
+}
+
+public sealed record ProfileChallengeMessage(string Challenge) : IProtocolMessage
+{
+    public MessageType Type => MessageType.ProfileChallenge;
 }
 
 public sealed record HelloAcceptedMessage(
@@ -250,7 +257,8 @@ public sealed record MarketStateMessage(uint RequestId, MarketState State) : IPr
     public MessageType Type => MessageType.MarketState;
 }
 
-public sealed record TradeRequestMessage(uint RequestId, ushort CommodityId, int Quantity, bool Buy) : IProtocolMessage
+public sealed record TradeRequestMessage(uint RequestId, ushort CommodityId, int Quantity, bool Buy,
+    Guid ClientId = default) : IProtocolMessage
 {
     public MessageType Type => MessageType.TradeRequest;
 }

@@ -148,7 +148,7 @@ public sealed partial class GameMain : Node3D
         _serverPort = split.Length > 1 && int.TryParse(split[1], out var port) && port is > 0 and <= 65535 ? port : 7777;
         _playerName = string.IsNullOrWhiteSpace(_settings.Callsign) ? "Captain" : _settings.Callsign.Trim();
         _hud.ServerAddress = _settings.Server;
-        _net = new NetworkClient(_serverHost, _serverPort, _playerName);
+        _net = new NetworkClient(_serverHost, _serverPort, _playerName, resumeProfile: true);
         _net.WelcomeReceived += OnWelcome;
         _net.JoinRejected += OnJoinRejected;
         _net.SnapshotReceived += OnSnapshot;

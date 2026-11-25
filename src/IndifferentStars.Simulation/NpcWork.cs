@@ -15,4 +15,4 @@ public sealed class NpcWork
     public int Deliveries { get; set; }
     public bool FaultUsed { get; set; }
 }
-public sealed record WorldActivity(ulong Sequence,uint SourceId,string Source,Vec3d Position,int TargetId,string Kind,string English,string Russian,bool SystemWide);
+public sealed record WorldActivity(ulong Sequence,uint SourceId,string Source,Vec3d Position,int TargetId,string Kind,string English,string Russian,bool SystemWide,double TimeSeconds);

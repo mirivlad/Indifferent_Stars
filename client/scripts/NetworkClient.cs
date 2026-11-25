@@ -28,6 +28,8 @@ public sealed partial class NetworkClient : IDisposable
     private readonly string _playerName;
     private readonly string _host;
     private readonly int _port;
+    private readonly bool _resumeProfile;
+    private PlayerProfileKey? _profile;
 
     private UdpClient? _udp;
     private Thread? _receiveThread;
@@ -38,11 +40,12 @@ public sealed partial class NetworkClient : IDisposable
     private uint _inputSequence;
     private uint _requestSequence = 1;
 
-    public NetworkClient(string host, int port, string playerName)
+    public NetworkClient(string host, int port, string playerName, bool resumeProfile = false)
     {
         _host = host;
         _port = port;
         _playerName = playerName;
+        _resumeProfile = resumeProfile;
     }
 
     public ConnectionState State { get; private set; } = ConnectionState.Connecting;
@@ -73,6 +76,7 @@ public sealed partial class NetworkClient : IDisposable
     {
         try
         {
+            if (_resumeProfile) _profile = PlayerProfileKey.Open(_host, _port);
             var address = Dns.GetHostAddresses(_host);
             var endpoint = new IPEndPoint(address.Length > 0 ? address[0] : IPAddress.Loopback, _port);
             _udp = new UdpClient(endpoint.AddressFamily);
@@ -112,7 +116,7 @@ public sealed partial class NetworkClient : IDisposable
         if (State != ConnectionState.Connected && _lastHelloSeconds >= 0.6)
         {
             _lastHelloSeconds = 0;
-            Send(new HelloMessage(_clientId, _playerName, IndifferentStars.Shared.Collision.SurfaceMesh.Fingerprint));
+            SendHello();
         }
 
         if (State == ConnectionState.Connected)
@@ -136,6 +140,12 @@ public sealed partial class NetworkClient : IDisposable
             var message = packet.Message;
             switch (message)
             {
+                case ProfileChallengeMessage challenge:
+                    if (State == ConnectionState.Connecting && _profile is not null &&
+                        challenge.Challenge.Length == 64 && challenge.Challenge.All(Uri.IsHexDigit))
+                        SendHello(_profile.Prove(challenge.Challenge));
+                    break;
+
                 case HelloAcceptedMessage welcome:
                     if(Welcome is null || State!=ConnectionState.Connected || welcome.PlayerId!=Welcome.PlayerId)
                     { _transponderAckSequence=0; _pendingTransponder=null; TransponderEnabled=true; }
@@ -249,7 +259,7 @@ public sealed partial class NetworkClient : IDisposable
                 if (ProtocolCodec.TryDecode(bytes, out var message, out _) && message is not null)
                     _incoming.Enqueue((message, receivedAt));
             }
-            catch (SocketException ex) when (ex.SocketErrorCode is SocketError.TimedOut or SocketError.WouldBlock or SocketError.ConnectionReset)
+            catch (SocketException ex) when (ex.SocketErrorCode is SocketError.TimedOut or SocketError.WouldBlock or SocketError.ConnectionReset or SocketError.ConnectionRefused)
             {
                 // Keepalive loop; a missing server simply produces no packets.
             }
@@ -302,6 +312,10 @@ public sealed partial class NetworkClient : IDisposable
     private static sbyte ToSByte(float value) =>
         (sbyte)Math.Clamp(Math.Round(value * 127f), -127, 127);
 
+    private void SendHello(string proof = "") =>
+        Send(new HelloMessage(_clientId, _playerName, IndifferentStars.Shared.Collision.SurfaceMesh.Fingerprint,
+            _profile?.PublicKey ?? "", proof));
+
     public void Dispose()
     {
         try
@@ -318,5 +332,6 @@ public sealed partial class NetworkClient : IDisposable
         _udp?.Dispose();
         _receiveThread?.Join(200);
         _cancellation?.Dispose();
+        _profile?.Dispose();
     }
 }

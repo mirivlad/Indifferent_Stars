@@ -29,7 +29,7 @@ public sealed partial class UdpGameServer : IDisposable
     private readonly byte[] _receiveBuffer = new byte[ProtocolConstants.MaxPacketSize + 1];
     private readonly Random _random = new();
 
-    private bool _running = true;
+    private volatile bool _running = true;
     private double _lastTickSeconds;
     private double _lastSnapshotSeconds;
     private double _lastSensorsSeconds;
@@ -45,14 +45,29 @@ public sealed partial class UdpGameServer : IDisposable
 
         var address = IPAddress.Parse(config.BindAddress);
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        _socket.Bind(new IPEndPoint(address, config.Port));
-        _socket.Blocking = false;
+        try
+        {
+            _socket.Bind(new IPEndPoint(address, config.Port));
+            _socket.Blocking = false;
+            if (config.SavePath is { } path)
+            {
+                _save = new WorldSaveStore(path);
+                LoadWorld();
+            }
+        }
+        catch
+        {
+            _save?.Dispose();
+            _socket.Dispose();
+            throw;
+        }
     }
 
 
     public void Run(CancellationToken cancellationToken = default, Action<double>? measureTick = null)
     {
         _clock.Start();
+        SaveWorld();
         _lastStatsSeconds = _clock.Elapsed.TotalSeconds;
         Log($"Listening on udp {LocalEndpoint}");
         Log($"System '{_catalog.SystemName}' seed={_catalog.Seed}, {_catalog.Asteroids.Count} asteroids, {_world.Npcs.Count} NPC ships.");
@@ -102,6 +117,8 @@ public sealed partial class UdpGameServer : IDisposable
                 _lastSensorsSeconds = now;
             }
             BroadcastActivities(now);
+            if (_save is not null && now - _lastSaveSeconds >= 30)
+                SaveWorld();
 
             if (now - _lastStatsSeconds >= 30)
             {
@@ -112,6 +129,7 @@ public sealed partial class UdpGameServer : IDisposable
             Thread.Sleep(1);
         }
 
+        SaveWorld();
         Log("Shutting down server.");
     }
 
@@ -305,8 +323,28 @@ public sealed partial class UdpGameServer : IDisposable
             Send(endpoint, new HelloRejectedMessage("Geometry mismatch. Update the client and server together."));
             return;
         }
+        if (_sessionsByEndpoint.TryGetValue(endpoint, out var owner) && owner.ClientId != hello.ClientId)
+        {
+            Send(endpoint, new HelloRejectedMessage("This endpoint already has a session."));
+            return;
+        }
+        if (_sessions.TryGetValue(hello.ClientId, out var current) && current.Endpoint.Equals(endpoint))
+        {
+            current.LastSeenSeconds = now;
+            SendWelcome(current);
+            return;
+        }
+
+        var profile = _save is null ? null : AuthenticateProfile(hello, endpoint, now);
+        if (_save is not null && profile is null) return;
+
         if (_sessions.TryGetValue(hello.ClientId, out var existing))
         {
+            if (existing.ProfileKey != profile)
+            {
+                Send(endpoint, new HelloRejectedMessage("This session belongs to a different profile."));
+                return;
+            }
             if (!existing.Endpoint.Equals(endpoint))
             {
                 _sessionsByEndpoint.Remove(existing.Endpoint);
@@ -318,6 +356,11 @@ public sealed partial class UdpGameServer : IDisposable
             SendWelcome(existing);
             return;
         }
+        if (profile is not null && _sessions.Values.Any(session => session.ProfileKey == profile))
+        {
+            Send(endpoint, new HelloRejectedMessage("This profile is already connected."));
+            return;
+        }
 
         if (_sessions.Count >= _config.MaxPlayers)
         {
@@ -326,20 +369,25 @@ public sealed partial class UdpGameServer : IDisposable
         }
 
         var name = SanitizeName(hello.ClientName);
-        var ship = _world.AddPlayer(name);
+        var parked = profile is null ? null : _profiles.GetValueOrDefault(profile);
+        var ship = parked is not null ? _world.RestorePlayer(parked.Player) : _world.AddPlayer(name);
+        if (profile is not null) _profiles.Remove(profile);
         var session = new PlayerSession
         {
             ClientId = hello.ClientId,
+            ProfileKey = profile,
             PlayerId = ship.Id,
             Name = ship.Name,
             Endpoint = endpoint,
             Ship = ship,
             LastSeenSeconds = now,
+            LastTradeResult = parked?.TradeSession == hello.ClientId ? parked.LastTrade : null,
         };
 
         _sessions[hello.ClientId] = session;
         _sessionsByEndpoint[endpoint] = session;
         _startedAtSeconds = _startedAtSeconds == 0 ? now : _startedAtSeconds;
+        if (profile is not null) SaveWorld();
         SendWelcome(session);
         Log($"{ship.Name} joined as ship #{ship.Id} from {endpoint} (players={_sessions.Count}).");
     }
@@ -429,9 +477,17 @@ public sealed partial class UdpGameServer : IDisposable
             return;
 
         session.LastSeenSeconds = now;
+        if (session.ProfileKey is not null && request.ClientId != session.ClientId)
+            return;
         if (session.LastTradeResult is { } previous && previous.RequestId == request.RequestId)
         {
             Send(endpoint, previous);
+            return;
+        }
+        if (session.ProfileKey is not null && session.LastTradeResult is { } last && request.RequestId < last.RequestId)
+        {
+            Send(endpoint, new TradeResultMessage(request.RequestId, false, "Stale trade request.", "Торговый запрос устарел.",
+                _world.GetMarket(session.PlayerId)!));
             return;
         }
 
@@ -444,6 +500,7 @@ public sealed partial class UdpGameServer : IDisposable
             outcome.RussianMessage,
             state);
         session.LastTradeResult = response;
+        if (session.ProfileKey is not null) SaveWorld();
         Send(endpoint, response);
         Log($"{session.Name} trade {(request.Buy ? "buy" : "sell")} #{request.CommodityId} ×{request.Quantity}: {outcome.Message}");
     }
@@ -491,9 +548,11 @@ public sealed partial class UdpGameServer : IDisposable
 
     private void RemoveSession(PlayerSession session, string reason)
     {
+        if (session.ProfileKey is { } key) _profiles[key] = CaptureProfile(session);
         _sessions.Remove(session.ClientId);
         _sessionsByEndpoint.Remove(session.Endpoint);
         _world.RemovePlayer(session.PlayerId);
+        if (session.ProfileKey is not null) SaveWorld();
         Log($"{session.Name} left ({reason}); players={_sessions.Count}.");
     }
 
@@ -529,5 +588,9 @@ public sealed partial class UdpGameServer : IDisposable
     private static void Log(string message) =>
         Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
 
-    public void Dispose() => _socket.Dispose();
+    public void Dispose()
+    {
+        _socket.Dispose();
+        _save?.Dispose();
+    }
 }

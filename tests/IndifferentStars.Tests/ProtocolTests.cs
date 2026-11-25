@@ -14,6 +14,9 @@ public sealed class ProtocolTests
         var data = new TheoryData<IProtocolMessage>
         {
             new HelloMessage(Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666"), "Captain Vega", SurfaceMesh.Fingerprint),
+            new HelloMessage(Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666"), "Captain Vega", SurfaceMesh.Fingerprint,
+                new string('k', 124), new string('p', 153)),
+            new ProfileChallengeMessage(new string('A', 64)),
             new HelloAcceptedMessage(
                 7, "Captain Vega", new Vec3d(10, 20, -30), 1.2f, 20261101,
                 "Vesper — Kestrel Reach", 4200, 21000, 720, 42, 20),
@@ -48,7 +51,7 @@ public sealed class ProtocolTests
                 new MarketEntry(1, 158, 2),
                 new MarketEntry(2, 120, 0),
             })),
-            new TradeRequestMessage(12, 1, 2, true),
+            new TradeRequestMessage(12, 1, 2, true, Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666")),
             new TradeResultMessage(12, true, "Purchased water ×2 for 24 credits.", "Куплено: вода ×2 за 24 кредитов.",
                 new MarketState(4976, 2, 40, new[] { new MarketEntry(1, 158, 2) })),
         };
