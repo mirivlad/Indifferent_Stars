@@ -35,6 +35,25 @@ public sealed class NpcActivityTests
         Assert.Equal(3,levels.Count);
     }
     [Fact]
+    public void CouriersWithTheSameHorizontalSlotWaitAtDifferentHeights()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(20261101, 7));
+        var couriers = world.Npcs.Where(ship => ship.Work!.Occupation == NpcOccupation.Courier)
+            .GroupBy(ship => ship.Id % 15).First(group => group.Count() > 1).Take(2).ToArray();
+        foreach (var ship in couriers)
+        {
+            ship.Work!.HomeStationId = world.Catalog.Station.Id;
+            ship.Work.Goal = ship.Position;
+            ship.Work.Phase = NpcPhase.Waiting;
+            ship.Work.Until = 0;
+        }
+
+        world.Tick(.05);
+
+        Assert.All(couriers, ship => Assert.Equal(NpcPhase.Docking, ship.Work!.Phase));
+        Assert.True(Vec3d.Distance(couriers[0].Work!.Goal, couriers[1].Work!.Goal) >= 600);
+    }
+    [Fact]
     public void CourierMovesActualStockBetweenStationsWithoutCreatingCargo()
     {
         var world=new GameWorld(WorldCatalog.Generate(20261101));

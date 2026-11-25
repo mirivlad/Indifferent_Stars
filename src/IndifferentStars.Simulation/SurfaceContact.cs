@@ -20,15 +20,13 @@ public static class SurfaceContact
     public static SurfaceHit? SweepHit(SurfaceMesh a, double scaleA, Vec3d startA, Vec3d endA, Quaternion fromA, Quaternion toA,
         SurfaceMesh b, double scaleB, Vec3d startB, Vec3d endB, Quaternion fromB, Quaternion toB, bool skipSeparating = false)
     {
-        var angularA = skipSeparating ? AngularMotion(fromA, toA) : Vec3d.Zero;
-        var angularB = skipSeparating ? AngularMotion(fromB, toB) : Vec3d.Zero;
         var relativeStart = startA - startB;
         var relativeEnd = endA - endB;
         var radius = a.Radius * scaleA + b.Radius * scaleB;
         var motion = relativeEnd - relativeStart;
         var nearest = motion.LengthSquared > 0
             ? relativeStart + motion * Math.Clamp(-Vec3d.Dot(relativeStart, motion) / motion.LengthSquared, 0, 1) : relativeStart;
-        if (nearest.Length > radius) return null;
+        if (nearest.LengthSquared > radius * radius) return null;
         var arcA = Angle(fromA, toA) * a.Radius * scaleA;
         var spinB = AngularMotion(fromB, toB);
         var axisB = spinB.Normalized();
@@ -44,6 +42,7 @@ public static class SurfaceContact
         var reach = a.Radius * scaleA + motion.Length + arcB + RotationTolerance + 1e-6;
         if (!b.Root.Bounds.Expand(reach / scaleB).Intersects(new Bounds(localStart, localStart))) return null;
         if (SurfaceQuery.Distance(b, localStart) * scaleB > reach) return null;
+        var angularA = skipSeparating && fromA != toA ? AngularMotion(fromA, toA) : Vec3d.Zero;
         var slices = Math.Max(1, (int)Math.Ceiling((arcA + arcB) / (2 * RotationTolerance)));
         var cachedBounds = ArrayPool<Bounds>.Shared.Rent(a.NodeCount);
         var boundsStamp = ArrayPool<int>.Shared.Rent(a.NodeCount);
@@ -64,21 +63,21 @@ public static class SurfaceContact
                 var offset = SurfaceMesh.Rotate(Vec3d.Lerp(relativeStart, relativeEnd, begin), inverseB) / scaleB;
                 var delta = SurfaceMesh.Rotate(motion / slices, inverseB) / scaleB;
                 var padding = (arcA + arcB) / (2 * slices * scaleB);
+                var scale = scaleA / scaleB;
+                var xAxis = Absolute(SurfaceMesh.Rotate(new Vec3d(scale, 0, 0), rotation));
+                var yAxis = Absolute(SurfaceMesh.Rotate(new Vec3d(0, scale, 0), rotation));
+                var zAxis = Absolute(SurfaceMesh.Rotate(new Vec3d(0, 0, scale), rotation));
                 double? first = null;
                 SurfaceHit? firstHit = null;
-                Vec3d Transform(Vec3d point) => SurfaceMesh.Rotate(point * (scaleA / scaleB), rotation) + offset;
+                Vec3d Transform(Vec3d point) => SurfaceMesh.Rotate(point * scale, rotation) + offset;
                 Bounds TransformBounds(Bounds bounds)
                 {
-                    var low = bounds.Min; var high = bounds.Max;
-                    var corner = Transform(low);
-                    var result = new Bounds(corner, corner);
-                    for (var mask = 1; mask < 8; mask++)
-                    {
-                        corner = Transform(new Vec3d((mask & 1) == 0 ? low.X : high.X,
-                            (mask & 2) == 0 ? low.Y : high.Y, (mask & 4) == 0 ? low.Z : high.Z));
-                        result = result.Union(new Bounds(corner, corner));
-                    }
-                    return result.Expand(padding + 1e-6);
+                    // Project the three half extents onto world axes. This encloses
+                    // the same eight corners without transforming them individually.
+                    var center = Transform((bounds.Min + bounds.Max) * .5);
+                    var extent = (bounds.Max - bounds.Min) * .5;
+                    var projected = xAxis * extent.X + yAxis * extent.Y + zAxis * extent.Z;
+                    return new Bounds(center - projected, center + projected).Expand(padding + 1e-6);
                 }
                 // Each pose is invariant for this slice, even when BVH pairs revisit A.
                 Bounds NodeBounds(SurfaceMesh.Node node)
@@ -103,7 +102,7 @@ public static class SurfaceContact
                 void Visit(SurfaceMesh.Node nodeA, Bounds boundsA, SurfaceMesh.Node nodeB, (double Enter, double Exit)? interval)
                 {
                     if (first <= 1e-6 || interval is null || first is { } known && interval.Value.Enter > known) return;
-                    if (nodeB.Left is null)
+                    if (nodeB.Left is null && nodeA.Left is not null)
                     {
                         // A leaf can span gaps between long triangles. Reject the gap
                         // before descending the other mesh, not just at triangle pairs.
@@ -176,7 +175,7 @@ public static class SurfaceContact
                             {
                                 var centerA = Vec3d.Lerp(startA, endA, time);
                                 var velocityA = endA - startA + Vec3d.Cross(angularA, worldPoint - centerA);
-                                var velocityB = endB - startB + Vec3d.Cross(angularB, worldPoint - centerB);
+                                var velocityB = endB - startB + Vec3d.Cross(spinB, worldPoint - centerB);
                                 if (Vec3d.Dot(velocityA - velocityB, worldNormal) >= -1e-9) continue;
                             }
                             first = contact.Time;
@@ -198,6 +197,8 @@ public static class SurfaceContact
             ArrayPool<int>.Shared.Return(triangleStamp);
         }
     }
+
+    private static Vec3d Absolute(Vec3d value) => new(Math.Abs(value.X), Math.Abs(value.Y), Math.Abs(value.Z));
 
     private static (double Enter, double Exit)? BoxInterval(Bounds a, Bounds b, Vec3d motion)
     {
@@ -242,18 +243,25 @@ public static class SurfaceContact
         var sizeA = Math.Max(ea[0].LengthSquared, Math.Max(ea[1].LengthSquared, ea[2].LengthSquared));
         var sizeB = Math.Max(eb[0].LengthSquared, Math.Max(eb[1].LengthSquared, eb[2].LengthSquared));
         if (na.LengthSquared <= sizeA * sizeA * 1e-24 || nb.LengthSquared <= sizeB * sizeB * 1e-24) return null;
-        Span<Vec3d> axes = stackalloc Vec3d[17];
-        axes[0] = na; axes[1] = nb;
-        var k = 2;
-        foreach (var x in ea)
-        foreach (var y in eb) axes[k++] = Vec3d.Cross(x, y);
-        foreach (var edge in ea) axes[k++] = Vec3d.Cross(na, edge);
-        foreach (var edge in eb) axes[k++] = Vec3d.Cross(nb, edge);
         var normal = Vec3d.Zero;
-        foreach (var axis in axes)
+        // Most candidate triangles separate on a face normal. Defer the other
+        // axes so those pairs never compute edge crosses.
+        if (!TestAxis(na) || !TestAxis(nb)) return null;
+        foreach (var x in ea)
+        foreach (var y in eb)
+            if (!TestAxis(Vec3d.Cross(x, y))) return null;
+        foreach (var edge in ea)
+            if (!TestAxis(Vec3d.Cross(na, edge))) return null;
+        foreach (var edge in eb)
+            if (!TestAxis(Vec3d.Cross(nb, edge))) return null;
+        if (exit <= 1e-9) return null;
+        if (enter <= 1e-8 || normal.LengthSquared < .5) normal = nb.Normalized();
+        return new SurfaceHit(enter, Vec3d.Zero, normal);
+
+        bool TestAxis(Vec3d axis)
         {
             var length = axis.Length;
-            if (length < 1e-12) continue;
+            if (length < 1e-12) return true;
             var a0 = Vec3d.Dot(a.A, axis); var a1 = Vec3d.Dot(a.B, axis); var a2 = Vec3d.Dot(a.C, axis);
             var b0 = Vec3d.Dot(b.A, axis); var b1 = Vec3d.Dot(b.B, axis); var b2 = Vec3d.Dot(b.C, axis);
             var minA = Math.Min(a0, Math.Min(a1, a2)); var maxA = Math.Max(a0, Math.Max(a1, a2));
@@ -261,20 +269,14 @@ public static class SurfaceContact
             var speed = Vec3d.Dot(motion, axis);
             var margin = padding * length;
             if (Math.Abs(speed) < 1e-14)
-            {
-                if (maxA + margin < minB || minA - margin > maxB) return null;
-                continue;
-            }
+                return maxA + margin >= minB && minA - margin <= maxB;
             var near = (minB - maxA - margin) / speed;
             var far = (maxB - minA + margin) / speed;
             if (near > far) (near, far) = (far, near);
             if (near >= enter - 1e-10) normal = axis / length * (speed < 0 ? 1 : -1);
             enter = Math.Max(enter, near); exit = Math.Min(exit, far);
-            if (enter > exit) return null;
+            return enter <= exit;
         }
-        if (exit <= 1e-9) return null;
-        if (enter <= 1e-8 || normal.LengthSquared < .5) normal = nb.Normalized();
-        return new SurfaceHit(enter, Vec3d.Zero, normal);
     }
     public static Vec3d AngularMotion(Quaternion from, Quaternion to)
     {

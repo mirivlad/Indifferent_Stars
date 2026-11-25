@@ -28,12 +28,15 @@ public sealed class SurfaceMesh
 {
     public sealed record Node(int Index, Bounds Bounds, int Start, int Count, Node? Left, Node? Right);
     private int _nodeCount;
+    private Vec3d[]? _vertices;
     public int NodeCount => _nodeCount;
     public Triangle[] Triangles { get; }
     public Bounds[] TriangleBounds { get; }
     public Node Root { get; }
     public double Radius { get; }
     public string SourceHash { get; }
+    public ReadOnlySpan<Vec3d> GetVertices() =>
+        _vertices ?? System.Threading.LazyInitializer.EnsureInitialized(ref _vertices, BuildVertices);
 
     private SurfaceMesh(Triangle[] triangles, string hash)
     {
@@ -42,6 +45,18 @@ public sealed class SurfaceMesh
         Radius = triangles.Max(t => Math.Max(t.A.Length, Math.Max(t.B.Length, t.C.Length)));
         Root = Build(0, triangles.Length);
         TriangleBounds = Triangles.Select(triangle => triangle.Bounds).ToArray();
+    }
+
+    private Vec3d[] BuildVertices()
+    {
+        var vertices = new HashSet<Vec3d>();
+        foreach (var triangle in Triangles)
+        {
+            vertices.Add(triangle.A);
+            vertices.Add(triangle.B);
+            vertices.Add(triangle.C);
+        }
+        return vertices.ToArray();
     }
 
     private Node Build(int start, int count)

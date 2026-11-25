@@ -1,0 +1,1948 @@
+[
+  {
+    "configuration": "Debug",
+    "build": "base",
+    "seed": 20261101,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 19,
+    "bodies": 758,
+    "activity": 1,
+    "mean": 8.445707149999983,
+    "p50": 2.8333,
+    "p95": 21.8578,
+    "p99": 27.9153,
+    "max": 269.0277,
+    "over_50_ms": 39,
+    "over_budget_with_gc": 16,
+    "tick_avg_allocated_bytes": 507458,
+    "collections": [
+      332,
+      10,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 10368,
+        "Ms": 269.0277,
+        "StaticMs": 20.13959999999497,
+        "DynamicMs": 248.13419999999996,
+        "Allocated": 1619272,
+        "Gc": false
+      },
+      {
+        "Tick": 10371,
+        "Ms": 246.5949,
+        "StaticMs": 20.36939999999595,
+        "DynamicMs": 225.4958999999999,
+        "Allocated": 1619272,
+        "Gc": false
+      },
+      {
+        "Tick": 10372,
+        "Ms": 217.5447,
+        "StaticMs": 19.703999999997905,
+        "DynamicMs": 197.07210000000032,
+        "Allocated": 1619656,
+        "Gc": false
+      },
+      {
+        "Tick": 10369,
+        "Ms": 212.7602,
+        "StaticMs": 20.12840000000142,
+        "DynamicMs": 191.85489999999982,
+        "Allocated": 1619432,
+        "Gc": false
+      },
+      {
+        "Tick": 10373,
+        "Ms": 201.2252,
+        "StaticMs": 19.832299999994575,
+        "DynamicMs": 180.6297000000004,
+        "Allocated": 1619464,
+        "Gc": false
+      }
+    ],
+    "state": "E90356F8995FB3C5F2C29582C80A5747FCAC1FC68193A43BEC430648D5F9135C",
+    "route_ms_per_tick": 0.4573931750004037,
+    "safety_ms_per_tick": 0.3595096416666686,
+    "collision_ms_per_tick": 7.757996516666644,
+    "static_ms_per_tick": 7.343990816666698,
+    "dynamic_ms_per_tick": 0.41329209166666603,
+    "near_mean": 4.3589166666666666,
+    "near_max": 6,
+    "departures": 132,
+    "arrivals": 41,
+    "extraction": 5,
+    "deliveries": 41,
+    "body_hotspots": [
+      {
+        "Key": 4,
+        "ms": 0.0642687416666865,
+        "kind": "Station"
+      },
+      {
+        "Key": 3,
+        "ms": 0.05343310833334535,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.04082718333333432,
+        "kind": "Station"
+      },
+      {
+        "Key": 5,
+        "ms": 0.032422666666666926,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.1772776833325539,
+        "ship": [
+          {
+            "pos": "(-24.59, 13127.08, 5900.47)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 568.5510627615986,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.16956943333321206,
+        "ship": [
+          {
+            "pos": "(6373.09, 6004.72, -2875.61)",
+            "goal": {
+              "LengthSquared": 85000000.00000001,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 7.93662647981047,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.10343564999966506,
+        "ship": [
+          {
+            "pos": "(-9573537600860.65, -141117179077.71, 13264082238215.79)",
+            "goal": {
+              "LengthSquared": 2.6760841384746592e+26,
+              "Length": 16358741206078.967,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Unloading",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5006,
+        "ms": 0.09376486666658347,
+        "ship": [
+          {
+            "pos": "(3686526794079.81, 112032054704.92, -3692127875573.50)",
+            "goal": {
+              "LengthSquared": 2.723483923435723e+25,
+              "Length": 5218700914438.116,
+              "IsFinite": true
+            },
+            "speed": 6.832195876363834,
+            "phase": "Travelling",
+            "hit": 1,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.09200669999979594,
+        "ship": [
+          {
+            "pos": "(3686526690853.34, 112032080424.65, -3692127739055.37)",
+            "goal": {
+              "LengthSquared": 2.6760841387532047e+26,
+              "Length": 16358741206930.332,
+              "IsFinite": true
+            },
+            "speed": 81073.90431808043,
+            "phase": "Travelling",
+            "hit": 66,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5008,
+        "ms": 0.08830246666635297,
+        "ship": [
+          {
+            "pos": "(-352580.05, 13758.87, 511906.61)",
+            "goal": {
+              "LengthSquared": 2.6760841202241083e+26,
+              "Length": 16358741150296.707,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Unloading": 2,
+      "Travelling": 14,
+      "Docking": 1,
+      "Disabled": 2
+    }
+  },
+  {
+    "configuration": "Debug",
+    "build": "verified",
+    "seed": 20261101,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 19,
+    "bodies": 758,
+    "activity": 1,
+    "mean": 2.339406108333333,
+    "p50": 2.0562,
+    "p95": 4.1401,
+    "p99": 5.759,
+    "max": 48.9522,
+    "over_50_ms": 0,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 11841,
+    "collections": [
+      8,
+      2,
+      1
+    ],
+    "slowest": [],
+    "state": "09EF152CDD34E7F42B509419E987BA7770AA2D189D0F76F1F339D404A499C669",
+    "route_ms_per_tick": 0.46443435000049643,
+    "safety_ms_per_tick": 0.32289057499999557,
+    "collision_ms_per_tick": 1.6512749500000095,
+    "static_ms_per_tick": 1.5591055416666662,
+    "dynamic_ms_per_tick": 0.09151542499999964,
+    "near_mean": 4.336666666666667,
+    "near_max": 6,
+    "departures": 123,
+    "arrivals": 39,
+    "extraction": 4,
+    "deliveries": 39,
+    "body_hotspots": [
+      {
+        "Key": 4,
+        "ms": 0.05972001666667417,
+        "kind": "Station"
+      },
+      {
+        "Key": 3,
+        "ms": 0.044228900000015677,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.03184098333333246,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.031175791666665783,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.06537197500197321,
+        "ship": [
+          {
+            "pos": "(-24.59, 13127.08, 5900.47)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 568.5510627615986,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.06525986666849291,
+        "ship": [
+          {
+            "pos": "(6373.09, 6004.72, -2875.61)",
+            "goal": {
+              "LengthSquared": 85000000.00000001,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 7.93662647981047,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5006,
+        "ms": 0.05255415000031515,
+        "ship": [
+          {
+            "pos": "(3686526792979.34, 112032074091.43, -3692127870415.23)",
+            "goal": {
+              "LengthSquared": 2.723483923435723e+25,
+              "Length": 5218700914438.116,
+              "IsFinite": true
+            },
+            "speed": 18.778523448730233,
+            "phase": "Travelling",
+            "hit": 1,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.05021615000038714,
+        "ship": [
+          {
+            "pos": "(-105647.41, 17503.70, 125288.89)",
+            "goal": {
+              "LengthSquared": 2.6760841384746592e+26,
+              "Length": 16358741206078.967,
+              "IsFinite": true
+            },
+            "speed": 75646.24617478596,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.04412025000001226,
+        "ship": [
+          {
+            "pos": "(-9573537600736.41, -141117178372.64, 13264082238429.72)",
+            "goal": {
+              "LengthSquared": 2.6760841201379464e+26,
+              "Length": 16358741150033.355,
+              "IsFinite": true
+            },
+            "speed": 545.7563079618045,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 5
+          }
+        ]
+      },
+      {
+        "Key": 5008,
+        "ms": 0.039599324999836906,
+        "ship": [
+          {
+            "pos": "(-142.63, 8998.33, -35.62)",
+            "goal": {
+              "LengthSquared": 2.6760841202241083e+26,
+              "Length": 16358741150296.707,
+              "IsFinite": true
+            },
+            "speed": 534.1978359054641,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Travelling": 15,
+      "Disabled": 1,
+      "Unloading": 1,
+      "Loading": 1,
+      "Docking": 1
+    }
+  },
+  {
+    "configuration": "Debug",
+    "build": "base",
+    "seed": 20261101,
+    "system": 7,
+    "ticks": 12000,
+    "npcs": 39,
+    "bodies": 839,
+    "activity": 3,
+    "mean": 5.698216674999995,
+    "p50": 5.2482,
+    "p95": 8.1664,
+    "p99": 11.1804,
+    "max": 156.4066,
+    "over_50_ms": 35,
+    "over_budget_with_gc": 10,
+    "tick_avg_allocated_bytes": 41786,
+    "collections": [
+      27,
+      3,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 11744,
+        "Ms": 156.4066,
+        "StaticMs": 154.79219999999987,
+        "DynamicMs": 0.7651999999998225,
+        "Allocated": 11270872,
+        "Gc": false
+      },
+      {
+        "Tick": 10607,
+        "Ms": 147.336,
+        "StaticMs": 142.04880000000048,
+        "DynamicMs": 1.0038000000004104,
+        "Allocated": 8061264,
+        "Gc": false
+      },
+      {
+        "Tick": 7061,
+        "Ms": 124.2579,
+        "StaticMs": 119.82849999999962,
+        "DynamicMs": 0.7677000000003318,
+        "Allocated": 6453552,
+        "Gc": true
+      },
+      {
+        "Tick": 9016,
+        "Ms": 115.1821,
+        "StaticMs": 111.50700000000143,
+        "DynamicMs": 0.6898000000001048,
+        "Allocated": 8060216,
+        "Gc": true
+      },
+      {
+        "Tick": 10299,
+        "Ms": 100.8259,
+        "StaticMs": 96.98700000000099,
+        "DynamicMs": 0.985899999999674,
+        "Allocated": 6450832,
+        "Gc": false
+      }
+    ],
+    "state": "EB1A7E5099CD99B10CE8387F180911244E4F72C334C1790270ED1A8554341C25",
+    "route_ms_per_tick": 1.464986300000408,
+    "safety_ms_per_tick": 1.3585185499999755,
+    "collision_ms_per_tick": 3.4654329333333393,
+    "static_ms_per_tick": 2.6497901666666817,
+    "dynamic_ms_per_tick": 0.8148761916666691,
+    "near_mean": 6.658666666666667,
+    "near_max": 10,
+    "departures": 288,
+    "arrivals": 56,
+    "extraction": 6,
+    "deliveries": 56,
+    "body_hotspots": [
+      {
+        "Key": 3,
+        "ms": 0.06795955000002289,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.06603579166669542,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.05438587500000888,
+        "kind": "Station"
+      },
+      {
+        "Key": 4,
+        "ms": 0.0475251250000027,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.19672693333312546,
+        "ship": [
+          {
+            "pos": "(1134.25, 10497.60, -5861.88)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 566.4980882637891,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.19372760833395788,
+        "ship": [
+          {
+            "pos": "(-6131.04, 12325.32, -3202.13)",
+            "goal": {
+              "LengthSquared": 84999999.99999999,
+              "Length": 9219.544457292886,
+              "IsFinite": true
+            },
+            "speed": 326.25517845243974,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5009,
+        "ms": 0.1330007333327114,
+        "ship": [
+          {
+            "pos": "(-599958.43, 41726.86, -149585.54)",
+            "goal": {
+              "LengthSquared": 3.802587943819158e+24,
+              "Length": 1950022549566.8398,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.1250624166675898,
+        "ship": [
+          {
+            "pos": "(-0.80, 3664.81, -2.61)",
+            "goal": {
+              "LengthSquared": 19950824.213816255,
+              "Length": 4466.634551182384,
+              "IsFinite": true
+            },
+            "speed": 167.656637500179,
+            "phase": "Docking",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.11932047499935743,
+        "ship": [
+          {
+            "pos": "(-1894235863023.18, 41268527548.56, -461253306055.34)",
+            "goal": {
+              "LengthSquared": 1.3767725237675409e+23,
+              "Length": 371048854433.9601,
+              "IsFinite": true
+            },
+            "speed": 86898.72613898428,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 7
+          }
+        ]
+      },
+      {
+        "Key": 5008,
+        "ms": 0.10065309999966236,
+        "ship": [
+          {
+            "pos": "(-167312893065.81, 11452841907.29, -549306372838.08)",
+            "goal": {
+              "LengthSquared": 1.3767725251329474e+23,
+              "Length": 371048854617.9529,
+              "IsFinite": true
+            },
+            "speed": 61000.003763724235,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Travelling": 25,
+      "Docking": 6,
+      "Disabled": 6,
+      "Unloading": 1,
+      "Working": 1
+    }
+  },
+  {
+    "configuration": "Debug",
+    "build": "base",
+    "seed": 20261125,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 20,
+    "bodies": 908,
+    "activity": 2,
+    "mean": 7.762633975000028,
+    "p50": 3.4507,
+    "p95": 21.578,
+    "p99": 29.8485,
+    "max": 155.1713,
+    "over_50_ms": 46,
+    "over_budget_with_gc": 19,
+    "tick_avg_allocated_bytes": 413413,
+    "collections": [
+      271,
+      8,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 7846,
+        "Ms": 155.1713,
+        "StaticMs": 153.54609999999957,
+        "DynamicMs": 0.22000000000002728,
+        "Allocated": 9655128,
+        "Gc": true
+      },
+      {
+        "Tick": 7845,
+        "Ms": 148.1977,
+        "StaticMs": 146.57749999999942,
+        "DynamicMs": 0.28539999999998145,
+        "Allocated": 9655128,
+        "Gc": false
+      },
+      {
+        "Tick": 7844,
+        "Ms": 144.9157,
+        "StaticMs": 143.2475000000013,
+        "DynamicMs": 0.2645999999999731,
+        "Allocated": 9655128,
+        "Gc": true
+      },
+      {
+        "Tick": 10330,
+        "Ms": 112.5069,
+        "StaticMs": 111.35289999999804,
+        "DynamicMs": 0.2134000000000924,
+        "Allocated": 9655432,
+        "Gc": true
+      },
+      {
+        "Tick": 10331,
+        "Ms": 111.9811,
+        "StaticMs": 110.77580000000307,
+        "DynamicMs": 0.21030000000018845,
+        "Allocated": 9655432,
+        "Gc": false
+      }
+    ],
+    "state": "B813A716A074FCF638CB3841B8C51895B997477268BD7DB0192EBA82EB703A79",
+    "route_ms_per_tick": 0.6818025166670937,
+    "safety_ms_per_tick": 0.5746932749999903,
+    "collision_ms_per_tick": 6.747178608333338,
+    "static_ms_per_tick": 6.535453400000002,
+    "dynamic_ms_per_tick": 0.21099292499999997,
+    "near_mean": 5.52275,
+    "near_max": 8,
+    "departures": 143,
+    "arrivals": 39,
+    "extraction": 6,
+    "deliveries": 39,
+    "body_hotspots": [
+      {
+        "Key": 3,
+        "ms": 0.06108499166668343,
+        "kind": "Station"
+      },
+      {
+        "Key": 4,
+        "ms": 0.05133782500000756,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.03875087500000065,
+        "kind": "Station"
+      },
+      {
+        "Key": 5,
+        "ms": 0.030012583333332746,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5005,
+        "ms": 0.18371740833287264,
+        "ship": [
+          {
+            "pos": "(5971.87, 8701.70, -3638.30)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 545.6961572240544,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5001,
+        "ms": 0.18013974999998206,
+        "ship": [
+          {
+            "pos": "(-5057.71, 7603.53, -4703.83)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 337.44043788937034,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.14793169999916497,
+        "ship": [
+          {
+            "pos": "(6628638175576.12, 133672344186.60, 1370644785589.47)",
+            "goal": {
+              "LengthSquared": 20643324.213816255,
+              "Length": 4543.492512794123,
+              "IsFinite": true
+            },
+            "speed": 554.2617191397685,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.12449829166680405,
+        "ship": [
+          {
+            "pos": "(6084574734246.22, 106740068110.37, 4154588684104.35)",
+            "goal": {
+              "LengthSquared": 5.429405027285563e+25,
+              "Length": 7368449651918.349,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5007,
+        "ms": 0.11645001666680495,
+        "ship": [
+          {
+            "pos": "(6084575019519.90, 106740098594.85, 4154587294341.50)",
+            "goal": {
+              "LengthSquared": 4.583537947843631e+25,
+              "Length": 6770183120007.635,
+              "IsFinite": true
+            },
+            "speed": 133000.0156045306,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 6
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.11133933333291601,
+        "ship": [
+          {
+            "pos": "(6084574734973.48, 106740079226.88, 4154588686194.66)",
+            "goal": {
+              "LengthSquared": 4.249612977854254e+26,
+              "Length": 20614589440137.42,
+              "IsFinite": true
+            },
+            "speed": 567.1516873309032,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 6
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Travelling": 16,
+      "Docking": 2,
+      "Disabled": 2
+    }
+  },
+  {
+    "configuration": "Release",
+    "build": "base",
+    "seed": 20261101,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 19,
+    "bodies": 758,
+    "activity": 1,
+    "mean": 2.747457608333333,
+    "p50": 1.2488,
+    "p95": 6.2667,
+    "p99": 9.6748,
+    "max": 50.2764,
+    "over_50_ms": 1,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 506144,
+    "collections": [
+      332,
+      4,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 4154,
+        "Ms": 50.2764,
+        "StaticMs": 46.108400000000074,
+        "DynamicMs": 0.030799999999999272,
+        "Allocated": 13480,
+        "Gc": false
+      }
+    ],
+    "state": "E90356F8995FB3C5F2C29582C80A5747FCAC1FC68193A43BEC430648D5F9135C",
+    "route_ms_per_tick": 0.17570907499994662,
+    "safety_ms_per_tick": 0.09611974166667933,
+    "collision_ms_per_tick": 2.4885575416666685,
+    "static_ms_per_tick": 2.401355991666674,
+    "dynamic_ms_per_tick": 0.08655473333333275,
+    "near_mean": 4.3589166666666666,
+    "near_max": 6,
+    "departures": 132,
+    "arrivals": 41,
+    "extraction": 5,
+    "deliveries": 41,
+    "body_hotspots": [
+      {
+        "Key": 4,
+        "ms": 0.026070741666675883,
+        "kind": "Station"
+      },
+      {
+        "Key": 3,
+        "ms": 0.023667966666673625,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.015583975000007555,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.014242300000006447,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.056261766663663934,
+        "ship": [
+          {
+            "pos": "(-24.59, 13127.08, 5900.47)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 568.5510627615986,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.05002342499806095,
+        "ship": [
+          {
+            "pos": "(6373.09, 6004.72, -2875.61)",
+            "goal": {
+              "LengthSquared": 85000000.00000001,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 7.93662647981047,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.04081224999985254,
+        "ship": [
+          {
+            "pos": "(3686526690853.34, 112032080424.65, -3692127739055.37)",
+            "goal": {
+              "LengthSquared": 2.6760841387532047e+26,
+              "Length": 16358741206930.332,
+              "IsFinite": true
+            },
+            "speed": 81073.90431808043,
+            "phase": "Travelling",
+            "hit": 66,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.03970261666653337,
+        "ship": [
+          {
+            "pos": "(-9573537600860.65, -141117179077.71, 13264082238215.79)",
+            "goal": {
+              "LengthSquared": 2.6760841384746592e+26,
+              "Length": 16358741206078.967,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Unloading",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.036943433333411484,
+        "ship": [
+          {
+            "pos": "(-9573540671768.19, -141119339493.57, 13264079927267.75)",
+            "goal": {
+              "LengthSquared": 2.6760841387465176e+26,
+              "Length": 16358741206909.893,
+              "IsFinite": true
+            },
+            "speed": 8590.030306451283,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 7
+          }
+        ]
+      },
+      {
+        "Key": 5006,
+        "ms": 0.03261425833275634,
+        "ship": [
+          {
+            "pos": "(3686526794079.81, 112032054704.92, -3692127875573.50)",
+            "goal": {
+              "LengthSquared": 2.723483923435723e+25,
+              "Length": 5218700914438.116,
+              "IsFinite": true
+            },
+            "speed": 6.832195876363834,
+            "phase": "Travelling",
+            "hit": 1,
+            "home": 4
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Unloading": 2,
+      "Travelling": 14,
+      "Docking": 1,
+      "Disabled": 2
+    }
+  },
+  {
+    "configuration": "Release",
+    "build": "verified",
+    "seed": 20261101,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 19,
+    "bodies": 758,
+    "activity": 1,
+    "mean": 1.180067549999997,
+    "p50": 1.0066,
+    "p95": 2.5468,
+    "p99": 3.4721,
+    "max": 55.6727,
+    "over_50_ms": 1,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 10567,
+    "collections": [
+      7,
+      2,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 3442,
+        "Ms": 55.6727,
+        "StaticMs": 55.54449999999997,
+        "DynamicMs": 0.06299999999998818,
+        "Allocated": 8968,
+        "Gc": false,
+        "Sweep": {
+          "A": 5000,
+          "B": 5001,
+          "Ms": 0.0002,
+          "Separation": 595620.0418427861,
+          "RelativeSpeed": 379.071255989588,
+          "StateA": "Disabled #5, goal (-9573537600412.20, -141117175866.48, 13264082237517.80), position (-352683.62, 19416.13, 481953.79)",
+          "StateB": "Travelling #3, goal (4444.06, 6000.00, -5408.35), position (-6411.88, 11665.70, -2606.27)"
+        }
+      }
+    ],
+    "state": "09EF152CDD34E7F42B509419E987BA7770AA2D189D0F76F1F339D404A499C669",
+    "route_ms_per_tick": 0.2242699083339809,
+    "safety_ms_per_tick": 0.1051269500000206,
+    "collision_ms_per_tick": 0.856474558333335,
+    "static_ms_per_tick": 0.8058434166666641,
+    "dynamic_ms_per_tick": 0.049990491666665984,
+    "near_mean": 4.336666666666667,
+    "near_max": 6,
+    "departures": 123,
+    "arrivals": 39,
+    "extraction": 4,
+    "deliveries": 39,
+    "body_hotspots": [
+      {
+        "Key": 4,
+        "ms": 0.02845392499996706,
+        "kind": "Station"
+      },
+      {
+        "Key": 3,
+        "ms": 0.02098791666667856,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.015042166666675594,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.014851575000006072,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.04505102499844575,
+        "ship": [
+          {
+            "pos": "(-24.59, 13127.08, 5900.47)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 568.5510627615986,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.04092608333194085,
+        "ship": [
+          {
+            "pos": "(6373.09, 6004.72, -2875.61)",
+            "goal": {
+              "LengthSquared": 85000000.00000001,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 7.93662647981047,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.03674530833341798,
+        "ship": [
+          {
+            "pos": "(-9573537600736.41, -141117178372.64, 13264082238429.72)",
+            "goal": {
+              "LengthSquared": 2.6760841201379464e+26,
+              "Length": 16358741150033.355,
+              "IsFinite": true
+            },
+            "speed": 545.7563079618045,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 5
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.03427071666668096,
+        "ship": [
+          {
+            "pos": "(-9573535226792.69, -141117109899.82, 13264079178527.73)",
+            "goal": {
+              "LengthSquared": 2.72348391903355e+25,
+              "Length": 5218700910220.426,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 5
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.032423233332672226,
+        "ship": [
+          {
+            "pos": "(-105647.41, 17503.70, 125288.89)",
+            "goal": {
+              "LengthSquared": 2.6760841384746592e+26,
+              "Length": 16358741206078.967,
+              "IsFinite": true
+            },
+            "speed": 75646.24617478596,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5006,
+        "ms": 0.02939699166660355,
+        "ship": [
+          {
+            "pos": "(3686526792979.34, 112032074091.43, -3692127870415.23)",
+            "goal": {
+              "LengthSquared": 2.723483923435723e+25,
+              "Length": 5218700914438.116,
+              "IsFinite": true
+            },
+            "speed": 18.778523448730233,
+            "phase": "Travelling",
+            "hit": 1,
+            "home": 4
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Travelling": 15,
+      "Disabled": 1,
+      "Unloading": 1,
+      "Loading": 1,
+      "Docking": 1
+    }
+  },
+  {
+    "configuration": "Release",
+    "build": "base",
+    "seed": 20261101,
+    "system": 7,
+    "ticks": 12000,
+    "npcs": 39,
+    "bodies": 839,
+    "activity": 3,
+    "mean": 1.6984193416666657,
+    "p50": 1.0427,
+    "p95": 3.6466,
+    "p99": 9.2637,
+    "max": 50.3462,
+    "over_50_ms": 1,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 38017,
+    "collections": [
+      25,
+      2,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 1035,
+        "Ms": 50.3462,
+        "StaticMs": 1.7060999999998785,
+        "DynamicMs": 0.33209999999996853,
+        "Allocated": 180712,
+        "Gc": false
+      }
+    ],
+    "state": "EB1A7E5099CD99B10CE8387F180911244E4F72C334C1790270ED1A8554341C25",
+    "route_ms_per_tick": 0.39142197500143994,
+    "safety_ms_per_tick": 0.20371848333331355,
+    "collision_ms_per_tick": 1.152928700000003,
+    "static_ms_per_tick": 0.9320480833333307,
+    "dynamic_ms_per_tick": 0.2203024166666677,
+    "near_mean": 6.658666666666667,
+    "near_max": 10,
+    "departures": 288,
+    "arrivals": 56,
+    "extraction": 6,
+    "deliveries": 56,
+    "body_hotspots": [
+      {
+        "Key": 3,
+        "ms": 0.02379948333335221,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.022848708333353566,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.017514500000016996,
+        "kind": "Station"
+      },
+      {
+        "Key": 4,
+        "ms": 0.015595358333346496,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.057247333330147566,
+        "ship": [
+          {
+            "pos": "(1134.25, 10497.60, -5861.88)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 566.4980882637891,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.0525207166643244,
+        "ship": [
+          {
+            "pos": "(-6131.04, 12325.32, -3202.13)",
+            "goal": {
+              "LengthSquared": 84999999.99999999,
+              "Length": 9219.544457292886,
+              "IsFinite": true
+            },
+            "speed": 326.25517845243974,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.04144663333319201,
+        "ship": [
+          {
+            "pos": "(-0.80, 3664.81, -2.61)",
+            "goal": {
+              "LengthSquared": 19950824.213816255,
+              "Length": 4466.634551182384,
+              "IsFinite": true
+            },
+            "speed": 167.656637500179,
+            "phase": "Docking",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.04049930000002091,
+        "ship": [
+          {
+            "pos": "(-1894235863023.18, 41268527548.56, -461253306055.34)",
+            "goal": {
+              "LengthSquared": 1.3767725237675409e+23,
+              "Length": 371048854433.9601,
+              "IsFinite": true
+            },
+            "speed": 86898.72613898428,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 7
+          }
+        ]
+      },
+      {
+        "Key": 5009,
+        "ms": 0.037071783333660735,
+        "ship": [
+          {
+            "pos": "(-599958.43, 41726.86, -149585.54)",
+            "goal": {
+              "LengthSquared": 3.802587943819158e+24,
+              "Length": 1950022549566.8398,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5008,
+        "ms": 0.032684175000186,
+        "ship": [
+          {
+            "pos": "(-167312893065.81, 11452841907.29, -549306372838.08)",
+            "goal": {
+              "LengthSquared": 1.3767725251329474e+23,
+              "Length": 371048854617.9529,
+              "IsFinite": true
+            },
+            "speed": 61000.003763724235,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Travelling": 25,
+      "Docking": 6,
+      "Disabled": 6,
+      "Unloading": 1,
+      "Working": 1
+    }
+  },
+  {
+    "configuration": "Release",
+    "build": "verified",
+    "seed": 20261101,
+    "system": 7,
+    "ticks": 12000,
+    "npcs": 39,
+    "bodies": 839,
+    "activity": 3,
+    "mean": 1.400002175000001,
+    "p50": 0.7922,
+    "p95": 3.3084,
+    "p99": 4.1256,
+    "max": 60.4195,
+    "over_50_ms": 2,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 20391,
+    "collections": [
+      13,
+      2,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 2977,
+        "Ms": 60.4195,
+        "StaticMs": 58.57089999999971,
+        "DynamicMs": 0.09960000000000946,
+        "Allocated": 25168,
+        "Gc": false,
+        "Sweep": {
+          "A": 5000,
+          "B": 5001,
+          "Ms": 0.0001,
+          "Separation": 7453.456866053041,
+          "RelativeSpeed": 4.342996464258612,
+          "StateA": "Docking #3, goal (450.00, 4466.63, -700.00), position (456.19, 4459.09, -697.28)",
+          "StateB": "Travelling #3, goal (-6652.98, 6000.00, -2176.67), position (-6685.22, 5979.88, -2193.94)"
+        }
+      },
+      {
+        "Tick": 1061,
+        "Ms": 52.5951,
+        "StaticMs": 1.9588000000001102,
+        "DynamicMs": 0.105700000000013,
+        "Allocated": 182184,
+        "Gc": false,
+        "Sweep": {
+          "A": 5000,
+          "B": 5001,
+          "Ms": 0.0001,
+          "Separation": 6755.036834903458,
+          "RelativeSpeed": 299.40346789031287,
+          "StateA": "Docking #3, goal (450.00, 4466.63, -700.00), position (456.19, 4459.09, -697.28)",
+          "StateB": "Travelling #3, goal (5468.43, 6000.00, 4369.92), position (4562.82, 6951.40, 4058.45)"
+        }
+      }
+    ],
+    "state": "4A3134427BFA8238DB96F22929D7EBF11D1EF94DE0EB1B28D53D21ADDA6A2009",
+    "route_ms_per_tick": 0.3722811500012136,
+    "safety_ms_per_tick": 0.2385400833332618,
+    "collision_ms_per_tick": 0.8491378999999933,
+    "static_ms_per_tick": 0.7294545499999995,
+    "dynamic_ms_per_tick": 0.11906792500000021,
+    "near_mean": 7.217833333333333,
+    "near_max": 10,
+    "departures": 271,
+    "arrivals": 38,
+    "extraction": 5,
+    "deliveries": 38,
+    "body_hotspots": [
+      {
+        "Key": 3,
+        "ms": 0.017014541666685045,
+        "kind": "Station"
+      },
+      {
+        "Key": 7,
+        "ms": 0.01596465000001486,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.012643350000009126,
+        "kind": "Station"
+      },
+      {
+        "Key": 4,
+        "ms": 0.011735591666675984,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.030546849998194077,
+        "ship": [
+          {
+            "pos": "(1134.25, 10497.60, -5861.88)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 566.4980882637891,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.029130183332220668,
+        "ship": [
+          {
+            "pos": "(-2954470817151.67, -40315251316.25, -781161459036.55)",
+            "goal": {
+              "LengthSquared": 3.802587945110667e+24,
+              "Length": 1950022549897.9922,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 5
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.02734430833252331,
+        "ship": [
+          {
+            "pos": "(-2454688.03, 27862.35, -619824.05)",
+            "goal": {
+              "LengthSquared": 1.376772525758221e+23,
+              "Length": 371048854702.21045,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.02569022499948344,
+        "ship": [
+          {
+            "pos": "(-6131.04, 12325.32, -3202.13)",
+            "goal": {
+              "LengthSquared": 84999999.99999999,
+              "Length": 9219.544457292886,
+              "IsFinite": true
+            },
+            "speed": 326.25517845243974,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5009,
+        "ms": 0.018869791667000743,
+        "ship": [
+          {
+            "pos": "(-9.97, 13962.54, 28.89)",
+            "goal": {
+              "LengthSquared": 3.802587943819158e+24,
+              "Length": 1950022549566.8398,
+              "IsFinite": true
+            },
+            "speed": 139.0544441095962,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5006,
+        "ms": 0.01834005833356608,
+        "ship": [
+          {
+            "pos": "(-167311881295.11, 11452893105.06, -549308789647.93)",
+            "goal": {
+              "LengthSquared": 1.3767725231422673e+23,
+              "Length": 371048854349.7025,
+              "IsFinite": true
+            },
+            "speed": 15154.55492836367,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Disabled": 10,
+      "Travelling": 19,
+      "Docking": 8,
+      "Loading": 1,
+      "Working": 1
+    }
+  },
+  {
+    "configuration": "Release",
+    "build": "base",
+    "seed": 20261125,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 20,
+    "bodies": 908,
+    "activity": 2,
+    "mean": 2.548610350000001,
+    "p50": 1.3506,
+    "p95": 6.2755,
+    "p99": 8.9645,
+    "max": 51.6174,
+    "over_50_ms": 1,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 412067,
+    "collections": [
+      270,
+      3,
+      1
+    ],
+    "slowest": [
+      {
+        "Tick": 4215,
+        "Ms": 51.6174,
+        "StaticMs": 50.316499999999905,
+        "DynamicMs": 0.039499999999975444,
+        "Allocated": 13968,
+        "Gc": false
+      }
+    ],
+    "state": "B813A716A074FCF638CB3841B8C51895B997477268BD7DB0192EBA82EB703A79",
+    "route_ms_per_tick": 0.2524981916672183,
+    "safety_ms_per_tick": 0.15413080000001858,
+    "collision_ms_per_tick": 2.184152308333328,
+    "static_ms_per_tick": 2.1143976583333295,
+    "dynamic_ms_per_tick": 0.06915486666666698,
+    "near_mean": 5.52275,
+    "near_max": 8,
+    "departures": 143,
+    "arrivals": 39,
+    "extraction": 6,
+    "deliveries": 39,
+    "body_hotspots": [
+      {
+        "Key": 3,
+        "ms": 0.025675983333340726,
+        "kind": "Station"
+      },
+      {
+        "Key": 4,
+        "ms": 0.023682216666678267,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.017871183333342217,
+        "kind": "Station"
+      },
+      {
+        "Key": 5,
+        "ms": 0.012776450000008035,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5001,
+        "ms": 0.05423467499722508,
+        "ship": [
+          {
+            "pos": "(-5057.71, 7603.53, -4703.83)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 337.44043788937034,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.052140991664437183,
+        "ship": [
+          {
+            "pos": "(5971.87, 8701.70, -3638.30)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 545.6961572240544,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5000,
+        "ms": 0.04977425833177402,
+        "ship": [
+          {
+            "pos": "(6628638175576.12, 133672344186.60, 1370644785589.47)",
+            "goal": {
+              "LengthSquared": 20643324.213816255,
+              "Length": 4543.492512794123,
+              "IsFinite": true
+            },
+            "speed": 554.2617191397685,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 4
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.04520997499935604,
+        "ship": [
+          {
+            "pos": "(6084574734246.22, 106740068110.37, 4154588684104.35)",
+            "goal": {
+              "LengthSquared": 5.429405027285563e+25,
+              "Length": 7368449651918.349,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.03979228333292888,
+        "ship": [
+          {
+            "pos": "(6084574734973.48, 106740079226.88, 4154588686194.66)",
+            "goal": {
+              "LengthSquared": 4.249612977854254e+26,
+              "Length": 20614589440137.42,
+              "IsFinite": true
+            },
+            "speed": 567.1516873309032,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 6
+          }
+        ]
+      },
+      {
+        "Key": 5007,
+        "ms": 0.038752849999751385,
+        "ship": [
+          {
+            "pos": "(6084575019519.90, 106740098594.85, 4154587294341.50)",
+            "goal": {
+              "LengthSquared": 4.583537947843631e+25,
+              "Length": 6770183120007.635,
+              "IsFinite": true
+            },
+            "speed": 133000.0156045306,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 6
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Travelling": 16,
+      "Docking": 2,
+      "Disabled": 2
+    }
+  },
+  {
+    "configuration": "Release",
+    "build": "verified",
+    "seed": 20261125,
+    "system": 0,
+    "ticks": 12000,
+    "npcs": 20,
+    "bodies": 908,
+    "activity": 2,
+    "mean": 1.2652457416666671,
+    "p50": 0.8827,
+    "p95": 3.0568,
+    "p99": 3.594,
+    "max": 49.5437,
+    "over_50_ms": 0,
+    "over_budget_with_gc": 0,
+    "tick_avg_allocated_bytes": 10826,
+    "collections": [
+      7,
+      1,
+      0
+    ],
+    "slowest": [],
+    "state": "CA3ABBF730AA67C6181F02C6E7895ED86C30DA3D8D674194E0857EF3D704759A",
+    "route_ms_per_tick": 0.264848441667166,
+    "safety_ms_per_tick": 0.1356585333333344,
+    "collision_ms_per_tick": 0.8906964916666673,
+    "static_ms_per_tick": 0.8504511499999972,
+    "dynamic_ms_per_tick": 0.03967134166666631,
+    "near_mean": 5.201583333333334,
+    "near_max": 8,
+    "departures": 138,
+    "arrivals": 32,
+    "extraction": 4,
+    "deliveries": 32,
+    "body_hotspots": [
+      {
+        "Key": 3,
+        "ms": 0.024721166666639937,
+        "kind": "Station"
+      },
+      {
+        "Key": 4,
+        "ms": 0.019845758333344104,
+        "kind": "Station"
+      },
+      {
+        "Key": 6,
+        "ms": 0.015122900000007595,
+        "kind": "Station"
+      },
+      {
+        "Key": 5,
+        "ms": 0.009315375000005389,
+        "kind": "Station"
+      }
+    ],
+    "hotspots": [
+      {
+        "Key": 5000,
+        "ms": 0.03904602499905829,
+        "ship": [
+          {
+            "pos": "(6628638175623.06, 133672339086.30, 1370644785467.51)",
+            "goal": {
+              "LengthSquared": 4.583537948844896e+25,
+              "Length": 6770183120747.102,
+              "IsFinite": true
+            },
+            "speed": 168.82593196009805,
+            "phase": "Docking",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5001,
+        "ms": 0.03820539999805097,
+        "ship": [
+          {
+            "pos": "(-5057.71, 7603.53, -4703.83)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 337.44043788937034,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5005,
+        "ms": 0.036963608331393664,
+        "ship": [
+          {
+            "pos": "(5971.87, 8701.70, -3638.30)",
+            "goal": {
+              "LengthSquared": 85000000,
+              "Length": 9219.544457292888,
+              "IsFinite": true
+            },
+            "speed": 545.6961572240544,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5002,
+        "ms": 0.03508956666614868,
+        "ship": [
+          {
+            "pos": "(18867200686425.88, 283698037683.99, 8301165683887.19)",
+            "goal": {
+              "LengthSquared": 19950824.213816255,
+              "Length": 4466.634551182384,
+              "IsFinite": true
+            },
+            "speed": 0,
+            "phase": "Disabled",
+            "hit": 0,
+            "home": 5
+          }
+        ]
+      },
+      {
+        "Key": 5004,
+        "ms": 0.03077788333270906,
+        "ship": [
+          {
+            "pos": "(18867205121504.75, 283698083224.11, 8301167632227.55)",
+            "goal": {
+              "LengthSquared": 4.2496129775727527e+26,
+              "Length": 20614589439454.652,
+              "IsFinite": true
+            },
+            "speed": 148.6240827721097,
+            "phase": "Docking",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      },
+      {
+        "Key": 5003,
+        "ms": 0.02799941666624504,
+        "ship": [
+          {
+            "pos": "(579.59, 15037.72, 435.12)",
+            "goal": {
+              "LengthSquared": 5.429405028123996e+25,
+              "Length": 7368449652487.283,
+              "IsFinite": true
+            },
+            "speed": 608.6922326680078,
+            "phase": "Travelling",
+            "hit": 0,
+            "home": 3
+          }
+        ]
+      }
+    ],
+    "phases": {
+      "Docking": 3,
+      "Travelling": 12,
+      "Disabled": 4,
+      "Working": 1
+    }
+  }
+]

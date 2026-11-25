@@ -50,7 +50,7 @@ public sealed partial class UdpGameServer : IDisposable
     }
 
 
-    public void Run(CancellationToken cancellationToken = default)
+    public void Run(CancellationToken cancellationToken = default, Action<double>? measureTick = null)
     {
         _clock.Start();
         _lastStatsSeconds = _clock.Elapsed.TotalSeconds;
@@ -69,7 +69,9 @@ public sealed partial class UdpGameServer : IDisposable
             var catchUp = 0;
             while (now - _lastTickSeconds >= tickInterval && catchUp < 8)
             {
+                var started = measureTick is null ? 0 : Stopwatch.GetTimestamp();
                 _world.Tick(tickInterval);
+                measureTick?.Invoke(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
                 _lastTickSeconds += tickInterval;
                 catchUp++;
             }

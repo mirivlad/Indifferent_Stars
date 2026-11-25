@@ -56,8 +56,14 @@ public sealed partial class GameWorld
             }
         }
     }
-    private Vec3d HoldingPoint(ShipState ship,StaticBody station)=>station.Position+
-        new Vec3d((ship.Id%3-1d)*450,station.Radius+2500,(ship.Id%5-2d)*350);
+    private static Vec3d HoldingPoint(ShipState ship, StaticBody station)
+    {
+        // The horizontal pattern repeats every 15 workers. Separate each repeat
+        // vertically so two ships waiting for the same berth have distinct goals.
+        var level = (ship.Id - 5000) / 15;
+        return station.Position + new Vec3d((ship.Id % 3 - 1d) * 450,
+            station.Radius + 2500 + level * 600, (ship.Id % 5 - 2d) * 350);
+    }
     private void Journey(ShipState ship,int target,Vec3d point)
     {
         var work=ship.Work!;ship.Docked=false;ship.DockingGranted=false;ship.DockingStationId=0;
@@ -174,9 +180,21 @@ public sealed partial class GameWorld
             var station=Catalog.Find(work.TargetId)!;
             if(!ship.DockingGranted)
             {
-                if(!ApproachPilot.Arrived(ship,HoldingPoint(ship,station)))
-                {FlightModel.StepControlled(ship,ApproachPilot.Steer(ship,HoldingPoint(ship,station)),dt);return;}
+                var holding = HoldingPoint(ship, station);
+                if(!ApproachPilot.Arrived(ship,holding))
+                {FlightModel.StepControlled(ship,ApproachPilot.Steer(ship,holding),dt);return;}
                 if(!GrantDocking(ship,station)){FlightModel.StepControlled(ship,InputState.None with {Brake=true},dt);return;}
+                ship.ApproachDestination = station.Position + Vec3d.Up * (station.Radius + 800);
+            }
+            if (!ship.ApproachDestination.Equals(ship.DockingPoint))
+            {
+                if (ApproachPilot.Arrived(ship, ship.ApproachDestination))
+                    ship.ApproachDestination = ship.DockingPoint;
+                else
+                {
+                    FlightModel.StepControlled(ship, ApproachPilot.Steer(ship, ship.ApproachDestination), dt);
+                    return;
+                }
             }
             if(ApproachPilot.Arrived(ship,ship.DockingPoint))
             {ship.Docked=true;ship.DockingGranted=false;ship.ApproachTargetId=0;work.Phase=work.Cargo>0?NpcPhase.Unloading:NpcPhase.Loading;work.Until=TimeSeconds+5;ship.Velocity=Vec3d.Zero;}

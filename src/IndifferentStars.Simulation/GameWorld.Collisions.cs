@@ -12,6 +12,7 @@ public sealed partial class GameWorld
 {
     public Dictionary<int,double> CollisionBodyHotspots { get; } = new();
     public Dictionary<uint,double> CollisionHotspots { get; } = new();
+    public (uint A, uint B, double Ms, double Separation, double RelativeSpeed) SlowestShipSweep { get; private set; }
     private void ResolveCollisions(ShipState[] ships,Dictionary<uint,(Vec3d Position,Quaternion Orientation)> starts,HashSet<uint> warping,double dt)
     {
         void AtContact(ShipState ship,double time)
@@ -73,13 +74,21 @@ public sealed partial class GameWorld
         }
         if (MeasureTimings) StaticCollisionMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(staticStarted).TotalMilliseconds;
         var dynamicStarted = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+        SlowestShipSweep = default;
         for(var i=0;i<ships.Length;i++)for(var j=i+1;j<ships.Length;j++)
         {
             var a=ships[i];var b=ships[j];
             if(a.Docked&&b.Docked||warping.Contains(a.Id)||warping.Contains(b.Id))continue;
             var sa=starts[a.Id];var sb=starts[b.Id];
+            var started = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
             var impact=WorldSurfaces.ContactHit(WorldSurfaces.Ship(a,sa.Position,sa.Orientation),WorldSurfaces.Ship(a,a.Position,a.Orientation),
                 WorldSurfaces.Ship(b,sb.Position,sb.Orientation),WorldSurfaces.Ship(b,b.Position,b.Orientation));
+            if (MeasureTimings)
+            {
+                var ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                if (ms > SlowestShipSweep.Ms)
+                    SlowestShipSweep = (a.Id, b.Id, ms, Vec3d.Distance(sa.Position, sb.Position), (a.Velocity - b.Velocity).Length);
+            }
             if(impact is not { } hit)continue;
             var wa=SurfaceContact.AngularMotion(sa.Orientation,a.Orientation)/dt;
             var wb=SurfaceContact.AngularMotion(sb.Orientation,b.Orientation)/dt;

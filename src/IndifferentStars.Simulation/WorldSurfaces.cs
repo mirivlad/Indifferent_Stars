@@ -51,7 +51,8 @@ public static class WorldSurfaces
         var offset = from.Position - center;
         var nearest = travel.LengthSquared > 0
             ? offset + travel * Math.Clamp(-Vec3d.Dot(offset, travel) / travel.LengthSquared, 0, 1) : offset;
-        if (nearest.Length > radius + from.Radius) return null;
+        var broadRadius = radius + from.Radius;
+        if (nearest.LengthSquared > broadRadius * broadRadius) return null;
         double? first = null;
         // Celestial radii are millions of metres; a 5 cm bound also covers face curvature.
         var angle = 2 * Math.Acos(Math.Clamp(Math.Abs(Quaternion.Dot(from.Rotation, to.Rotation)), 0, 1));
@@ -61,13 +62,13 @@ public static class WorldSurfaces
             var begin = (double)slice / slices; var end = (double)(slice + 1) / slices;
             var q = Quaternion.Slerp(from.Rotation, to.Rotation, (float)((begin + end) / 2));
             var pad = angle * from.Radius / (2 * slices) + 0.0001;
-            foreach (var triangle in from.Mesh.Triangles)
-            foreach (var vertex in new[] { triangle.A, triangle.B, triangle.C })
+            var startCenter = Vec3d.Lerp(from.Position, to.Position, begin);
+            var endCenter = Vec3d.Lerp(from.Position, to.Position, end);
+            foreach (var vertex in from.Mesh.GetVertices())
             {
                 var local = SurfaceMesh.Rotate(vertex * from.Scale, q);
-                var start = Vec3d.Lerp(from.Position, to.Position, begin) + local;
-                var finish = Vec3d.Lerp(from.Position, to.Position, end) + local;
-                var hit = CollisionSolver.ContactTime(start, finish, center, radius + pad);
+                var hit = CollisionSolver.ContactTime(startCenter + local, endCenter + local, center, radius + pad);
+                if (hit == 0) return begin;
                 if (hit is not null && (first is null || (slice + hit) / slices < first)) first = (slice + hit) / slices;
             }
             if (first is not null) return first;

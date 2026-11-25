@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/IndifferentStars.Simulation/IndifferentStars.Simulation.csproj" />
+    <ProjectReference Include="../../src/IndifferentStars.Server/IndifferentStars.Server.csproj" />
   </ItemGroup>
 </Project>
