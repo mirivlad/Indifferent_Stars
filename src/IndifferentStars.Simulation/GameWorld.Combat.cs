@@ -23,7 +23,7 @@ public sealed partial class GameWorld
 
     public WreckContactsMessage BuildWreckContacts(ShipState observer)
     {
-        var range = observer.Hull.TacticalRange * observer.Combat.Sensors;
+        var range = observer.Fit.TacticalRange * observer.Combat.Sensors;
         return new WreckContactsMessage(TickCount, _wrecks
             .Select(wreck => (Wreck: wreck, Range: Vec3d.Distance(wreck.Position, observer.Position)))
             .Where(contact => contact.Range <= range)
@@ -36,12 +36,12 @@ public sealed partial class GameWorld
         if (GetPlayer(id) is not { } ship) return null;
         var state = ship.Combat;
         return new(state.TargetId, state.Order, state.SelectedSlot,
-            (float)(state.Energy / ship.Hull.ReactorOutput), (float)(state.Shield / (ship.Hull.HullIntegrity * .55)),
-            (float)(state.Armor / (ship.Hull.HullIntegrity * .4)), (float)(state.Hull / ship.Hull.HullIntegrity),
+            (float)(state.Energy / ship.Fit.AvailableEnergy), (float)(state.Shield / ship.Fit.Shield),
+            (float)(state.Armor / ship.Fit.Armor), (float)(state.Hull / ship.Hull.HullIntegrity),
             (float)state.Engines, (float)state.Sensors, (float)state.Weapons, state.Destroyed,
             (float)Math.Max(0, state.RecoverAt - TimeSeconds),
             state.Slots.Select(slot => new WeaponStatus(slot.Kind, (ushort)slot.Loaded, (ushort)slot.Reserve,
-                (float)Math.Max(0, Math.Max(slot.NextShot, slot.ReloadAt) - TimeSeconds))).ToArray());
+                (float)Math.Max(0, Math.Max(slot.NextShot, slot.ReloadAt) - TimeSeconds))).ToArray(), (float)ship.Fit.AvailableEnergy);
     }
 
     public bool ApplyCombatCommand(uint id, CombatCommandMessage request)
@@ -89,7 +89,7 @@ public sealed partial class GameWorld
         if (id == 0 || id == attacker.Id) return null;
         var target = _players.GetValueOrDefault(id) ?? _npcs.Find(ship => ship.Id == id);
         return target is not null && !target.Combat.Destroyed && !target.InWarp &&
-            Vec3d.Distance(attacker.Position, target.Position) <= attacker.Hull.TacticalRange * attacker.Combat.Sensors &&
+            Vec3d.Distance(attacker.Position, target.Position) <= attacker.Fit.TacticalRange * attacker.Combat.Sensors &&
             CanLocate(attacker, target) ? target : null;
     }
 
@@ -169,9 +169,10 @@ public sealed partial class GameWorld
         {
             var state = ship.Combat;
             if (state.Destroyed) continue;
-            state.Energy = Math.Min(ship.Hull.ReactorOutput, state.Energy + ship.Hull.ReactorOutput * .155 * dt);
-            var missingShield = ship.Hull.HullIntegrity * .55 - state.Shield;
-            if (missingShield > 0 && TimeSeconds - state.LastDamage > 4 && state.Energy > ship.Hull.ReactorOutput * .25)
+            var energy = ship.Fit.AvailableEnergy;
+            state.Energy = Math.Min(energy, state.Energy + energy * .155 * dt);
+            var missingShield = ship.Fit.Shield - state.Shield;
+            if (missingShield > 0 && TimeSeconds - state.LastDamage > 4 && state.Energy > energy * .25)
             {
                 var repair = Math.Min(missingShield, ship.Hull.HullIntegrity * .046 * dt);
                 state.Shield += repair;
@@ -392,7 +393,9 @@ public sealed partial class GameWorld
         var account = _accounts[ship.Id];
         var station = Catalog.Find(account.StationId) ?? Catalog.Station;
         ship.HullId = HullCatalog.Courier;
-        ship.Combat = ShipCombat.Create(ship.Hull);
+        ship.FittedModules = Array.Empty<FittedModule>();
+        ship.Combat = ShipCombat.Create(ship.Hull, ship.Fit);
+        account.Hangar.Active = account.Hangar.NextSerial++;
         ship.Position = FindReturnPosition(station, ship);
         ship.SetAngles(FlightModel.AnglesForDirection(station.Position - ship.Position).Yaw, 0);
         ship.TransponderEnabled = true;
@@ -409,17 +412,12 @@ public sealed partial class GameWorld
     {
         if (!ship.Docked || ship.Combat.Destroyed) return false;
         var state = ship.Combat;
-        var integrity = ship.Hull.HullIntegrity;
-        var damage = integrity - state.Hull + integrity * .4 - state.Armor;
-        var cost = (int)Math.Ceiling(Math.Max(0, damage) * 3);
         var account = _accounts[ship.Id];
-        var parts = (int)Math.Ceiling(Math.Max(0, damage) / 18);
-        if (cost > account.Credits || StationStock(account.StationId, CommodityCatalog.Components) < parts) return false;
-        account.Credits -= cost;
-        _stationLedgers[account.StationId].Credits += cost;
-        Consume(account.StationId, CommodityCatalog.Components, parts);
-        state.Hull = integrity;
-        state.Armor = integrity * .4;
+        var quote = RepairQuote(ship);
+        if (PayYard(account, account.StationId, quote.Credits, CommodityCatalog.Components, quote.Parts) != ShipyardError.None)
+            return false;
+        state.Hull = ship.Hull.HullIntegrity;
+        state.Armor = ship.Fit.Armor;
         state.Engines = state.Sensors = state.Weapons = 1;
         return true;
     }

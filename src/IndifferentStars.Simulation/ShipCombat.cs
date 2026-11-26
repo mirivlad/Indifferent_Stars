@@ -38,14 +38,18 @@ public sealed class ShipCombat
     public byte SelectedSlot { get; set; }
     public EquippedWeapon[] Slots { get; set; } = Array.Empty<EquippedWeapon>();
 
-    public static ShipCombat Create(HullDefinition hull) => new()
+    public static ShipCombat Create(HullDefinition hull, ShipFit? fit = null)
     {
-        Energy = hull.ReactorOutput,
-        Shield = hull.HullIntegrity * .55,
-        Armor = hull.HullIntegrity * .40,
-        Hull = hull.HullIntegrity,
-        Slots = hull.DefaultWeapons.Select(EquippedWeapon.Create).ToArray(),
-    };
+        fit ??= ShipyardCatalog.Calculate(hull, Array.Empty<FittedModule>());
+        return new ShipCombat
+        {
+            Energy = fit.AvailableEnergy,
+            Shield = fit.Shield,
+            Armor = fit.Armor,
+            Hull = hull.HullIntegrity,
+            Slots = fit.Weapons.Select(EquippedWeapon.Create).ToArray(),
+        };
+    }
 }
 
 public readonly record struct FlightProjectile(

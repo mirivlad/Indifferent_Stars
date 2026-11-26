@@ -27,7 +27,7 @@ public sealed partial class UdpGameServer
             var ship = player.Ship;
             if (key.Length != 64 || !key.All(Uri.IsHexDigit) || !ship.IsPlayer || ship.Id < 10000 ||
                 ship.Id >= stored.Simulation.NextPlayerId || !ids.Add(ship.Id) || !HullCatalog.Contains(ship.HullId) || !ship.Position.IsFinite ||
-                !ship.Velocity.IsFinite || player.Credits < 0 || !double.IsFinite(player.CapturedAt) ||
+                !ship.Velocity.IsFinite || player.Credits < 0 || !double.IsFinite(player.CapturedAt) || !_world.ValidHangar(player) ||
                 _catalog.Find(player.StationId)?.Kind != BodyKind.Station ||
                 ((ship.Docked || ship.DockingGranted) &&
                 _catalog.Find((int)ship.DockingStationId)?.Kind != BodyKind.Station))
@@ -48,7 +48,7 @@ public sealed partial class UdpGameServer
     }
 
     private SavedProfile CaptureProfile(PlayerSession session) =>
-        new(_world.CapturePlayer(session.PlayerId), session.ClientId, session.LastTradeResult);
+        new(_world.CapturePlayer(session.PlayerId), session.ClientId, session.LastTradeResult, session.LastShipyardResult);
 
     private string? AuthenticateProfile(HelloMessage hello, IPEndPoint endpoint, double now)
     {

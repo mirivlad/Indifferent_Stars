@@ -132,6 +132,7 @@ public sealed partial class NetworkClient : IDisposable
         UpdatePendingRequests();
         if(State==ConnectionState.Connected)RetryChat();
         RetryCombat();
+        RetryShipyard();
     }
 
     public void Poll()
@@ -241,6 +242,9 @@ public sealed partial class NetworkClient : IDisposable
                     break;
                 case WreckContactsMessage wrecks:
                     WreckContactsReceived?.Invoke(wrecks);
+                    break;
+                case ShipyardReplyMessage yard:
+                    ReceiveShipyard(yard);
                     break;
 
                 case TradeResultMessage trade:

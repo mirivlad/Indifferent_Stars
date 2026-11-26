@@ -15,7 +15,8 @@ using IndifferentStars.Simulation;
 
 namespace IndifferentStars.Server;
 
-internal sealed record SavedProfile(SavedPlayer Player, Guid TradeSession, TradeResultMessage? LastTrade);
+internal sealed record SavedProfile(SavedPlayer Player, Guid TradeSession, TradeResultMessage? LastTrade,
+    ShipyardReplyMessage? LastShipyard = null);
 
 internal sealed record WorldSave(
     int FormatVersion, int GeneratorVersion, int Seed, int SystemIndex, string Geometry,
@@ -24,7 +25,7 @@ internal sealed record WorldSave(
 
 internal sealed class WorldSaveStore : IDisposable
 {
-    private const int CurrentVersion = 5;
+    private const int CurrentVersion = 6;
     private readonly string _path;
     private readonly FileStream _lease;
     private byte[]? _lastGood;
@@ -96,7 +97,7 @@ internal sealed class WorldSaveStore : IDisposable
             if (save.FormatVersion >= 2)
             {
                 var ids = save.Simulation.Npcs.Select(ship => ship.EffectiveHullId)
-                    .Concat(save.Profiles.Values.Select(profile => profile.Player.Ship.EffectiveHullId)).Distinct();
+                    .Concat(SavedHullIds(save.Profiles.Values)).Distinct();
                 if (save.HullGeometry is null || ids.Any(id => !HullCatalog.Contains(id) ||
                         save.HullGeometry.GetValueOrDefault(id) != HullCatalog.Get(id).CollisionKey))
                     throw new InvalidOperationException("The saved ship hull geometry differs.");
@@ -114,7 +115,7 @@ internal sealed class WorldSaveStore : IDisposable
     public void Write(GameWorld world, Dictionary<string, SavedProfile> profiles)
     {
         var geometry = world.Npcs.Select(ship => ship.EffectiveHullId)
-            .Concat(profiles.Values.Select(profile => profile.Player.Ship.EffectiveHullId)).Distinct()
+            .Concat(SavedHullIds(profiles.Values)).Distinct()
             .ToDictionary(id => id, id => HullCatalog.Get(id).CollisionKey);
         var save = new WorldSave(CurrentVersion, world.Catalog.GeneratorVersion, world.Catalog.Seed,
             world.Catalog.SystemIndex, SurfaceMesh.LegacyFingerprint, world.CaptureSimulation(), profiles, geometry);
@@ -125,6 +126,16 @@ internal sealed class WorldSaveStore : IDisposable
         if (_lastGood is not null) Replace(_path + ".bak", _lastGood);
         Replace(_path, blob);
         _lastGood = blob;
+    }
+
+    private static IEnumerable<ushort> SavedHullIds(IEnumerable<SavedProfile> profiles)
+    {
+        foreach (var profile in profiles)
+        {
+            yield return profile.Player.Ship.EffectiveHullId;
+            if (profile.Player.Hangar is { } hangar)
+                foreach (var vessel in hangar.Vessels) yield return vessel.HullId;
+        }
     }
 
     private static void Replace(string path, byte[] bytes)

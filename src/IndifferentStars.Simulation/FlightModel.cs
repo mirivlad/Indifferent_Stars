@@ -59,7 +59,7 @@ public static class FlightModel
         ship.Braking = input.Brake;
 
         var hull = ship.Hull;
-        var drive = ship.Combat.Engines;
+        var drive = ship.Combat.Engines * ship.Fit.ThrustFactor;
         var rotation = Quaternion.CreateFromYawPitchRoll(
             (float)(input.Steer * YawRate * hull.TurnFactor * drive * dt),
             (float)(input.Pitch * PitchRate * hull.TurnFactor * drive * dt),

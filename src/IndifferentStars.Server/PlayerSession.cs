@@ -31,4 +31,5 @@ public sealed class PlayerSession
     public double LastOrbitAtSeconds { get; set; } = -100;
     public WarpResultMessage? LastWarpResult { get; set; }
     public TradeResultMessage? LastTradeResult { get; set; }
+    public ShipyardReplyMessage? LastShipyardResult { get; set; }
 }

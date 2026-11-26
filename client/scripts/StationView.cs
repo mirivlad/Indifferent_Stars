@@ -38,7 +38,6 @@ public sealed partial class StationView : CanvasLayer
     private Label _services = null!;
     private Label _credits = null!;
     private Label _cargo = null!;
-    private Label _tradeTitle = null!;
     private Label _status = null!;
     private Button _undock = null!;
     private MarketState? _market;
@@ -71,6 +70,7 @@ public sealed partial class StationView : CanvasLayer
             _market = null;
             _statusText = "";
             _status.Visible = false;
+            ResetShipyard();
             return;
         }
 
@@ -137,7 +137,7 @@ public sealed partial class StationView : CanvasLayer
         _comms.Text = Locale.Text("station_comms");
         _commsButton.Text = Locale.Text("context_comms");
         _services.Text = Locale.Text("station_services");
-        _tradeTitle.Text = Locale.Text("trade_title");
+        RefreshShipyardLanguage();
         _undock.Text = Locale.Text("undock");
 
         foreach (var label in _staticLabels)
@@ -221,8 +221,7 @@ public sealed partial class StationView : CanvasLayer
         _cargo = MakeLabel("", 16, Cyan);
         accountRow.AddChild(_cargo);
 
-        _tradeTitle = MakeLabel("", 18, Cyan);
-        column.AddChild(_tradeTitle);
+        BuildStationTabs(column);
 
         var scroll = new ScrollContainer
         {
@@ -230,7 +229,7 @@ public sealed partial class StationView : CanvasLayer
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
-        column.AddChild(scroll);
+        _marketPage.AddChild(scroll);
 
         var grid = new GridContainer { Columns = 5, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         grid.AddThemeConstantOverride("h_separation", 18);

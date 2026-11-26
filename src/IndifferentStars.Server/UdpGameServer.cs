@@ -210,6 +210,9 @@ public sealed partial class UdpGameServer : IDisposable
             case CombatCommandMessage command:
                 HandleCombat(endpoint, now, command);
                 break;
+            case ShipyardRequestMessage order:
+                HandleShipyard(endpoint, now, order);
+                break;
 
             case TransponderMessage transponder:
                 if (_sessionsByEndpoint.TryGetValue(endpoint, out var transmitter))
@@ -391,6 +394,7 @@ public sealed partial class UdpGameServer : IDisposable
             Ship = ship,
             LastSeenSeconds = now,
             LastTradeResult = parked?.TradeSession == hello.ClientId ? parked.LastTrade : null,
+            LastShipyardResult = parked?.TradeSession == hello.ClientId ? parked.LastShipyard : null,
         };
 
         _sessions[hello.ClientId] = session;
@@ -411,7 +415,7 @@ public sealed partial class UdpGameServer : IDisposable
             (float)ship.Yaw,
             _catalog.Seed,
             _catalog.SystemName,
-            (float)ship.Hull.ScanRange,
+            (float)ship.Fit.ScanRange,
             (float)WarpFlight.Clearance,
             (float)ship.Hull.BoostSpeed,
             _world.TickCount,

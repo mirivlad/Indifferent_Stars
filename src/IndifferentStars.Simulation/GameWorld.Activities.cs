@@ -223,7 +223,8 @@ public sealed partial class GameWorld
             if(work.Occupation==NpcOccupation.Miner)
             {
                 var body=Catalog.Find(work.TargetId)!;work.CommodityId=body.Icy?(ushort)1:(ushort)5;
-                work.Cargo=Math.Min(ship.Hull.NpcLoad,DepositRemaining(body.Id));_deposits[body.Id]-=work.Cargo;
+                var yieldLimit = Math.Min(ship.Fit.CargoCapacity, (int)Math.Floor(ship.Hull.NpcLoad * ship.Fit.MiningFactor));
+                work.Cargo=Math.Min(yieldLimit,DepositRemaining(body.Id));_deposits[body.Id]-=work.Cargo;
                 Activity(ship,"extraction",$"Extracted {work.Cargo} units at {body.Name}.",$"Извлечено {work.Cargo} ед. ресурса: {body.Name}.");
                 var home=Catalog.Find(work.HomeStationId)!;Journey(ship,home.Id,HoldingPoint(ship,home));
             }

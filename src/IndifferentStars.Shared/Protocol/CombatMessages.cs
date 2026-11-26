@@ -29,7 +29,7 @@ public sealed record CombatStatusMessage(
     uint TargetId, CombatOrder Order, byte SelectedSlot,
     float Energy, float Shield, float Armor, float Hull,
     float Engines, float Sensors, float Weapons,
-    bool Destroyed, float RecoveryIn, WeaponStatus[] Slots) : IProtocolMessage
+    bool Destroyed, float RecoveryIn, WeaponStatus[] Slots, float ReactorAvailable = 80) : IProtocolMessage
 {
     public const int MaxSlots = 4;
     public MessageType Type => MessageType.CombatStatus;

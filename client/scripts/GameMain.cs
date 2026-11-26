@@ -173,6 +173,7 @@ public sealed partial class GameMain : Node3D
         _net.DockCompleted += OnDockCompleted;
         _net.MarketReceived += OnMarketReceived;
         _net.TradeCompleted += OnTradeCompleted;
+        _net.ShipyardReplied += OnShipyardReply;
         ConnectCombat();
         _net.TransportError += OnTransportError;
         _net.Start();
@@ -619,11 +620,12 @@ public sealed partial class GameMain : Node3D
         AddChild(_contactMenu);
         BuildContactMenu();
 
-        _stationView = new StationView();
+        _stationView = new StationView { YardStationName = id => _catalog.Find((int)id)?.Name ?? $"#{id}" };
         AddChild(_stationView);
         _stationView.CommsRequested += () => _net?.RequestComms(_playerShip?.Track.DockingStationId??(uint)_catalog.Station.Id);
         _stationView.UndockRequested += RequestUndock;
         _stationView.TradeRequested += (commodity, quantity, buy, price) => _net?.RequestTrade(commodity, quantity, buy, price);
+        _stationView.YardRequested += (action, catalog, vessel, slot) => _net?.RequestShipyard(action, catalog, vessel, slot);
     }
 
     private void BuildContactMenu()

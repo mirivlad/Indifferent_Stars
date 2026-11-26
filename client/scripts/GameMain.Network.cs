@@ -145,7 +145,7 @@ public sealed partial class GameMain
         _tactical.Wrecks = System.Array.Empty<WreckContact>();
         _combatEffects.SetWrecks(_tactical.Wrecks);
         UpdateCombatVisibility(false);
-        _hud.SetCombat(null, null, null, 0, false, _settings.Keys["combat_recover"].ToString());
+        _hud.SetCombat(null, null, 0, false, _settings.Keys["combat_recover"].ToString());
         _sensorContacts.Clear(); _sensorTick = 0;
         _playerId = welcome.PlayerId;
         _scanRange = welcome.ScanRange;
@@ -306,6 +306,17 @@ public sealed partial class GameMain
         _stationView.ShowStatus(text, result.Success);
         _hud.ShowToast(result.Success ? Locale.Text("trade_complete") : Locale.Text("trade_failed"),
             result.Success ? new Color(0.45f, 0.95f, 0.65f) : new Color(1f, 0.5f, 0.4f), 3f);
+    }
+
+    private void OnShipyardReply(ShipyardReplyMessage reply)
+    {
+        _stationView.UpdateShipyard(reply);
+        if (reply.State is { } yard)
+        {
+            var active = Array.Find(yard.Vessels, vessel => vessel.Serial == yard.ActiveHull);
+            if (active.Serial != 0)
+                _scanRange = (float)ShipyardCatalog.Calculate(HullCatalog.Get(active.HullId), active.Modules).ScanRange;
+        }
     }
 
     private void RequestDock()

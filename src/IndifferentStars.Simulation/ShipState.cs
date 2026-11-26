@@ -21,16 +21,21 @@ public sealed class ShipState
     public bool IsPlayer { get; init; }
     public bool TransponderEnabled { get; set; } = true;
     public string Role { get; init; } = "Courier";
-    public ushort HullId { get; set; }
+    private ushort _hullId;
+    private FittedModule[] _fitted = Array.Empty<FittedModule>();
+    private ShipFit? _fit;
+    public ushort HullId { get => _hullId; set { _hullId = value; _fit = null; } }
+    public FittedModule[] FittedModules { get => _fitted; set { _fitted = value; _fit = null; } }
     public ushort EffectiveHullId => IsPlayer && HullId == HullCatalog.LegacyWorker ? HullCatalog.Courier : HullId;
     public HullDefinition Hull => HullCatalog.Get(EffectiveHullId);
+    public ShipFit Fit => _fit ??= ShipyardCatalog.Calculate(Hull, _fitted);
     private ShipCombat? _combat;
-    public ShipCombat Combat { get => _combat ??= ShipCombat.Create(Hull); set => _combat = value; }
+    public ShipCombat Combat { get => _combat ??= ShipCombat.Create(Hull, Fit); set => _combat = value; }
 
     public Vec3d Position { get; set; }
     public Vec3d Velocity { get; set; }
     public Vec3d AngularVelocity { get; set; }
-    public double MassKg => Hull.MassKg;
+    public double MassKg => Fit.MassKg;
     public ImpactState? Impact { get; set; }
     public double ImpactAt { get; set; } = -100;
     public uint ImpactSequence { get; set; }

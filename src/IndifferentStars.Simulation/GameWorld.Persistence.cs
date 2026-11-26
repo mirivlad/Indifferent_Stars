@@ -6,7 +6,8 @@ using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Simulation;
 
-public sealed record SavedPlayer(ShipState Ship, double CapturedAt, int StationId, int Credits, Dictionary<ushort, int> Cargo);
+public sealed record SavedPlayer(ShipState Ship, double CapturedAt, int StationId, int Credits, Dictionary<ushort, int> Cargo,
+    PlayerHangar? Hangar = null);
 
 public sealed record SavedSimulation(
     ulong Tick, double TimeSeconds, uint NextPlayerId, ShipState[] Npcs,
@@ -32,7 +33,7 @@ public sealed partial class GameWorld
     public SavedPlayer CapturePlayer(uint id)
     {
         var account = _accounts[id];
-        return new(_players[id], TimeSeconds, account.StationId, account.Credits, account.Cargo);
+        return new(_players[id], TimeSeconds, account.StationId, account.Credits, account.Cargo, account.Hangar);
     }
 
     public void RestoreSimulation(SavedSimulation state)
@@ -112,7 +113,7 @@ public sealed partial class GameWorld
     public ShipState RestorePlayer(SavedPlayer saved)
     {
         var ship = saved.Ship;
-        var account = new PlayerAccount { Credits = saved.Credits, StationId = saved.StationId };
+        var account = new PlayerAccount { Credits = saved.Credits, StationId = saved.StationId, Hangar = saved.Hangar ?? new() };
         foreach (var item in saved.Cargo) account.Cargo.Add(item.Key, item.Value);
         var pausedFor = Math.Max(0, TimeSeconds - saved.CapturedAt);
         if (ship.InWarp) ship.WarpStartedAt += pausedFor;

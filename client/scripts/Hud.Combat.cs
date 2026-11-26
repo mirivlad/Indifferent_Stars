@@ -45,7 +45,7 @@ public sealed partial class Hud
         _securityZone.AddThemeColorOverride("font_color", zone is SecurityZone.Pirate or SecurityZone.Frontier ? Warm : Dim);
     }
 
-    public void SetCombat(CombatStatusMessage? status, HullDefinition? hull, double? range, double facing,
+    public void SetCombat(CombatStatusMessage? status, double? range, double facing,
         bool docked, string recoverKey, string repairKey = "")
     {
         _combatPanel.Visible = status is not null;
@@ -70,7 +70,7 @@ public sealed partial class Hud
             var readiness = status.Weapons <= .2f ? Locale.Text("combat_disabled") :
                 weapon.Magazine > 0 && slot.Loaded == 0 && slot.Reserve == 0 ? Locale.Text("combat_empty") :
                 slot.ReadyIn > .03 ? Locale.Format("combat_reload", slot.ReadyIn) :
-                status.Energy * (hull?.ReactorOutput ?? 0) < weapon.Energy ? Locale.Text("combat_low_energy") : Locale.Text("ready");
+                status.Energy * status.ReactorAvailable < weapon.Energy ? Locale.Text("combat_low_energy") : Locale.Text("ready");
             _combatWeapon.Text = weapon.Magazine == 0
                 ? $"{label} · {readiness}" : $"{label} · {slot.Loaded}/{slot.Reserve} · {readiness}";
             if (range is { } distanceToTarget)

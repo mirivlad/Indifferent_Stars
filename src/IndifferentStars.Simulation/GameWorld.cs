@@ -42,6 +42,7 @@ public sealed partial class GameWorld
         public int StationId = 3;
         public int Credits = CommodityCatalog.StartingCredits;
         public readonly Dictionary<ushort, int> Cargo = new();
+        public PlayerHangar Hangar = new();
     }
 
     private readonly Dictionary<uint, ShipState> _players = new();
@@ -209,7 +210,7 @@ public sealed partial class GameWorld
 
     /// <summary>Current station market and account snapshot for one player.</summary>
     public MarketState? GetMarket(uint playerId) =>
-        _accounts.TryGetValue(playerId, out var account) ? BuildMarket(account, _players[playerId].Hull.CargoCapacity) : null;
+        _accounts.TryGetValue(playerId, out var account) ? BuildMarket(account, _players[playerId].Fit.CargoCapacity) : null;
 
     /// <summary>
     /// Executes a buy or sell order against the station's in-memory stock.
@@ -246,7 +247,7 @@ public sealed partial class GameWorld
                 return TradeFail(player, account, "trade_no_credits", name);
             if (stock < quantity)
                 return TradeFail(player, account, "trade_no_stock", name);
-            if (cargoUsed + quantity > player.Hull.CargoCapacity)
+            if (cargoUsed + quantity > player.Fit.CargoCapacity)
                 return TradeFail(player, account, "trade_no_space", name);
 
             account.Credits -= total;
@@ -298,7 +299,7 @@ public sealed partial class GameWorld
         var russian = ServerText.Get("ru", key, ruArgs);
         RecordActivity(new WorldActivity(++_activitySequence, ship.Id, ship.Name, ship.Position,
             account.StationId, key, english, russian, false, TimeSeconds));
-        return new TradeOutcome(true, english, russian, BuildMarket(account, ship.Hull.CargoCapacity));
+        return new TradeOutcome(true, english, russian, BuildMarket(account, ship.Fit.CargoCapacity));
     }
 
     private TradeOutcome TradeFail(ShipState? ship, PlayerAccount? account, string key, string? commodityKey = null, params object[] args)
@@ -317,7 +318,7 @@ public sealed partial class GameWorld
             false,
             ServerText.Get("en", key, enArgs.ToArray()),
             ServerText.Get("ru", key, ruArgs.ToArray()),
-            account is null || ship is null ? null : BuildMarket(account, ship.Hull.CargoCapacity));
+            account is null || ship is null ? null : BuildMarket(account, ship.Fit.CargoCapacity));
     }
 
     public void Tick(double dt)
@@ -528,7 +529,7 @@ public sealed partial class GameWorld
         if (player is null || player.Combat.Destroyed)
             return new ScanOutcome(false, targetId, ServerText.Get(language, "scan_failed"), ServerText.Get(language, "unknown_ship"));
 
-        var scanRange = player.Hull.ScanRange * player.Combat.Sensors;
+        var scanRange = player.Fit.ScanRange * player.Combat.Sensors;
         var contactShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
         if (contactShip is not null && contactShip.Id != playerId)
         {

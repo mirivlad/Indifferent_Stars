@@ -11,7 +11,7 @@ namespace IndifferentStars.Shared.Protocol;
 /// Compact little-endian binary codec for the versioned UDP protocol.
 /// Every packet is length checked before allocation; malformed packets are rejected.
 /// </summary>
-public static class ProtocolCodec
+public static partial class ProtocolCodec
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
@@ -114,7 +114,8 @@ public static class ProtocolCodec
                 writer.Write(status.TargetId); writer.Write((byte)status.Order); writer.Write(status.SelectedSlot);
                 writer.Write(status.Energy); writer.Write(status.Shield); writer.Write(status.Armor); writer.Write(status.Hull);
                 writer.Write(status.Engines); writer.Write(status.Sensors); writer.Write(status.Weapons);
-                writer.Write(status.Destroyed); writer.Write(status.RecoveryIn); writer.Write((byte)status.Slots.Length);
+                writer.Write(status.Destroyed); writer.Write(status.RecoveryIn); writer.Write(status.ReactorAvailable);
+                writer.Write((byte)status.Slots.Length);
                 foreach (var slot in status.Slots)
                 {
                     writer.Write((byte)slot.Kind); writer.Write(slot.Loaded); writer.Write(slot.Reserve); writer.Write(slot.ReadyIn);
@@ -132,6 +133,15 @@ public static class ProtocolCodec
                 {
                     writer.Write(wreck.Id); WriteVec3(writer, wreck.Position);
                 }
+                break;
+            case ShipyardRequestMessage order:
+                writer.Write(order.RequestId); writer.Write((byte)order.Action); writer.Write(order.CatalogId);
+                writer.Write(order.VesselId); writer.Write(order.Slot); WriteGuid(writer, order.ClientId);
+                break;
+            case ShipyardReplyMessage yard:
+                writer.Write(yard.RequestId); writer.Write((byte)yard.Action); writer.Write((byte)yard.Error);
+                writer.Write(yard.State is not null);
+                if (yard.State is { } hangar) WriteShipyard(writer, hangar);
                 break;
 
             case TransponderMessage transponder:
@@ -424,6 +434,9 @@ public static class ProtocolCodec
                 MessageType.CombatStatus => ReadCombatStatus(reader),
                 MessageType.CombatEvent => ReadCombatEvent(reader),
                 MessageType.WreckContacts => ReadWreckContacts(reader),
+                MessageType.ShipyardRequest => new ShipyardRequestMessage(reader.ReadUInt32(), ReadShipyardAction(reader),
+                    reader.ReadUInt16(), reader.ReadUInt32(), reader.ReadByte(), ReadGuid(reader)),
+                MessageType.ShipyardReply => ReadShipyardReply(reader),
 
                 MessageType.Snapshot => ReadSnapshot(reader),
                 MessageType.SensorContacts => ReadSensors(reader),
@@ -680,6 +693,8 @@ public static class ProtocolCodec
         var engines = Fraction(); var sensors = Fraction(); var weapons = Fraction();
         var destroyed = reader.ReadBoolean();
         var recovery = WaitSeconds();
+        var reactor = reader.ReadSingle();
+        if (!float.IsFinite(reactor) || reactor <= 0 || reactor > 1000) throw new InvalidDataException("Invalid reactor output.");
         var count = reader.ReadByte();
         if (!Enum.IsDefined(order) || count > CombatStatusMessage.MaxSlots || selected >= Math.Max(1, (int)count))
             throw new InvalidDataException("Invalid combat status.");
@@ -690,7 +705,7 @@ public static class ProtocolCodec
             if (kind == WeaponKind.None || !Enum.IsDefined(kind)) throw new InvalidDataException("Invalid armed slot.");
             slots[i] = new WeaponStatus(kind, reader.ReadUInt16(), reader.ReadUInt16(), WaitSeconds());
         }
-        return new(target, order, selected, energy, shield, armor, hull, engines, sensors, weapons, destroyed, recovery, slots);
+        return new(target, order, selected, energy, shield, armor, hull, engines, sensors, weapons, destroyed, recovery, slots, reactor);
 
         float Fraction()
         {

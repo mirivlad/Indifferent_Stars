@@ -76,7 +76,7 @@ public sealed partial class GameMain
             if (_playerShip is { } own)
                 facing = ShipTrack.ToVector3(contact.Position - PlayerPosition()).Normalized().Dot(-own.GlobalBasis.Z);
         }
-        _hud.SetCombat(_combatStatus, _playerShip?.Hull, distance, facing, _playerShip?.Track.Docked == true,
+        _hud.SetCombat(_combatStatus, distance, facing, _playerShip?.Track.Docked == true,
             _settings.Keys["combat_recover"].ToString(), _settings.Keys["combat_repair"].ToString());
     }
 

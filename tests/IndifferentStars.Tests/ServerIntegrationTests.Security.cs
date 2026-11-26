@@ -84,7 +84,7 @@ public sealed partial class ServerIntegrationTests
                 server.Run(stopped.Token);
             }
             var upgraded = JsonNode.Parse(File.ReadAllBytes(path).AsSpan(65))!.AsObject();
-            Assert.Equal(5, upgraded["FormatVersion"]!.GetValue<int>());
+            Assert.Equal(6, upgraded["FormatVersion"]!.GetValue<int>());
         }
         finally
         {
