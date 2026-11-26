@@ -222,10 +222,12 @@ public sealed partial class ServerIntegrationTests
                 impact = WaitFor<SnapshotMessage>(observer, message =>
                 {
                     last = Array.Find(message.Entities, entity => entity.Id == welcome!.PlayerId);
-                    return last is { } entity && !entity.Docked && entity.ApproachTargetId == 0 &&
-                        entity.Impact is { NormalSpeed: > 0 } &&
-                        WorldSurfaces.Body(catalog, catalog.Station, message.ServerTimeMs / 1000.0)
-                            .Distance(entity.Position) <= SurfaceMesh.Ship.Radius + .5;
+                    if (last is not { Docked: false, ApproachTargetId: 0, Impact: { NormalSpeed: > 0 } hit })
+                        return false;
+                    // A snapshot can arrive after the ship has already rebounded.
+                    // Check the contact itself against the rotating station mesh.
+                    var station = WorldSurfaces.Body(catalog, catalog.Station, message.ServerTimeMs / 1000.0);
+                    return SurfaceQuery.Distance(station.Mesh, station.Local(hit.Point)) * station.Scale <= .5;
                 }, 0.1);
             }
             Assert.True(impact is not null, $"Last observer state: {last}");

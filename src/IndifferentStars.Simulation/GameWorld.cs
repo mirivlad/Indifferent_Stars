@@ -156,7 +156,7 @@ public sealed partial class GameWorld
         if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null) || (targetShip is not null && (targetShip.InWarp || !CanLocate(player, targetShip))))
             return false;
         var targetPosition = targetShip?.Position ?? body!.Position;
-        var targetRadius = targetShip is null ? body!.Radius : 20;
+        var targetRadius = targetShip is null ? body!.Radius : Math.Max(20, targetShip.Hull.Radius);
         var away = (player.Position - targetPosition).Normalized();
         if (away.LengthSquared < 0.5)
             return false;
@@ -439,8 +439,8 @@ public sealed partial class GameWorld
     private bool CruiseAllowed(ShipState ship) =>
         !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive || ship.OrbitEstablished) &&
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
-        _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
-        _npcs.All(other => other.Id==ship.Id || CruiseClearOf(ship, other.Position, 20)) &&
+        _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, Math.Max(20, other.Hull.Radius))) &&
+        _npcs.All(other => other.Id==ship.Id || CruiseClearOf(ship, other.Position, Math.Max(20, other.Hull.Radius))) &&
         Catalog.Celestials.All(body =>
             CruiseClearOf(ship, body.SystemPosition - Catalog.LocalFrameOrigin, body.Radius + body.AtmosphereHeight));
 

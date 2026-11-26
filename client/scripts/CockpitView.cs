@@ -51,7 +51,7 @@ public sealed partial class CockpitView : Node3D
 
     private void Build(string hullClass)
     {
-        var freighter = hullClass == "LightFreighter";
+        var freighter = hullClass is "LightFreighter" or "HeavyFreighter";
         var screen = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
@@ -104,8 +104,13 @@ public sealed partial class CockpitView : Node3D
         var leftHeader = hullClass switch
         {
             "LightFreighter" => new Vector3(-1.43f, 1.95f, -1.45f),
+            "HeavyFreighter" => new Vector3(-1.47f, 2.18f, -1.6f),
             "Miner" => new Vector3(-1.22f, 1.83f, -1.7f),
             "Explorer" => new Vector3(-1.08f, 2.07f, -1.2f),
+            "Interceptor" => new Vector3(-.83f, 1.74f, -1.42f),
+            "Corvette" => new Vector3(-1.15f, 1.96f, -1.56f),
+            "Raider" => new Vector3(-1.29f, 1.84f, -1.22f),
+            "Frigate" => new Vector3(-1.37f, 2.19f, -1.71f),
             _ => new Vector3(-.95f, 1.85f, -1.3f),
         };
         var rightHeader = new Vector3(-leftHeader.X, leftHeader.Y, leftHeader.Z);
@@ -132,6 +137,36 @@ public sealed partial class CockpitView : Node3D
             AddRail(rightHeader, rightHeader + new Vector3(.16f, .1f, 1.24f), metal);
             AddBox(new Vector3(.36f, .28f, .68f), new Vector3(1.38f, .51f, -1.14f), FrameMaterial);
             AddBox(new Vector3(.19f, .018f, .12f), new Vector3(1.38f, .661f, -1.28f), AccentMaterial);
+        }
+        if (hullClass == "HeavyFreighter")
+        {
+            AddRail(leftHeader, leftHeader + new Vector3(-.18f, .06f, 1.25f), metal);
+            AddRail(rightHeader, rightHeader + new Vector3(.18f, .06f, 1.25f), metal);
+            AddBox(new Vector3(2.96f, .11f, .4f), new Vector3(0, .41f, -2.37f), HullMaterial);
+        }
+        if (hullClass == "Interceptor")
+        {
+            AddRail(new Vector3(-1.52f, .48f, -2.28f), new Vector3(-1.64f, 1.22f, -.54f), metal);
+            AddRail(new Vector3(1.52f, .48f, -2.28f), new Vector3(1.64f, 1.22f, -.54f), metal);
+        }
+        if (hullClass == "Corvette")
+        {
+            AddBox(new Vector3(2.60f, .04f, .10f), new Vector3(0, .86f, -2.78f), FrameMaterial);
+            AddRail(leftHeader, leftHeader + new Vector3(-.23f, .08f, .92f), metal);
+            AddRail(rightHeader, rightHeader + new Vector3(.23f, .08f, .92f), metal);
+        }
+        if (hullClass == "Raider")
+        {
+            AddRail(new Vector3(-1.58f, .53f, -2.21f), new Vector3(-1.59f, 1.58f, -.54f), metal);
+            AddBox(new Vector3(.56f, .38f, .62f), new Vector3(1.48f, .56f, -1.42f), FrameMaterial);
+            AddBox(new Vector3(.32f, .019f, .08f), new Vector3(1.48f, .76f, -1.58f), warm);
+        }
+        if (hullClass == "Frigate")
+        {
+            AddRail(leftHeader, new Vector3(-1.69f, 2.23f, -.35f), metal);
+            AddRail(rightHeader, new Vector3(1.69f, 2.23f, -.35f), metal);
+            AddRail(new Vector3(-1.69f, 2.23f, -.35f), new Vector3(1.69f, 2.23f, -.35f), metal);
+            AddBox(new Vector3(3.04f, .22f, .38f), new Vector3(0, .31f, -1.64f), FrameMaterial);
         }
         AddScreen(new Vector3(0, 0.32f, -1.48f), screen, new Vector3(0.9f, 0.24f, 0.02f));
         _flightScreen = AddInstrumentText(new Vector3(0, 0.32f, -1.455f), new Color(0.62f, 0.92f, 1), 22);

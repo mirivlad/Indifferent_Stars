@@ -1,0 +1,78 @@
+{
+  "asset": "ship_swift",
+  "generator": "build_ship_specialists.py",
+  "blender": "5.2.2 LTS",
+  "bounds_metres": [
+    [
+      -5.749999523162842,
+      -1.0800000429153442,
+      -11.199999809265137
+    ],
+    [
+      5.749999523162842,
+      1.8200000524520874,
+      8.394999504089355
+    ]
+  ],
+  "triangles": 1744,
+  "attachments_metres": {
+    "PilotEye": [
+      0.0,
+      1.2200000286102295,
+      -6.699999809265137
+    ],
+    "MainNozzle_centre": [
+      0.0,
+      0.019999999552965164,
+      8.460000038146973
+    ],
+    "Maneuver_tip_1": [
+      -5.75499963760376,
+      -0.10999999940395355,
+      1.8300000429153442
+    ],
+    "Maneuver_keel_1": [
+      -2.4200000762939453,
+      -1.0049999952316284,
+      2.9600000381469727
+    ],
+    "EquipmentMount_1": [
+      -1.4700000286102295,
+      -0.7099999785423279,
+      -2.1700000762939453
+    ],
+    "Maneuver_tip_3": [
+      5.75499963760376,
+      -0.10999999940395355,
+      1.8300000429153442
+    ],
+    "Maneuver_keel_3": [
+      2.4200000762939453,
+      -1.0049999952316284,
+      2.9600000381469727
+    ],
+    "EquipmentMount_3": [
+      1.4700000286102295,
+      -0.7099999785423279,
+      -2.1700000762939453
+    ],
+    "DockMount": [
+      0.0,
+      -1.0399999618530273,
+      4.289999961853027
+    ]
+  },
+  "textures": [
+    768,
+    768
+  ],
+  "source_sha256": {
+    "build_ship_specialists.py": "0c57e0be13c54e9c3999b8c040d4e19ef1278e9876dcbdfbca0acc1599bd71f0",
+    "build_ship_professions.py": "e767402479649c872442b6f9f10080188f7ac8134c6ad1eadc9c61c887c74306",
+    "build_ship_tern.py": "10fa15335a99c6a5af8c6d09db5524f90ad7c45d4505536850e24ec03bc8fadb",
+    "build_ship.py": "3c6a8a08b8cac4756d23277ed3f4d8540855f25f55ce0bd335862b201f08c38e",
+    "build_station.py": "524491c13767a45b3144c65d9cdbd29ec31f087cc39b34b556e63fe36b1f8fbf"
+  },
+  "provenance": "Original project geometry, markings and procedural materials. No third-party assets.",
+  "glb_sha256": "43b0f94a4cd27f2590e5837da8a5b07c3df8ec964649d7956f89b3c29935fe61"
+}

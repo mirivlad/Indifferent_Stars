@@ -8,6 +8,7 @@ public sealed partial class ShipView
 {
     private readonly List<(Node3D Nozzle, Vector3 Exhaust)> _maneuverJets = new();
     private IonTrail _ionTrail = null!;
+    private Vec3d[] _ionOutlets = [];
     private Vector3 _previousVelocity;
     private Quaternion _previousOrientation = Quaternion.Identity;
     private bool _effectsReady;
@@ -16,7 +17,8 @@ public sealed partial class ShipView
 
     private void BuildManeuverEffects()
     {
-        _ionTrail = new IonTrail();
+        _ionOutlets = new Vec3d[_mainNozzles.Count];
+        _ionTrail = new IonTrail(_ionOutlets.Length);
         AddChild(_ionTrail);
         var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://assets/shaders/exhaust.gdshader") };
         material.SetShaderParameter("energy", .65f);
@@ -56,8 +58,8 @@ public sealed partial class ShipView
                 nozzle.Visible = false;
                 nozzle.Scale = new Vector3(1, .15f, 1);
             }
-            _ionTrail.UpdateTrail(delta, renderOrigin, Track.WorldPosition, Track.WorldPosition, false);
             _ionTrail.Visible = false;
+            _ionTrail.UpdateTrail(delta, renderOrigin, _ionOutlets, false);
             return;
         }
         var acceleration = Vector3.Zero;
@@ -81,10 +83,11 @@ public sealed partial class ShipView
             nozzle.Scale = new Vector3(1, .15f + intensity * 1.6f, 1);
         }
         _ionTrail.Visible = _externalVisible && _engineEffects && _particles && !Track.Docked;
-        var left = Basis * _mainNozzles[0];
-        var right = Basis * _mainNozzles[1];
-        _ionTrail.UpdateTrail(delta, renderOrigin,
-            Track.WorldPosition + new Vec3d(left.X, left.Y, left.Z),
-            Track.WorldPosition + new Vec3d(right.X, right.Y, right.Z), thrust > 0.05f);
+        for (var i = 0; i < _ionOutlets.Length; i++)
+        {
+            var outlet = Basis * _mainNozzles[i];
+            _ionOutlets[i] = Track.WorldPosition + new Vec3d(outlet.X, outlet.Y, outlet.Z);
+        }
+        _ionTrail.UpdateTrail(delta, renderOrigin, _ionOutlets, thrust > 0.05f);
     }
 }

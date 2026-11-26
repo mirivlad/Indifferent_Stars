@@ -116,7 +116,7 @@ public sealed partial class GameWorld
         foreach (var other in _players.Values.Concat(_npcs).Where(s => s.Id != ship.Id))
         {
             var offset = ship.Position - other.Position;
-            var gap = offset.Length - 30;
+            var gap = offset.Length - Math.Max(30, ship.Hull.Radius + other.Hull.Radius);
             if (gap >= nearest) continue;
             nearest = gap; escape = offset.Normalized();
         }

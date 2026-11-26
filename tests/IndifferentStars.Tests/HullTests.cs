@@ -62,19 +62,21 @@ public sealed class HullTests
         Assert.Equal(ContactSource.Tactical, world.Detect(surveyor, target));
     }
 
-    [Fact]
-    public void FreightWorkersCarryTheirHullLoadAndReduceRealStock()
+    [Theory]
+    [InlineData("tern")]
+    [InlineData("gannet")]
+    public void FreightWorkersCarryTheirHullLoadAndReduceRealStock(string key)
     {
         var world = new GameWorld(WorldCatalog.Generate(20261101, 7));
-        var tern = HullCatalog.Find("tern")!;
-        var workers = world.Npcs.Where(ship => ship.HullId == tern.Id).ToArray();
+        var hull = HullCatalog.Find(key)!;
+        var workers = world.Npcs.Where(ship => ship.HullId == hull.Id).ToArray();
         Assert.NotEmpty(workers);
         var ship = workers[0];
         var work = ship.Work!;
         Assert.Equal(NpcOccupation.Courier, work.Occupation);
         var station = world.Catalog.Find(work.HomeStationId)!;
         Assert.Equal(StationPurpose.Freight, station.Purpose);
-        Assert.Equal(tern.Id, HullCatalog.ForWorker(work.Occupation, station.Purpose, ship.Id));
+        Assert.Equal(hull.Id, HullCatalog.ForWorker(work.Occupation, station.Purpose, ship.Id));
         ship.Position = station.Position + IndifferentStars.Shared.Collision.ModelPose.StationDockingOffset;
         ship.DockingStationId = (uint)station.Id;
         ship.Docked = true;
@@ -85,7 +87,7 @@ public sealed class HullTests
         world.Tick(.05);
 
         Assert.True(ship.RouteActive);
-        Assert.Equal(tern.NpcLoad, work.Cargo);
+        Assert.Equal(hull.NpcLoad, work.Cargo);
         Assert.Equal(before - work.Cargo, world.StationStock(station.Id, work.CommodityId));
     }
 }
