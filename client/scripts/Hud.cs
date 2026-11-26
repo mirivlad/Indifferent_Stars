@@ -70,6 +70,7 @@ public sealed partial class Hud : CanvasLayer
 
         BuildTopLeft();
         BuildTelemetry();
+        BuildCombat();
         BuildOverlay();
         _impactMaterial=new ShaderMaterial {Shader=GD.Load<Shader>("res://assets/shaders/impact_flash.gdshader")};
         var flash=new ColorRect {Name="ImpactFlash",Material=_impactMaterial,MouseFilter=Control.MouseFilterEnum.Ignore};

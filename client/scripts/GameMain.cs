@@ -173,6 +173,7 @@ public sealed partial class GameMain : Node3D
         _net.DockCompleted += OnDockCompleted;
         _net.MarketReceived += OnMarketReceived;
         _net.TradeCompleted += OnTradeCompleted;
+        ConnectCombat();
         _net.TransportError += OnTransportError;
         _net.Start();
 
@@ -184,6 +185,7 @@ public sealed partial class GameMain : Node3D
         if (_quitting) return;
         _quitting = true;
         _audio.Stop();
+        _combatEffects.StopAudio();
         _playerShip?.StopImpactAudio();
         foreach(var ship in _remoteShips.Values)ship.StopImpactAudio();
         // Let the audio server consume pending playback stops before tearing down resources.
@@ -275,7 +277,8 @@ public sealed partial class GameMain : Node3D
                 Math.Max(Math.Abs(_input.Roll), Math.Max(Math.Abs(_input.Steer), Math.Abs(_input.Pitch)))));
             _audio.SetFlight(_playerShip.Track.Throttle, maneuver,
                 _playerShip.Boosting, _input.Brake || _playerShip.EngineBraking,
-                _playerShip.Track.Cruising, _net?.State == ConnectionState.Connected && !_playerShip.Track.Docked);
+                _playerShip.Track.Cruising, _net?.State == ConnectionState.Connected && !_playerShip.Track.Docked &&
+                _combatStatus?.Destroyed != true);
             if (_trace && _playerShip.Track.HasData)
             {
                 var p = _playerShip.Track.WorldPosition;
@@ -348,6 +351,7 @@ public sealed partial class GameMain : Node3D
 
         UpdateNavigation();
         UpdateHud(dt);
+        UpdateCombat(dt);
         _hud.SetWarpState(warpStage, warpProgress);
         UpdateCapture(dt);
     }
@@ -399,6 +403,18 @@ public sealed partial class GameMain : Node3D
                     break;
                 case "dock":
                     RequestDock();
+                    break;
+                case "combat_attack":
+                    ToggleAttack();
+                    break;
+                case "combat_weapon":
+                    CycleWeapon();
+                    break;
+                case "combat_recover":
+                    if (_combatStatus?.Destroyed == true) _net?.RequestCombat(CombatCommand.Recover);
+                    break;
+                case "combat_repair":
+                    if (_playerShip?.Track.Docked == true) _net?.RequestCombat(CombatCommand.Repair);
                     break;
                 case "cruise":
                     _cruise = !_cruise;
@@ -550,6 +566,8 @@ public sealed partial class GameMain : Node3D
     {
         _hud = new Hud { Name = "Hud", ServerAddress = _settings.Server };
         AddChild(_hud);
+        _combatEffects = new CombatEffects();
+        AddChild(_combatEffects);
         _radio=new RadioChat();AddChild(_radio);
         _hud.NoticeRaised += text => _radio.Notice(RadioChat.Notifications,text);
         SetupNavigation();
@@ -589,6 +607,12 @@ public sealed partial class GameMain : Node3D
             else if (id == 4) RequestDock();
             else if (id == 7) RequestApproach(true);
             else if (id == 14) _net?.RequestWarp(0, _mapDestination);
+            else if (id == 12) SendCombatOrder(CombatCommand.Attack);
+            else if (id == 28) SendCombatOrder(CombatCommand.Lock);
+            else if (id == 29) _net?.RequestCombat(CombatCommand.Stop);
+            else if (id == 30) SendCombatOrder(CombatCommand.Escort);
+            else if (id == 31) SendCombatOrder(CombatCommand.KeepDistance);
+            else if (id == 32) SendCombatOrder(CombatCommand.Retreat);
 
         };
         AddChild(_contactMenu);
@@ -620,8 +644,17 @@ public sealed partial class GameMain : Node3D
         _contactMenu.AddItem(Locale.Text("context_comms"), 10);
         _contactMenu.AddItem(Locale.Text("context_trade"), 11);
         _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(11), _catalog.Find((int)_targetId)?.Kind!=BodyKind.Station);
-        _contactMenu.AddItem(Locale.Text("context_attack_unavailable"), 12);
-        _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(12), true);
+        if (FindContact(_targetId) is { IsShip: true })
+        {
+            _contactMenu.AddSeparator();
+            _contactMenu.AddItem(Locale.Text("combat_lock"), 28);
+            _contactMenu.AddItem(Locale.Text("combat_attack"), 12);
+            _contactMenu.AddItem(Locale.Text("combat_escort"), 30);
+            _contactMenu.AddItem(Locale.Text("combat_keepdistance"), 31);
+            _contactMenu.AddItem(Locale.Text("combat_retreat"), 32);
+        }
+        if (_combatStatus is { Order: not CombatOrder.None })
+            _contactMenu.AddItem(Locale.Text("combat_stop"), 29);
         _contactMenu.AddItem(Locale.Text("context_mine_unavailable"), 13);
         _contactMenu.SetItemDisabled(_contactMenu.GetItemIndex(13), true);
     }
@@ -658,9 +691,7 @@ public sealed partial class GameMain : Node3D
         _staticRoot.Visible = mode != ViewMode.Tactical;
         _dynamicRoot.Visible = mode != ViewMode.Tactical;
 
-        if (_cockpit is not null)
-            _cockpit.Visible = mode == ViewMode.Cockpit;
-        _playerShip?.SetExternalModelVisible(mode != ViewMode.Cockpit);
+        UpdateCombatVisibility(_combatStatus?.Destroyed == true);
 
         UpdateCameraClipping();
         if (_cameraFill is not null)

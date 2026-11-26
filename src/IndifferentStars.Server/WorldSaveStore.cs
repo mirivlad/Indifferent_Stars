@@ -24,7 +24,7 @@ internal sealed record WorldSave(
 
 internal sealed class WorldSaveStore : IDisposable
 {
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 3;
     private readonly string _path;
     private readonly FileStream _lease;
     private byte[]? _lastGood;
@@ -87,10 +87,10 @@ internal sealed class WorldSaveStore : IDisposable
                 ?? throw new InvalidDataException("Missing saved world.");
             // Format 1 ships have no hull ID. The default keeps the original
             // player and worker hulls, including their exact collision scales.
-            if (save.FormatVersion is not (1 or CurrentVersion) || save.GeneratorVersion != catalog.GeneratorVersion ||
+            if (save.FormatVersion is not (1 or 2 or CurrentVersion) || save.GeneratorVersion != catalog.GeneratorVersion ||
                 save.Seed != catalog.Seed || save.SystemIndex != catalog.SystemIndex || save.Geometry != SurfaceMesh.LegacyFingerprint)
                 throw new InvalidOperationException("Save format, generator, world seed, system or collision geometry differs.");
-            if (save.FormatVersion == CurrentVersion)
+            if (save.FormatVersion >= 2)
             {
                 var ids = save.Simulation.Npcs.Select(ship => ship.EffectiveHullId)
                     .Concat(save.Profiles.Values.Select(profile => profile.Player.Ship.EffectiveHullId)).Distinct();

@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 24;
+    public const byte Version = 25;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -54,6 +54,11 @@ public enum MessageType : byte
     SensorContacts = 31,
     Transponder = 32,
     ProfileChallenge = 33,
+    CombatCommand = 34,
+    CombatReply = 35,
+    CombatStatus = 36,
+    CombatEvent = 37,
+    WreckContacts = 38,
 }
 
 public enum EntityKind : byte
@@ -116,7 +121,8 @@ public sealed record InputMessage(
     sbyte Strafe = 0,
     sbyte Roll = 0,
     bool FlightAssist = false,
-    bool Cruise = false) : IProtocolMessage
+    bool Cruise = false,
+    bool Fire = false) : IProtocolMessage
 {
     public MessageType Type => MessageType.Input;
 }

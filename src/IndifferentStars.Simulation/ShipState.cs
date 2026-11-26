@@ -21,9 +21,11 @@ public sealed class ShipState
     public bool IsPlayer { get; init; }
     public bool TransponderEnabled { get; set; } = true;
     public string Role { get; init; } = "Courier";
-    public ushort HullId { get; init; }
+    public ushort HullId { get; set; }
     public ushort EffectiveHullId => IsPlayer && HullId == HullCatalog.LegacyWorker ? HullCatalog.Courier : HullId;
     public HullDefinition Hull => HullCatalog.Get(EffectiveHullId);
+    private ShipCombat? _combat;
+    public ShipCombat Combat { get => _combat ??= ShipCombat.Create(Hull); set => _combat = value; }
 
     public Vec3d Position { get; set; }
     public Vec3d Velocity { get; set; }

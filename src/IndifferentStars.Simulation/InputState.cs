@@ -13,7 +13,8 @@ public readonly record struct InputState(
     float Strafe = 0,
     float Roll = 0,
     bool FlightAssist = false,
-    bool Cruise = false)
+    bool Cruise = false,
+    bool Fire = false)
 {
     public static readonly InputState None = new(0, 0, 0, 0, false, false);
 
@@ -27,8 +28,9 @@ public readonly record struct InputState(
         Math.Clamp(Strafe, -1f, 1f),
         Math.Clamp(Roll, -1f, 1f),
         FlightAssist,
-        Cruise);
+        Cruise,
+        Fire);
 
-    public static InputState FromWire(sbyte throttle, sbyte steer, sbyte pitch, sbyte vertical, bool boost, bool brake, sbyte strafe, sbyte roll, bool flightAssist, bool cruise) =>
-        new InputState(throttle / 127f, steer / 127f, pitch / 127f, vertical / 127f, boost, brake, strafe / 127f, roll / 127f, flightAssist, cruise).Clamped();
+    public static InputState FromWire(sbyte throttle, sbyte steer, sbyte pitch, sbyte vertical, bool boost, bool brake, sbyte strafe, sbyte roll, bool flightAssist, bool cruise, bool fire = false) =>
+        new InputState(throttle / 127f, steer / 127f, pitch / 127f, vertical / 127f, boost, brake, strafe / 127f, roll / 127f, flightAssist, cruise, fire).Clamped();
 }

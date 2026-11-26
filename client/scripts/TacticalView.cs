@@ -118,6 +118,7 @@ public sealed partial class TacticalView : Control
         }
         DrawContactLabels(center, scale, size);
         DrawPlayer(center, scale);
+        DrawCombat(center, scale, size);
         DrawScale(scale, size);
         FlushLabels();
         var previous = Project(center,scale,PlayerPosition);

@@ -94,6 +94,44 @@ public static class ProtocolCodec
                 writer.Write(input.Roll);
                 writer.Write(input.FlightAssist);
                 writer.Write(input.Cruise);
+                writer.Write(input.Fire);
+                break;
+
+            case CombatCommandMessage command:
+                writer.Write(command.RequestId);
+                writer.Write((byte)command.Command);
+                writer.Write(command.TargetId);
+                writer.Write(command.Slot);
+                break;
+            case CombatReplyMessage reply:
+                writer.Write(reply.RequestId);
+                writer.Write(reply.Accepted);
+                writer.Write((byte)reply.Command);
+                writer.Write(reply.TargetId);
+                break;
+            case CombatStatusMessage status:
+                if (status.Slots.Length > CombatStatusMessage.MaxSlots) throw new ArgumentException("Too many combat slots.");
+                writer.Write(status.TargetId); writer.Write((byte)status.Order); writer.Write(status.SelectedSlot);
+                writer.Write(status.Energy); writer.Write(status.Shield); writer.Write(status.Armor); writer.Write(status.Hull);
+                writer.Write(status.Engines); writer.Write(status.Sensors); writer.Write(status.Weapons);
+                writer.Write(status.Destroyed); writer.Write(status.RecoveryIn); writer.Write((byte)status.Slots.Length);
+                foreach (var slot in status.Slots)
+                {
+                    writer.Write((byte)slot.Kind); writer.Write(slot.Loaded); writer.Write(slot.Reserve); writer.Write(slot.ReadyIn);
+                }
+                break;
+            case CombatEventMessage combatEvent:
+                writer.Write(combatEvent.Sequence); writer.Write(combatEvent.SourceId); writer.Write(combatEvent.TargetId);
+                writer.Write((byte)combatEvent.Kind); writer.Write((byte)combatEvent.Weapon);
+                WriteVec3(writer, combatEvent.From); WriteVec3(writer, combatEvent.To);
+                break;
+            case WreckContactsMessage wrecks:
+                if (wrecks.Contacts.Length > WreckContactsMessage.MaxContacts) throw new ArgumentException("Too many wreck contacts.");
+                writer.Write(wrecks.Tick); writer.Write((byte)wrecks.Contacts.Length);
+                foreach (var wreck in wrecks.Contacts)
+                {
+                    writer.Write(wreck.Id); WriteVec3(writer, wreck.Position);
+                }
                 break;
 
             case TransponderMessage transponder:
@@ -373,7 +411,16 @@ public static class ProtocolCodec
                     reader.ReadSByte(),
                     reader.ReadSByte(),
                     reader.ReadBoolean(),
+                    reader.ReadBoolean(),
                     reader.ReadBoolean()),
+
+                MessageType.CombatCommand => new CombatCommandMessage(reader.ReadUInt32(), ReadCombatCommand(reader),
+                    reader.ReadUInt32(), reader.ReadByte()),
+                MessageType.CombatReply => new CombatReplyMessage(reader.ReadUInt32(), reader.ReadBoolean(),
+                    ReadCombatCommand(reader), reader.ReadUInt32()),
+                MessageType.CombatStatus => ReadCombatStatus(reader),
+                MessageType.CombatEvent => ReadCombatEvent(reader),
+                MessageType.WreckContacts => ReadWreckContacts(reader),
 
                 MessageType.Snapshot => ReadSnapshot(reader),
                 MessageType.SensorContacts => ReadSensors(reader),
@@ -581,6 +628,75 @@ public static class ProtocolCodec
         var id = reader.ReadUInt16();
         if (!HullCatalog.Contains(id)) throw new InvalidDataException($"Unknown ship hull #{id}.");
         return id;
+    }
+
+    private static CombatCommand ReadCombatCommand(BinaryReader reader)
+    {
+        var command = (CombatCommand)reader.ReadByte();
+        if (!Enum.IsDefined(command)) throw new InvalidDataException("Unknown combat command.");
+        return command;
+    }
+
+    private static WreckContactsMessage ReadWreckContacts(BinaryReader reader)
+    {
+        var tick = reader.ReadUInt64();
+        var count = reader.ReadByte();
+        if (count > WreckContactsMessage.MaxContacts) throw new InvalidDataException("Too many wreck contacts.");
+        var contacts = new WreckContact[count];
+        for (var i = 0; i < count; i++)
+        {
+            var wreck = new WreckContact(reader.ReadUInt64(), ReadVec3(reader));
+            if (wreck.Id == 0 || !wreck.Position.IsFinite) throw new InvalidDataException("Invalid wreck contact.");
+            contacts[i] = wreck;
+        }
+        return new WreckContactsMessage(tick, contacts);
+    }
+
+    private static CombatEventMessage ReadCombatEvent(BinaryReader reader)
+    {
+        var message = new CombatEventMessage(reader.ReadUInt64(), reader.ReadUInt32(), reader.ReadUInt32(),
+            (CombatEventKind)reader.ReadByte(), (WeaponKind)reader.ReadByte(), ReadVec3(reader), ReadVec3(reader));
+        if (!Enum.IsDefined(message.Kind) || !Enum.IsDefined(message.Weapon) ||
+            (message.Kind == CombatEventKind.Fired && message.Weapon == WeaponKind.None) ||
+            !message.From.IsFinite || !message.To.IsFinite)
+            throw new InvalidDataException("Invalid combat event.");
+        return message;
+    }
+
+    private static CombatStatusMessage ReadCombatStatus(BinaryReader reader)
+    {
+        var target = reader.ReadUInt32();
+        var order = (CombatOrder)reader.ReadByte();
+        var selected = reader.ReadByte();
+        var energy = Fraction(); var shield = Fraction(); var armor = Fraction(); var hull = Fraction();
+        var engines = Fraction(); var sensors = Fraction(); var weapons = Fraction();
+        var destroyed = reader.ReadBoolean();
+        var recovery = WaitSeconds();
+        var count = reader.ReadByte();
+        if (!Enum.IsDefined(order) || count > CombatStatusMessage.MaxSlots || selected >= Math.Max(1, (int)count))
+            throw new InvalidDataException("Invalid combat status.");
+        var slots = new WeaponStatus[count];
+        for (var i = 0; i < count; i++)
+        {
+            var kind = (WeaponKind)reader.ReadByte();
+            if (kind == WeaponKind.None || !Enum.IsDefined(kind)) throw new InvalidDataException("Invalid armed slot.");
+            slots[i] = new WeaponStatus(kind, reader.ReadUInt16(), reader.ReadUInt16(), WaitSeconds());
+        }
+        return new(target, order, selected, energy, shield, armor, hull, engines, sensors, weapons, destroyed, recovery, slots);
+
+        float Fraction()
+        {
+            var value = reader.ReadSingle();
+            if (!float.IsFinite(value) || value < 0 || value > 1) throw new InvalidDataException("Invalid combat resource.");
+            return value;
+        }
+
+        float WaitSeconds()
+        {
+            var value = reader.ReadSingle();
+            if (!float.IsFinite(value) || value < 0 || value > 120) throw new InvalidDataException("Invalid combat timeout.");
+            return value;
+        }
     }
 
     private static double? ReadOptionalDouble(BinaryReader reader) => reader.ReadBoolean() ? reader.ReadDouble() : null;

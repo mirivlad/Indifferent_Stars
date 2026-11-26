@@ -11,7 +11,7 @@ public sealed partial class GameWorld
     public bool SetRoute(uint playerId, RouteRequestMessage request)
     {
         var ship = GetPlayer(playerId);
-        if (ship is null || request.Points.Length > RouteRequestMessage.MaxPoints ||
+        if (ship is null || ship.Combat.Destroyed || request.Points.Length > RouteRequestMessage.MaxPoints ||
             (request.Enabled && (ship.Docked || request.Points.Length == 0))) return false;
         foreach (var stop in request.Points)
         {
@@ -26,6 +26,7 @@ public sealed partial class GameWorld
         ship.RouteRevision = request.RequestId;
         ship.RouteIndex = 0;
         ship.RouteActive = request.Enabled;
+        if (request.Enabled) ship.Combat.Order = CombatOrder.None;
         if (!request.Enabled && (ship.Cruising || ship.Velocity.Length > ship.Hull.BoostSpeed)) ship.CruiseBraking = true;
         ship.RouteWarping = ship.InWarp && request.Enabled;
         ship.RouteAdvanceAfterWarp = false;
@@ -113,7 +114,7 @@ public sealed partial class GameWorld
             if (gap >= nearest) continue;
             nearest = gap; escape = offset.Normalized();
         }
-        foreach (var other in _players.Values.Concat(_npcs).Where(s => s.Id != ship.Id))
+        foreach (var other in _players.Values.Concat(_npcs).Where(s => s.Id != ship.Id && !s.Combat.Destroyed))
         {
             var offset = ship.Position - other.Position;
             var gap = offset.Length - Math.Max(30, ship.Hull.Radius + other.Hull.Radius);

@@ -118,7 +118,7 @@ public sealed partial class GameWorld
 
     public void ApplyInput(uint playerId, InputState input)
     {
-        if (!_inputs.TryGetValue(playerId, out var slot))
+        if (!_inputs.TryGetValue(playerId, out var slot) || _players[playerId].Combat.Destroyed)
             return;
         slot.Input = input.Clamped();
         if (_players.TryGetValue(playerId, out var warpingShip) && warpingShip.InWarp) return;
@@ -137,9 +137,10 @@ public sealed partial class GameWorld
     public bool StartMove(uint playerId, Vec3d destination)
     {
         var ship = GetPlayer(playerId);
-        if (ship is null || ship.Docked || ship.InWarp || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
+        if (ship is null || ship.Combat.Destroyed || ship.Docked || ship.InWarp || !destination.IsFinite || !double.IsFinite(Vec3d.Distance(ship.Position, destination)))
             return false;
         ship.RouteActive = false;
+        ship.Combat.Order = CombatOrder.None;
         ship.CancelOrbit();
         ship.ApproachTargetId = ship.Id;
         ship.ApproachFollowing = false;
@@ -153,7 +154,7 @@ public sealed partial class GameWorld
         var player = GetPlayer(playerId);
         var body = Catalog.Find((int)targetId);
         var targetShip = _players.GetValueOrDefault(targetId) ?? _npcs.FirstOrDefault(n => n.Id == targetId);
-        if (player is null || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null) || (targetShip is not null && (targetShip.InWarp || !CanLocate(player, targetShip))))
+        if (player is null || player.Combat.Destroyed || player.Docked || player.InWarp || targetShip == player || (follow && targetShip is null) || (body is null && targetShip is null) || (targetShip is not null && (targetShip.Combat.Destroyed || targetShip.InWarp || !CanLocate(player, targetShip))))
             return false;
         var targetPosition = targetShip?.Position ?? body!.Position;
         var targetRadius = targetShip is null ? body!.Radius : Math.Max(20, targetShip.Hull.Radius);
@@ -161,6 +162,7 @@ public sealed partial class GameWorld
         if (away.LengthSquared < 0.5)
             return false;
         player.RouteActive = false;
+        player.Combat.Order = CombatOrder.None;
         player.CancelOrbit();
         player.ApproachTargetId = targetId;
         player.ApproachFollowing = follow;
@@ -173,7 +175,7 @@ public sealed partial class GameWorld
     {
         var player = GetPlayer(playerId);
         var station = Catalog.Find((int)targetId);
-        if (player is null || player.Docked || player.InWarp || station?.Kind != BodyKind.Station)
+        if (player is null || player.Combat.Destroyed || player.Docked || player.InWarp || station?.Kind != BodyKind.Station)
             return false;
         return GrantDocking(player,station);
     }
@@ -188,6 +190,7 @@ public sealed partial class GameWorld
         player.DockingPoint = station.Position + ModelPose.StationDockingOffset;
         player.ApproachDestination = player.DockingPoint;
         player.RouteActive = false;
+        player.Combat.Order = CombatOrder.None;
         player.CancelOrbit();
         player.ApproachTargetId = targetId;
         return true;
@@ -318,6 +321,7 @@ public sealed partial class GameWorld
         {
             var slot = _inputs[id];
             slot.AgeSeconds += dt;
+            if (ship.Combat.Destroyed) continue;
             if (ship.InWarp)
             {
                 StepWarp(ship, dt);
@@ -347,7 +351,7 @@ public sealed partial class GameWorld
                 var targetShip = ship.ApproachFollowing
                     ? _players.GetValueOrDefault(ship.ApproachTargetId) ?? _npcs.FirstOrDefault(n => n.Id == ship.ApproachTargetId)
                     : null;
-                if (ship.ApproachFollowing && (targetShip is null || targetShip.InWarp || !CanLocate(ship, targetShip)))
+                if (ship.ApproachFollowing && (targetShip is null || targetShip.Combat.Destroyed || targetShip.InWarp || !CanLocate(ship, targetShip)))
                 {
                     ship.ApproachTargetId = 0;
                     ship.ApproachFollowing = false;
@@ -364,6 +368,8 @@ public sealed partial class GameWorld
                 else
                     input = ApproachPilot.Steer(ship, ship.ApproachDestination);
             }
+            else
+                input = CombatSteering(ship, input);
             if (!input.Cruise) ship.CruiseInhibited = false;
             ship.CruiseSpeedLimit = CruiseLimitAt(ship);
             var boostSpeed = ship.Hull.BoostSpeed;
@@ -385,12 +391,12 @@ public sealed partial class GameWorld
         }
 
         foreach (var npc in _npcs)
-            StepWorker(npc,dt,warping);
+            if (!npc.Combat.Destroyed) StepWorker(npc,dt,warping);
 
         var ships = _players.Values.Concat(_npcs).OrderBy(ship => ship.Id).ToArray();
         foreach (var ship in ships)
         {
-            if (ship.Docked || warping.Contains(ship.Id)) { ship.AngularVelocity=Vec3d.Zero; continue; }
+            if (ship.Combat.Destroyed || ship.Docked || warping.Contains(ship.Id)) { ship.AngularVelocity=Vec3d.Zero; continue; }
             var speed=ship.AngularVelocity.Length;
             if (speed>1e-5)
             {
@@ -402,6 +408,7 @@ public sealed partial class GameWorld
         var collisionStarted = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         ResolveCollisions(ships,starts,warping,dt);
         if (MeasureTimings) CollisionMilliseconds += System.Diagnostics.Stopwatch.GetElapsedTime(collisionStarted).TotalMilliseconds;
+        StepCombat(ships, starts, warping, dt);
 
         TickCount++;
         TimeSeconds += dt;
@@ -439,8 +446,8 @@ public sealed partial class GameWorld
     private bool CruiseAllowed(ShipState ship) =>
         !ship.Docked && (ship.ApproachTargetId == 0 || ship.RouteActive || ship.OrbitEstablished) &&
         Catalog.LocalBodies.All(body => CruiseClearOf(ship, body.Position, body.Radius)) &&
-        _players.Values.All(other => other.Id == ship.Id || CruiseClearOf(ship, other.Position, Math.Max(20, other.Hull.Radius))) &&
-        _npcs.All(other => other.Id==ship.Id || CruiseClearOf(ship, other.Position, Math.Max(20, other.Hull.Radius))) &&
+        _players.Values.All(other => other.Id == ship.Id || other.Combat.Destroyed || CruiseClearOf(ship, other.Position, Math.Max(20, other.Hull.Radius))) &&
+        _npcs.All(other => other.Id==ship.Id || other.Combat.Destroyed || CruiseClearOf(ship, other.Position, Math.Max(20, other.Hull.Radius))) &&
         Catalog.Celestials.All(body =>
             CruiseClearOf(ship, body.SystemPosition - Catalog.LocalFrameOrigin, body.Radius + body.AtmosphereHeight));
 
@@ -470,14 +477,14 @@ public sealed partial class GameWorld
 
         foreach (var player in _players.Values)
         {
-            if (player.Id != viewerId &&
+            if (player.Id != viewerId && !player.Combat.Destroyed &&
                 Vec3d.Distance(viewer.Position, player.Position) <= WorldCatalog.RelevanceRange)
                 entities.Add(ToSnapshot(player));
         }
 
         foreach (var npc in _npcs)
         {
-            if (Vec3d.Distance(viewer.Position, npc.Position) <= WorldCatalog.RelevanceRange)
+            if (!npc.Combat.Destroyed && Vec3d.Distance(viewer.Position, npc.Position) <= WorldCatalog.RelevanceRange)
                 entities.Add(ToSnapshot(npc));
         }
 
@@ -506,10 +513,10 @@ public sealed partial class GameWorld
     public ScanOutcome Scan(uint playerId, uint targetId, string language = "en")
     {
         var player = GetPlayer(playerId);
-        if (player is null)
+        if (player is null || player.Combat.Destroyed)
             return new ScanOutcome(false, targetId, ServerText.Get(language, "scan_failed"), ServerText.Get(language, "unknown_ship"));
 
-        var scanRange = player.Hull.ScanRange;
+        var scanRange = player.Hull.ScanRange * player.Combat.Sensors;
         var contactShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
         if (contactShip is not null && contactShip.Id != playerId)
         {

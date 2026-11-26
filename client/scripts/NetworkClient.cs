@@ -131,6 +131,7 @@ public sealed partial class NetworkClient : IDisposable
 
         UpdatePendingRequests();
         if(State==ConnectionState.Connected)RetryChat();
+        RetryCombat();
     }
 
     public void Poll()
@@ -225,6 +226,23 @@ public sealed partial class NetworkClient : IDisposable
                     MarketReceived?.Invoke(market);
                     break;
 
+                case CombatReplyMessage combatReply:
+                    if (_pendingCombat is { } order && combatReply.RequestId == order.Message.RequestId)
+                    {
+                        _pendingCombat = null;
+                        CombatReplied?.Invoke(combatReply);
+                    }
+                    break;
+                case CombatStatusMessage status:
+                    CombatStatusReceived?.Invoke(status);
+                    break;
+                case CombatEventMessage effect:
+                    CombatEventReceived?.Invoke(effect);
+                    break;
+                case WreckContactsMessage wrecks:
+                    WreckContactsReceived?.Invoke(wrecks);
+                    break;
+
                 case TradeResultMessage trade:
                     if (_pendingTrade is { } pendingTrade && pendingTrade.Id == trade.RequestId)
                         _pendingTrade = null;
@@ -305,7 +323,8 @@ public sealed partial class NetworkClient : IDisposable
             ToSByte(input.Strafe),
             ToSByte(input.Roll),
             input.FlightAssist,
-            input.Cruise);
+            input.Cruise,
+            input.Fire);
         Send(message);
     }
 

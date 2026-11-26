@@ -113,10 +113,14 @@ public sealed partial class GameMain
 
     private InputState ReadInput()
     {
-        if (_settingsMenu.IsOpen || _playerShip?.Track.Docked == true || (_playerShip is not null && _playerShip.Track.WarpStage != WarpStage.None))
+        if (_settingsMenu.IsOpen || _combatStatus?.Destroyed == true || _playerShip?.Track.Docked == true ||
+            (_playerShip is not null && _playerShip.Track.WarpStage != WarpStage.None))
             return InputState.None with { FlightAssist = _flightAssist };
-        if (_radio.IsTyping || _navigation.IsTyping || _navigation.IsModal || _mode == ViewMode.Tactical)
+        if (_radio.IsTyping || _navigation.IsTyping || _navigation.IsModal)
             return InputState.None with { Cruise = _cruise, FlightAssist = _flightAssist };
+        var fire = _settings.Pressed("fire");
+        if (_mode == ViewMode.Tactical)
+            return InputState.None with { Cruise = _cruise, FlightAssist = _flightAssist, Fire = fire };
         var throttle = (_settings.Pressed("forward") ? 1f : 0f) - (_settings.Pressed("reverse") ? 1f : 0f);
         var steer = (_settings.Pressed("yaw_left") ? 1f : 0f) - (_settings.Pressed("yaw_right") ? 1f : 0f);
         var pitch = (_settings.Pressed("pitch_up") ? 1f : 0f) - (_settings.Pressed("pitch_down") ? 1f : 0f);
@@ -130,45 +134,30 @@ public sealed partial class GameMain
         var roll = (_settings.Pressed("roll_left") ? 1f : 0f) - (_settings.Pressed("roll_right") ? 1f : 0f);
         var boost = _settings.Pressed("boost");
         var brake = _settings.Pressed("brake");
-        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist, _cruise);
+        return new InputState(throttle, steer, pitch, vertical, boost, brake, strafe, roll, _flightAssist, _cruise, fire);
     }
 
     private void OnWelcome(HelloAcceptedMessage welcome)
     {
+        var firstConnection = _playerShip is null;
+        _combatStatus = null;
+        _wreckTick = 0;
+        _tactical.Wrecks = System.Array.Empty<WreckContact>();
+        _combatEffects.SetWrecks(_tactical.Wrecks);
+        UpdateCombatVisibility(false);
+        _hud.SetCombat(null, null, null, 0, false, _settings.Keys["combat_recover"].ToString());
         _sensorContacts.Clear(); _sensorTick = 0;
         _playerId = welcome.PlayerId;
         _scanRange = welcome.ScanRange;
         _serverTickSeconds = 1.0 / welcome.TickRate;
+        _serverTick = welcome.ServerTick;
 
         if (_catalog.Seed != welcome.WorldSeed || _catalog.SystemIndex != welcome.SystemIndex)
             RebuildStaticWorld(welcome.WorldSeed,welcome.SystemIndex);
 
         var createShip = _playerShip is null || _playerShip.Id != welcome.PlayerId || _playerShip.Hull.Id != welcome.HullId;
         if (createShip)
-        {
-            _routePoints.Clear(); _confirmedRoute.Clear();
-            _routeRevision=0; _confirmedRevision=0; _routeIndex=0; _routeEnabled=false;
-            if (_playerShip is not null)
-                _playerShip.QueueFree();
-
-            if (_remoteShips.Remove(welcome.PlayerId, out var staleView))
-                staleView.QueueFree();
-
-            _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality, welcome.HullId);
-            _playerShip.ImpactOccurred += impact =>
-            {
-                _impactShake=Mathf.Max(_impactShake,Mathf.Clamp(Mathf.Log(1+impact.NormalSpeed)/4.6f,0,1));
-                _hud.ShowImpact(impact.NormalSpeed);
-            };
-            _playerShip.SetEngineEffects(_settings.EngineEffects);
-            _playerShip.SetParticles(_settings.Particles);
-            _dynamicRoot.AddChild(_playerShip);
-            _cockpit = new CockpitView(_playerShip.PilotEye, _playerShip.Hull.Class) { Visible = false };
-            _playerShip.AddChild(_cockpit);
-            _cockpit.Visible = _mode == ViewMode.Cockpit;
-            _playerShip.SetExternalModelVisible(_mode != ViewMode.Cockpit);
-            _cameraSnap = true;
-        }
+            ReplacePlayerView(welcome.PlayerId, welcome.PlayerName, welcome.HullId);
 
         _playerShip!.DisplayName = welcome.PlayerName;
         _playerShip.Track.Reset(welcome.Spawn, welcome.SpawnYaw, 0);
@@ -183,8 +172,31 @@ public sealed partial class GameMain
         GD.Print($"Connected as ship #{welcome.PlayerId} '{welcome.PlayerName}'.");
 
         SetMode(_mode);
-        if (_hasRequestedInitialView)
+        if (firstConnection && _hasRequestedInitialView)
             SetMode(_requestedInitialView);
+    }
+
+    private void ReplacePlayerView(uint id, string name, ushort hullId)
+    {
+        _routePoints.Clear(); _confirmedRoute.Clear();
+        _routeRevision = 0; _confirmedRevision = 0; _routeIndex = 0; _routeEnabled = false;
+        _playerShip?.QueueFree();
+        if (_remoteShips.Remove(id, out var staleView))
+            staleView.QueueFree();
+
+        _playerShip = new ShipView(id, true, name, _highQuality, hullId);
+        _playerShip.ImpactOccurred += impact =>
+        {
+            _impactShake = Mathf.Max(_impactShake, Mathf.Clamp(Mathf.Log(1 + impact.NormalSpeed) / 4.6f, 0, 1));
+            _hud.ShowImpact(impact.NormalSpeed);
+        };
+        _playerShip.SetEngineEffects(_settings.EngineEffects);
+        _playerShip.SetParticles(_settings.Particles);
+        _dynamicRoot.AddChild(_playerShip);
+        _cockpit = new CockpitView(_playerShip.PilotEye, _playerShip.Hull.Class);
+        _playerShip.AddChild(_cockpit);
+        UpdateCombatVisibility(_combatStatus?.Destroyed == true);
+        _cameraSnap = true;
     }
 
     private void OnJoinRejected(HelloRejectedMessage rejected)
@@ -195,7 +207,7 @@ public sealed partial class GameMain
 
     private void OnSnapshot(SnapshotMessage snapshot)
     {
-        if (_playerShip is null)
+        if (_playerShip is null || snapshot.Tick < _serverTick)
             return;
 
         _serverTick = snapshot.Tick;
@@ -205,7 +217,9 @@ public sealed partial class GameMain
         {
             if (entity.Id == _playerId)
             {
-                if (_playerShip.Track.Push(entity, now, snapshot.ServerTimeMs) && _cruise &&
+                if (_playerShip.Hull.Id != entity.HullId)
+                    ReplacePlayerView(entity.Id, entity.Name, entity.HullId);
+                if (_playerShip!.Track.Push(entity, now, snapshot.ServerTimeMs) && _cruise &&
                     (_playerShip.Track.CruiseInhibited || _playerShip.Track.CruiseBraking))
                 {
                     _cruise = false;

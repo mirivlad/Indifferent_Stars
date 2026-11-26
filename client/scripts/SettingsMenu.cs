@@ -97,6 +97,8 @@ public sealed partial class SettingsMenu : CanvasLayer
         AddToggle(graphics, "shadows", _settings.Shadows, value => _settings.Shadows = value);
         AddToggle(graphics, "engine_effects", _settings.EngineEffects, value => _settings.EngineEffects = value);
         AddToggle(graphics, "particles", _settings.Particles, value => _settings.Particles = value);
+        AddSlider(graphics, "combat_effects", 0, 1, .10, _settings.CombatEffects, value => _settings.CombatEffects = (float)value);
+        AddSlider(graphics, "combat_shake", 0, 1, .10, _settings.CombatShake, value => _settings.CombatShake = (float)value);
         AddChoices(graphics, "sky_detail", new[] { Locale.Text("low"), Locale.Text("medium"), Locale.Text("high") }, _settings.SkyDetail, index => _settings.SkyDetail = index);
         var sound = Tab(tabs, "sound");
         AddSlider(sound, "master", 0, 1, 0.05, _settings.MasterVolume, value => _settings.MasterVolume = (float)value);

@@ -11,7 +11,8 @@ public sealed record SavedPlayer(ShipState Ship, double CapturedAt, int StationI
 public sealed record SavedSimulation(
     ulong Tick, double TimeSeconds, uint NextPlayerId, ShipState[] Npcs,
     Dictionary<int, Dictionary<ushort, int>> StationStocks, Dictionary<int, int> Deposits,
-    int[] Surveyed, ulong ActivitySequence, WorldActivity[] RecentActivities);
+    int[] Surveyed, ulong ActivitySequence, WorldActivity[] RecentActivities,
+    ulong CombatSequence = 0, FlightProjectile[]? Projectiles = null, WorldWreck[]? Wrecks = null);
 
 public sealed partial class GameWorld
 {
@@ -19,7 +20,8 @@ public sealed partial class GameWorld
 
     public SavedSimulation CaptureSimulation() => new(
         TickCount, TimeSeconds, _nextPlayerId, _npcs.ToArray(), _stationStocks,
-        _deposits, SurveyedObjects.Order().ToArray(), _activitySequence, _activityHistory.ToArray());
+        _deposits, SurveyedObjects.Order().ToArray(), _activitySequence, _activityHistory.ToArray(),
+        _combatSequence, _projectiles.ToArray(), _wrecks.ToArray());
 
     public SavedPlayer CapturePlayer(uint id)
     {
@@ -53,6 +55,12 @@ public sealed partial class GameWorld
         _activities.Clear();
         _activityHistory.Clear();
         foreach (var activity in state.RecentActivities.TakeLast(128)) _activityHistory.Enqueue(activity);
+        _combatSequence = state.CombatSequence;
+        _combatEvents.Clear();
+        _projectiles.Clear();
+        if (state.Projectiles is { } projectiles) _projectiles.AddRange(projectiles);
+        _wrecks.Clear();
+        if (state.Wrecks is { } wrecks) _wrecks.AddRange(wrecks);
     }
 
     public ShipState RestorePlayer(SavedPlayer saved)
@@ -63,6 +71,8 @@ public sealed partial class GameWorld
         var pausedFor = Math.Max(0, TimeSeconds - saved.CapturedAt);
         if (ship.InWarp) ship.WarpStartedAt += pausedFor;
         ship.ImpactAt += pausedFor;
+        ship.Combat.TargetId = 0;
+        ship.Combat.Order = IndifferentStars.Shared.Protocol.CombatOrder.None;
 
         // Offline ships do not reserve a berth. An occupied berth remains reserved
         // by its current ship; the captain resumes outside it before trading.

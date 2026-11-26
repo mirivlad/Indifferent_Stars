@@ -35,6 +35,7 @@ public sealed record HullDefinition
     public required string[] Hardpoints { get; init; }
     public required string PilotEye { get; init; }
     public string? DockMount { get; init; }
+    public WeaponKind[] DefaultWeapons { get; init; } = [];
     public NpcOccupation? WorkerRole { get; init; }
     public StationPurpose? StationPurpose { get; init; }
     public double Radius => Surface.Radius * Scale;
@@ -60,7 +61,8 @@ public static class HullCatalog
         var data = bytes.ToArray();
         var hulls = JsonSerializer.Deserialize<HullDefinition[]>(data, new JsonSerializerOptions
         {
-            Converters = { new JsonStringEnumConverter<StationPurpose>(), new JsonStringEnumConverter<NpcOccupation>() },
+            Converters = { new JsonStringEnumConverter<StationPurpose>(), new JsonStringEnumConverter<NpcOccupation>(),
+                new JsonStringEnumConverter<WeaponKind>() },
         }) ?? throw new InvalidDataException("Missing ship hull definitions.");
 
         foreach (var hull in hulls)
@@ -71,7 +73,8 @@ public static class HullCatalog
                 hull.TurnFactor <= 0 || hull.BrakeThrust <= 0 || hull.MaxSpeed <= 0 || hull.BoostSpeed < hull.MaxSpeed ||
                 hull.CargoCapacity <= 0 || hull.NpcLoad <= 0 || hull.NpcLoad > hull.CargoCapacity ||
                 hull.ReactorOutput <= 0 || hull.HullIntegrity <= 0 || hull.ScanRange <= 0 || hull.TacticalRange < hull.ScanRange ||
-                hull.MainNozzles < 1 || hull.ManeuverNozzles < 0)
+                hull.MainNozzles < 1 || hull.ManeuverNozzles < 0 || hull.DefaultWeapons.Length > CombatStatusMessage.MaxSlots ||
+                hull.DefaultWeapons.Any(kind => kind == WeaponKind.None || !Enum.IsDefined(kind)))
                 throw new InvalidDataException($"Invalid ship hull '{hull.Key}'.");
             hull.Surface = hull.Model == "ship_player" ? SurfaceMesh.Ship : SurfaceMesh.Load(hull.Model);
         }

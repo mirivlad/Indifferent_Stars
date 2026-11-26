@@ -21,7 +21,13 @@ public sealed class ProtocolTests
                 7, "Captain Vega", new Vec3d(10, 20, -30), 1.2f, 20261101,
                 "Vesper — Kestrel Reach", 4200, 21000, 720, 42, 20),
             new HelloRejectedMessage("Protocol mismatch: client v0, server v1."),
-            new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true, true),
+            new InputMessage(1234, 127, -127, 64, -32, true, false, 50, -60, true, true, true),
+            new CombatCommandMessage(33, CombatCommand.Attack, 10001),
+            new CombatReplyMessage(33, true, CombatCommand.Attack, 10001),
+            new CombatEventMessage(77, 10000, 10001, CombatEventKind.ShieldHit, WeaponKind.Cannon, Vec3d.Zero, Vec3d.Up),
+            new CombatStatusMessage(10001, CombatOrder.Attack, 0, .8f, .95f, 1, 1, 1, 1, 1, false, 0,
+                new[] { new WeaponStatus(WeaponKind.Cannon, 9, 40, .55f) }),
+            new WreckContactsMessage(55, new[] { new WreckContact(12, Vec3d.Up) }),
             new SnapshotMessage(100, 5000, new[]
             {
                 new EntitySnapshot(7, EntityKind.Player, "Captain Vega", new Vec3d(1.5, 2.5, 3.5), 0.5f, -0.2f, new Vec3d(10, 0, -4), 127, System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, -0.2f, 0.7f), 5000, false, false, true, true, true, new Vec3d(30_000, 260, 0), true, true, WarpStage.Travel, 0.3f, new Vec3d(1000000, 100000, 0), new ImpactState(17,new Vec3d(1,2,3),Vec3d.Up,120,34)),
@@ -86,6 +92,16 @@ public sealed class ProtocolTests
             Assert.Equal(trade.Message, decodedTrade.Message);
             Assert.Equal(trade.RussianMessage, decodedTrade.RussianMessage);
             AssertMarketState(trade.State, decodedTrade.State);
+        }
+        else if (original is CombatStatusMessage combat && decoded is CombatStatusMessage decodedCombat)
+        {
+            Assert.Equal(combat.Slots, decodedCombat.Slots);
+            Assert.Equal(combat, decodedCombat with { Slots = combat.Slots });
+        }
+        else if (original is WreckContactsMessage wrecks && decoded is WreckContactsMessage decodedWrecks)
+        {
+            Assert.Equal(wrecks.Tick, decodedWrecks.Tick);
+            Assert.Equal(wrecks.Contacts, decodedWrecks.Contacts);
         }
         else
         {

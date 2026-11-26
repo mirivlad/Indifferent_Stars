@@ -15,7 +15,7 @@ public sealed partial class GameWorld
         if (!NavigationLimits.ValidDistance(request.Altitude) || request.Altitude < minimum)
             return new(request.RequestId, request.TargetId, OrbitError.UnsafeAltitude, minimum);
         var ship = GetPlayer(playerId);
-        if (ship is null || ship.Docked || ship.InWarp)
+        if (ship is null || ship.Combat.Destroyed || ship.Docked || ship.InWarp)
             return new(request.RequestId, request.TargetId, OrbitError.Unavailable, minimum);
         var center = Catalog.CelestialOffset(body);
         var radial = ship.Position - center;

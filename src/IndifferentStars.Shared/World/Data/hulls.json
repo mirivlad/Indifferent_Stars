@@ -25,7 +25,8 @@
     "EquipmentSlots": ["Engine", "Reactor", "Sensor", "Shield", "Cargo", "Utility"],
     "Hardpoints": [],
     "PilotEye": "PilotEye",
-    "DockMount": null
+    "DockMount": null,
+    "DefaultWeapons": ["PulseLaser"]
   },
   {
     "Id": 2,
@@ -55,7 +56,8 @@
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
     "StationPurpose": "Freight",
-    "WorkerRole": "Courier"
+    "WorkerRole": "Courier",
+    "DefaultWeapons": ["Turret"]
   },
   {
     "Id": 3,
@@ -84,7 +86,8 @@
     "Hardpoints": ["EquipmentMount_head_1", "EquipmentMount_head_3"],
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
-    "WorkerRole": "Miner"
+    "WorkerRole": "Miner",
+    "DefaultWeapons": ["PulseLaser"]
   },
   {
     "Id": 4,
@@ -113,7 +116,8 @@
     "Hardpoints": ["EquipmentMount_array"],
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
-    "WorkerRole": "Surveyor"
+    "WorkerRole": "Surveyor",
+    "DefaultWeapons": ["PulseLaser"]
   },
   {
     "Id": 5,
@@ -143,7 +147,8 @@
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
     "WorkerRole": "Courier",
-    "StationPurpose": "Freight"
+    "StationPurpose": "Freight",
+    "DefaultWeapons": ["Turret"]
   },
   {
     "Id": 6,
@@ -171,7 +176,8 @@
     "EquipmentSlots": ["Engine", "Reactor", "Sensor", "Shield", "Defence", "Defence"],
     "Hardpoints": ["EquipmentMount_1", "EquipmentMount_3"],
     "PilotEye": "PilotEye",
-    "DockMount": "DockMount"
+    "DockMount": "DockMount",
+    "DefaultWeapons": ["Cannon", "Missile"]
   },
   {
     "Id": 7,
@@ -200,7 +206,8 @@
     "Hardpoints": ["EquipmentMount_escort_1", "EquipmentMount_escort_3"],
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
-    "WorkerRole": "Patrol"
+    "WorkerRole": "Patrol",
+    "DefaultWeapons": ["PulseLaser", "Turret", "Missile"]
   },
   {
     "Id": 8,
@@ -228,7 +235,8 @@
     "EquipmentSlots": ["Engine", "Reactor", "Sensor", "Shield", "Cargo", "Defence", "Defence"],
     "Hardpoints": ["EquipmentMount_salvage", "EquipmentMount_raid"],
     "PilotEye": "PilotEye",
-    "DockMount": "DockMount"
+    "DockMount": "DockMount",
+    "DefaultWeapons": ["Cannon", "PulseLaser"]
   },
   {
     "Id": 9,
@@ -256,7 +264,8 @@
     "EquipmentSlots": ["Engine", "Engine", "Reactor", "Sensor", "Shield", "Shield", "Cargo", "Defence", "Defence", "Defence", "Defence"],
     "Hardpoints": ["EquipmentMount_main_1", "EquipmentMount_main_3", "EquipmentMount_quarter_1", "EquipmentMount_quarter_3"],
     "PilotEye": "PilotEye",
-    "DockMount": "DockMount"
+    "DockMount": "DockMount",
+    "DefaultWeapons": ["BeamLaser", "Cannon", "Missile", "Turret"]
   },
   {
     "Id": 10,
@@ -286,7 +295,8 @@
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
     "WorkerRole": "Courier",
-    "StationPurpose": "Trade"
+    "StationPurpose": "Trade",
+    "DefaultWeapons": ["PulseLaser"]
   },
   {
     "Id": 11,
@@ -316,7 +326,8 @@
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
     "WorkerRole": "Courier",
-    "StationPurpose": "Freight"
+    "StationPurpose": "Freight",
+    "DefaultWeapons": ["Turret"]
   },
   {
     "Id": 12,
@@ -346,7 +357,8 @@
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
     "WorkerRole": "Courier",
-    "StationPurpose": "Freight"
+    "StationPurpose": "Freight",
+    "DefaultWeapons": ["Turret"]
   },
   {
     "Id": 13,
@@ -375,7 +387,8 @@
     "Hardpoints": ["EquipmentMount_cutter"],
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
-    "WorkerRole": "Miner"
+    "WorkerRole": "Miner",
+    "DefaultWeapons": ["PulseLaser"]
   },
   {
     "Id": 14,
@@ -404,7 +417,8 @@
     "Hardpoints": ["EquipmentMount_interferometer"],
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
-    "WorkerRole": "Surveyor"
+    "WorkerRole": "Surveyor",
+    "DefaultWeapons": ["PulseLaser"]
   },
   {
     "Id": 15,
@@ -432,7 +446,8 @@
     "EquipmentSlots": ["Engine", "Reactor", "Sensor", "Shield", "Defence", "Defence"],
     "Hardpoints": ["EquipmentMount_forward_1", "EquipmentMount_forward_3"],
     "PilotEye": "PilotEye",
-    "DockMount": "DockMount"
+    "DockMount": "DockMount",
+    "DefaultWeapons": ["Cannon", "Missile"]
   },
   {
     "Id": 16,
@@ -461,7 +476,8 @@
     "Hardpoints": ["EquipmentMount_deck_1", "EquipmentMount_deck_3"],
     "PilotEye": "PilotEye",
     "DockMount": "DockMount",
-    "WorkerRole": "Patrol"
+    "WorkerRole": "Patrol",
+    "DefaultWeapons": ["PulseLaser", "Turret", "Missile"]
   },
   {
     "Id": 17,
@@ -489,6 +505,7 @@
     "EquipmentSlots": ["Engine", "Reactor", "Sensor", "Shield", "Cargo", "Defence", "Utility"],
     "Hardpoints": ["EquipmentMount_crescent", "EquipmentMount_salvage"],
     "PilotEye": "PilotEye",
-    "DockMount": "DockMount"
+    "DockMount": "DockMount",
+    "DefaultWeapons": ["Cannon", "PulseLaser"]
   }
 ]

@@ -33,6 +33,7 @@ public sealed partial class UdpGameServer : IDisposable
     private double _lastTickSeconds;
     private double _lastSnapshotSeconds;
     private double _lastSensorsSeconds;
+    private double _lastCombatSeconds;
     private double _lastMaintenanceSeconds;
     private double _lastStatsSeconds;
     private double _startedAtSeconds;
@@ -119,6 +120,7 @@ public sealed partial class UdpGameServer : IDisposable
                 _lastSensorsSeconds = now;
             }
             BroadcastActivities(now);
+            BroadcastCombat(now);
             if (_save is not null && now - _lastSaveSeconds >= 30)
                 SaveWorld();
 
@@ -200,9 +202,13 @@ public sealed partial class UdpGameServer : IDisposable
                     {
                         session.LastInputSequence = input.Sequence;
                         _world.ApplyInput(session.PlayerId, InputState.FromWire(
-                            input.Throttle, input.Steer, input.Pitch, input.Vertical, input.Boost, input.Brake, input.Strafe, input.Roll, input.FlightAssist, input.Cruise));
+                            input.Throttle, input.Steer, input.Pitch, input.Vertical, input.Boost, input.Brake, input.Strafe, input.Roll, input.FlightAssist, input.Cruise, input.Fire));
                     }
                 }
+                break;
+
+            case CombatCommandMessage command:
+                HandleCombat(endpoint, now, command);
                 break;
 
             case TransponderMessage transponder:

@@ -25,6 +25,8 @@ public sealed class ClientSettings
     public bool Shadows { get; set; }
     public bool EngineEffects { get; set; } = true;
     public bool Particles { get; set; } = true;
+    public float CombatEffects { get; set; } = 1;
+    public float CombatShake { get; set; } = 1;
     public int SkyDetail { get; set; } = 2;
     public float MasterVolume { get; set; } = 0.8f;
     public float MusicVolume { get; set; } = 0.5f;
@@ -42,6 +44,7 @@ public sealed class ClientSettings
         ["view_2d"] = Key.F1, ["view_3d"] = Key.F2, ["view_cockpit"] = Key.F3,
         ["quality"] = Key.F4, ["cursor"] = Key.Tab, ["scan"] = Key.F, ["warp"] = Key.X,
         ["approach"] = Key.G, ["dock"] = Key.H, ["map_system"] = Key.M, ["map_ship"] = Key.Home,
+        ["fire"] = Key.J, ["combat_attack"] = Key.B, ["combat_weapon"] = Key.N, ["combat_recover"] = Key.U, ["combat_repair"] = Key.K,
         ["menu"] = Key.Escape,
     };
 
@@ -69,6 +72,8 @@ public sealed class ClientSettings
         settings.Shadows = file.GetValue("graphics", "shadows", false).AsBool();
         settings.EngineEffects = file.GetValue("graphics", "engine_effects", true).AsBool();
         settings.Particles = file.GetValue("graphics", "particles", true).AsBool();
+        settings.CombatEffects = Math.Clamp(file.GetValue("graphics", "combat_effects", 1f).AsSingle(), 0, 1);
+        settings.CombatShake = Math.Clamp(file.GetValue("graphics", "combat_shake", 1f).AsSingle(), 0, 1);
         settings.SkyDetail = Math.Clamp(file.GetValue("graphics", "sky_detail", 2).AsInt32(), 0, 2);
         settings.MasterVolume = Math.Clamp(file.GetValue("audio", "master", 0.8f).AsSingle(), 0, 1);
         settings.MusicVolume = Math.Clamp(file.GetValue("audio", "music", 0.5f).AsSingle(), 0, 1);
@@ -102,6 +107,8 @@ public sealed class ClientSettings
         file.SetValue("graphics", "shadows", Shadows);
         file.SetValue("graphics", "engine_effects", EngineEffects);
         file.SetValue("graphics", "particles", Particles);
+        file.SetValue("graphics", "combat_effects", CombatEffects);
+        file.SetValue("graphics", "combat_shake", CombatShake);
         file.SetValue("graphics", "sky_detail", SkyDetail);
         file.SetValue("audio", "master", MasterVolume);
         file.SetValue("audio", "music", MusicVolume);

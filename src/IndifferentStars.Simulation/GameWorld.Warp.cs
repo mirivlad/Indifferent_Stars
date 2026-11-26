@@ -18,7 +18,7 @@ public sealed partial class GameWorld
 
     private WarpOutcome WarpShip(ShipState? player,uint targetId,Vec3d? destination=null,bool fromRoute=false,double? surfaceDistance=null)
     {
-        if (player is null) return WarpFail(targetId, "unknown_ship");
+        if (player is null || player.Combat.Destroyed) return WarpFail(targetId, "unknown_ship");
         if (player.Docked) return WarpFail(targetId, "warp_undock");
         if (player.InWarp) return WarpFail(targetId, "warp_busy");
         if (destination is { } point && (targetId != 0 || !point.IsFinite))
@@ -81,6 +81,8 @@ public sealed partial class GameWorld
         var directionToArrival = (arrival - player.Position).Normalized();
         var (yaw, pitch) = FlightModel.AnglesForDirection(directionToArrival);
         if (!fromRoute) { player.RouteActive = false; player.CancelOrbit(); }
+        player.Combat.Order = CombatOrder.None;
+        player.Combat.TargetId = 0;
         player.WarpTargetId = targetId; player.WarpTargetMinimum = minimum;
         player.WarpStart = player.Position;
         player.WarpDestination = arrival;
@@ -114,7 +116,7 @@ public sealed partial class GameWorld
         }
         foreach (var other in _players.Values.Concat(_npcs))
         {
-            if (other.Id == player.Id || other.InWarp) continue;
+            if (other.Id == player.Id || other.Combat.Destroyed || other.InWarp) continue;
             var pose = WorldSurfaces.Ship(other, other.Position, other.Orientation);
             var gap = other.Id == targetId ? targetMinimum : clearance;
             if (Vec3d.Distance(position, other.Position) < pose.Radius + gap &&

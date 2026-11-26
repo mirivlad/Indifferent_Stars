@@ -30,11 +30,13 @@ public sealed partial class GameWorld
             if(TimeSeconds-ship.ImpactAt<.2 && speed<5)return;
             ship.ImpactAt=TimeSeconds;
             ship.Impact=new ImpactState(++ship.ImpactSequence,hit.Point,hit.Normal,(float)speed,(float)sliding);
+            if (speed > 18)
+                DealCombatDamage(ship, 0, WeaponKind.None, hit.Point, Math.Min(ship.Hull.HullIntegrity * .72, (speed - 18) * .36));
         }
         var staticStarted = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         foreach(var ship in ships)
         {
-            if(ship.Docked||warping.Contains(ship.Id))continue;
+            if(ship.Combat.Destroyed||ship.Docked||warping.Contains(ship.Id))continue;
             var before=starts[ship.Id];
             var from=WorldSurfaces.Ship(ship,before.Position,before.Orientation);
             var to=WorldSurfaces.Ship(ship,ship.Position,ship.Orientation);
@@ -78,7 +80,7 @@ public sealed partial class GameWorld
         for(var i=0;i<ships.Length;i++)for(var j=i+1;j<ships.Length;j++)
         {
             var a=ships[i];var b=ships[j];
-            if(a.Docked&&b.Docked||warping.Contains(a.Id)||warping.Contains(b.Id))continue;
+            if(a.Combat.Destroyed||b.Combat.Destroyed||a.Docked&&b.Docked||warping.Contains(a.Id)||warping.Contains(b.Id))continue;
             var sa=starts[a.Id];var sb=starts[b.Id];
             var started = MeasureTimings ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
             var impact=WorldSurfaces.ContactHit(WorldSurfaces.Ship(a,sa.Position,sa.Orientation),WorldSurfaces.Ship(a,a.Position,a.Orientation),

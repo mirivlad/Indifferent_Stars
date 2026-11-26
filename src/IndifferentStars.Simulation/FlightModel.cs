@@ -59,10 +59,11 @@ public static class FlightModel
         ship.Braking = input.Brake;
 
         var hull = ship.Hull;
+        var drive = ship.Combat.Engines;
         var rotation = Quaternion.CreateFromYawPitchRoll(
-            (float)(input.Steer * YawRate * hull.TurnFactor * dt),
-            (float)(input.Pitch * PitchRate * hull.TurnFactor * dt),
-            (float)(input.Roll * RollRate * hull.TurnFactor * dt));
+            (float)(input.Steer * YawRate * hull.TurnFactor * drive * dt),
+            (float)(input.Pitch * PitchRate * hull.TurnFactor * drive * dt),
+            (float)(input.Roll * RollRate * hull.TurnFactor * drive * dt));
         ship.Orientation = Quaternion.Normalize(ship.Orientation * rotation);
         var f = Vector3.Transform(-Vector3.UnitZ, ship.Orientation);
         var r = Vector3.Transform(Vector3.UnitX, ship.Orientation);
@@ -72,7 +73,7 @@ public static class FlightModel
         var up = new Vec3d(u.X, u.Y, u.Z);
 
         var throttle = ship.Throttle;
-        var acceleration = ship.Cruising ? CruiseAcceleration : hull.Thrust;
+        var acceleration = (ship.Cruising ? CruiseAcceleration : hull.Thrust) * drive;
         var primaryAccel = throttle >= 0
             ? throttle * acceleration * (ship.Boosting && !ship.Cruising ? 2.2 : 1.0)
             : throttle * acceleration * ReverseFactor;
@@ -95,11 +96,11 @@ public static class FlightModel
                 primaryAccel = 0;
                 previousSpeed = speed;
             }
-            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * hull.ManeuverThrust) +
-                right * (input.Strafe * hull.ManeuverThrust)) * dt;
+            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * hull.ManeuverThrust * drive) +
+                right * (input.Strafe * hull.ManeuverThrust * drive)) * dt;
             if (input.FlightAssist)
             {
-                var limit = hull.ManeuverThrust * dt;
+                var limit = hull.ManeuverThrust * drive * dt;
                 if (input.Strafe == 0)
                     ship.Velocity += right * Math.Clamp(-Vec3d.Dot(ship.Velocity, right), -limit, limit);
                 if (input.Vertical == 0)
