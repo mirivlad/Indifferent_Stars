@@ -324,6 +324,7 @@ public sealed partial class GameWorld
     {
         var state = ship.Combat;
         if (state.Destroyed || damage <= 0) return;
+        if (attacker != 0) ReportCombatDamage(ship, attacker);
         state.LastDamage = TimeSeconds;
         var shield = Math.Min(state.Shield, damage);
         state.Shield -= shield;
@@ -371,6 +372,16 @@ public sealed partial class GameWorld
             cargo[work.CommodityId] = cargo.GetValueOrDefault(work.CommodityId) + work.Cargo;
             work.Cargo = 0;
         }
+        if (ship.Work?.Security.Loot is { } loot)
+        {
+            foreach (var (commodity, quantity) in loot)
+                cargo[commodity] = cargo.GetValueOrDefault(commodity) + quantity;
+            loot.Clear();
+            ship.Work.Security.ReplacementAt = TimeSeconds + (ship.Work.Occupation == NpcOccupation.Raider ? 180 : 105) +
+                ship.Id % 15 * 4;
+        }
+        Activity(ship, "ship_destroyed", $"Ship lost at the reported coordinates: {ship.Name}.",
+            $"Корабль потерян в переданной точке. Позывной {ship.Name}.", true);
         _wrecks.Add(new WorldWreck(_combatSequence, ship.Name, ship.Position, TimeSeconds + 600, cargo));
     }
 

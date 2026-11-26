@@ -749,7 +749,9 @@ public sealed partial class GameMain : Node3D
         if (_playerShip is null || !_playerShip.Track.HasData)
             return;
 
-        var sector = _catalog.SectorAt(_playerShip.Track.WorldPosition);
+        var position = _playerShip.Track.WorldPosition;
+        _hud.SetSecurityZone(_catalog.SecurityAt(position));
+        var sector = _catalog.SectorAt(position);
         var outside = Vec3d.Distance(_playerShip.Track.WorldPosition, sector.Center) > sector.Radius;
         var id = outside ? "deep-space" : sector.Id;
         var name = outside ? Locale.Text("deep_space") : sector.Name;
@@ -786,12 +788,14 @@ public sealed partial class GameMain : Node3D
                 _tactical.TrafficRoutes.Add((sensor.Position,destination.Position));
         foreach (var contact in BuildContacts().Where(c => c.IsShip))
         {
-            var source = _sensorContacts.GetValueOrDefault(contact.Id)?.Source;
+            var sensor = _sensorContacts.GetValueOrDefault(contact.Id);
+            var source = sensor?.Source;
             _tactical.Contacts.Add(new TacticalContact
             {
                 Id = contact.Id, Name = contact.Name, Kind = contact.Type, Position = contact.Position, Source = source,
                 Color = source is ContactSource.LastKnown or ContactSource.Lost ? new Color(.4f,.45f,.5f) :
-                    source == ContactSource.DistantSignal ? new Color(.9f,.4f,.3f) : new Color(1,.7f,.3f),
+                    source == ContactSource.DistantSignal || sensor?.Standing == FactionStanding.Hostile ? new Color(.94f,.37f,.3f) :
+                    sensor?.Standing == FactionStanding.Friendly ? new Color(.31f,.79f,.92f) : new Color(1,.7f,.3f),
                 IsPlayer = false,
             });
         }

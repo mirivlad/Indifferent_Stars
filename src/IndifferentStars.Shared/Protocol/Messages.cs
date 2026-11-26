@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 25;
+    public const byte Version = 26;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -129,7 +129,7 @@ public sealed record InputMessage(
 
 public sealed record ImpactState(uint Sequence, Vec3d Point, Vec3d Normal, float NormalSpeed, float TangentialSpeed);
 
-public enum NpcOccupation : byte { Courier, Miner, Surveyor, Patrol }
+public enum NpcOccupation : byte { Courier, Miner, Surveyor, Patrol, Raider }
 public enum NpcPhase : byte { Waiting, Loading, Travelling, Docking, Working, Unloading, Disabled }
 public sealed record NpcStatus(NpcOccupation Occupation,NpcPhase Phase,uint TargetId);
 
@@ -246,7 +246,7 @@ public sealed record DockResultMessage(bool Undock, bool Accepted) : IProtocolMe
 }
 
 /// <summary>One row of the station market as seen by a specific player.</summary>
-public sealed record MarketEntry(ushort CommodityId, int StationStock, int PlayerQuantity)
+public sealed record MarketEntry(ushort CommodityId, int StationStock, int PlayerQuantity, int BuyPrice = 0, int SellPrice = 0)
 {
 }
 

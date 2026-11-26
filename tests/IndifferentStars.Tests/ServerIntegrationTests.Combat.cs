@@ -42,6 +42,10 @@ public sealed partial class ServerIntegrationTests
             Assert.NotNull(WaitFor<CombatEventMessage>(target, m => m.Kind == CombatEventKind.ShieldHit &&
                 m.SourceId == pilot.PlayerId && m.TargetId == victim.PlayerId, 12, Heartbeat));
             Assert.NotNull(WaitFor<CombatStatusMessage>(target, m => m.Shield < 1, 4, Heartbeat));
+            Assert.NotNull(WaitFor<SensorContactsMessage>(attacker, report => report.Contacts.Any(contact =>
+                contact.Faction == Faction.Security && contact.Standing == FactionStanding.Hostile), 5, Heartbeat));
+            Assert.NotNull(WaitFor<SensorContactsMessage>(target, report => report.Contacts.Any(contact =>
+                contact.Faction == Faction.Security && contact.Standing == FactionStanding.Neutral), 5, Heartbeat));
             var disengage = new CombatCommandMessage(2, CombatCommand.Stop);
             Send(attacker, disengage);
             var stopped = Assert.IsType<CombatReplyMessage>(WaitFor<CombatReplyMessage>(attacker, m => m.RequestId == 2));

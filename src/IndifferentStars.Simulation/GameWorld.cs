@@ -62,6 +62,7 @@ public sealed partial class GameWorld
             _stationStocks[station.Id]=CommodityCatalog.All.ToDictionary(c=>c.Id,c=>c.InitialStock);
         BuildCollisionRegions();
         SpawnWorkers();
+        SpawnRaiders();
     }
 
     public WorldCatalog Catalog { get; }
@@ -234,10 +235,11 @@ public sealed partial class GameWorld
         var held = account.Cargo.GetValueOrDefault(commodityId);
         var cargoUsed = CargoUsed(account);
         var name = commodity.Key;
+        var premium = StationPricePremium(account.StationId, commodity.Id);
 
         if (buy)
         {
-            var total = commodity.BuyPrice * quantity;
+            var total = (commodity.BuyPrice + premium) * quantity;
             if (total > account.Credits)
                 return TradeFail(player, account, "trade_no_credits", name);
             if (stock < quantity)
@@ -253,7 +255,7 @@ public sealed partial class GameWorld
 
         if (held < quantity)
             return TradeFail(player, account, "trade_no_cargo", name);
-        var revenue = commodity.SellPrice * quantity;
+        var revenue = (commodity.SellPrice + premium) * quantity;
         account.Credits += revenue;
         account.Cargo[commodityId] = held - quantity;
         stationStock[commodityId] = stock + quantity;
@@ -266,10 +268,11 @@ public sealed partial class GameWorld
         for (var i = 0; i < entries.Length; i++)
         {
             var commodity = CommodityCatalog.All[i];
+            var premium = StationPricePremium(account.StationId, commodity.Id);
             entries[i] = new MarketEntry(
                 commodity.Id,
                 _stationStocks[account.StationId].GetValueOrDefault(commodity.Id),
-                account.Cargo.GetValueOrDefault(commodity.Id));
+                account.Cargo.GetValueOrDefault(commodity.Id), commodity.BuyPrice + premium, commodity.SellPrice + premium);
         }
 
         return new MarketState(account.Credits, CargoUsed(account), capacity, entries);
@@ -315,6 +318,7 @@ public sealed partial class GameWorld
 
     public void Tick(double dt)
     {
+        StepReplacements();
         var warping = _players.Values.Concat(_npcs).Where(ship => ship.InWarp).Select(ship => ship.Id).ToHashSet();
         var starts = _players.Values.Concat(_npcs).ToDictionary(ship => ship.Id, ship => (ship.Position, ship.Orientation));
         foreach (var (id, ship) in _players)
@@ -391,7 +395,10 @@ public sealed partial class GameWorld
         }
 
         foreach (var npc in _npcs)
-            if (!npc.Combat.Destroyed) StepWorker(npc,dt,warping);
+        {
+            if (npc.Combat.Destroyed) continue;
+            if (npc.Docked || npc.InWarp || !StepWorkerSecurity(npc, dt, warping)) StepWorker(npc, dt, warping);
+        }
 
         var ships = _players.Values.Concat(_npcs).OrderBy(ship => ship.Id).ToArray();
         foreach (var ship in ships)
@@ -578,7 +585,8 @@ public sealed partial class GameWorld
         !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null,
         ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting,
         ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished, ship.DockingStationId,
-        ship.Work is { } work?new NpcStatus(work.Occupation,work.Phase,(uint)work.TargetId):null, ship.Hull.Id);
+        ship.Work is { } work ? new NpcStatus(work.Occupation, work.Phase, ship.TransponderEnabled ? (uint)work.TargetId : 0) : null,
+        ship.Hull.Id);
 
     private string DescribeVessel(ShipState npc, string language)
     {

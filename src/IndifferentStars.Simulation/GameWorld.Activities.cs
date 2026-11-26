@@ -24,7 +24,7 @@ public sealed partial class GameWorld
     private void Activity(ShipState ship,string kind,string english,string russian,bool system=false)
     {
         if(_activities.Count>=128)_activities.Dequeue();
-        var activity = new WorldActivity(++_activitySequence,ship.Id,ship.Name,ship.Position,ship.Work!.TargetId,kind,english,russian,system,TimeSeconds);
+        var activity = new WorldActivity(++_activitySequence,ship.Id,ship.Name,ship.Position,ship.Work?.TargetId ?? 0,kind,english,russian,system,TimeSeconds);
         _activities.Enqueue(activity);
         RecordActivity(activity);
     }
@@ -165,6 +165,9 @@ public sealed partial class GameWorld
             }
             if(work.Occupation==NpcOccupation.Courier)
             {
+                var destinations=Catalog.Stations.Where(s=>s.Id!=station.Id &&
+                    (work.Security.RouteAvoidanceUntil <= TimeSeconds || s.Purpose == StationPurpose.Trade)).ToArray();
+                if(destinations.Length==0){WaitOutside(ship,20);return;}
                 work.CommodityId=station.Purpose switch {StationPurpose.Mining=>(ushort)5,StationPurpose.Research=>(ushort)3,StationPurpose.Freight=>(ushort)2,_=>(ushort)6};
                 if(_stationStocks[station.Id][work.CommodityId]<=0)
                 {
@@ -174,7 +177,6 @@ public sealed partial class GameWorld
                 }
                 work.Cargo=Math.Min(ship.Hull.NpcLoad,_stationStocks[station.Id][work.CommodityId]);
                 _stationStocks[station.Id][work.CommodityId]-=work.Cargo;
-                var destinations=Catalog.Stations.Where(s=>s.Id!=station.Id).ToArray();
                 var random=new SeedStream(Catalog.Seed,(int)ship.Id,$"cargo-{Catalog.SystemIndex}-{work.Deliveries}");var destination=destinations[random.Range(0,destinations.Length)];
                 Journey(ship,destination.Id,HoldingPoint(ship,destination));
             }

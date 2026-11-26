@@ -54,7 +54,8 @@ public sealed partial class GameWorld
             history[target.Id] = new(target.Id, anonymous ? "?" : target.Name, position,
                 anonymous ? Vec3d.Zero : target.Velocity, source, now, target.TransponderEnabled,
                 target.TransponderEnabled ? (uint)(target.Work?.TargetId ?? 0) : 0,
-                anonymous ? 0 : target.IsPlayer ? EntityKind.Player : EntityKind.Npc);
+                anonymous ? 0 : target.IsPlayer ? EntityKind.Player : EntityKind.Npc,
+                anonymous ? null : Affiliation(target), anonymous ? FactionStanding.Neutral : Standing(viewer, target));
         }
         foreach (var (id, contact) in history.ToArray())
         {

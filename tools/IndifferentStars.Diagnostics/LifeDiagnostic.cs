@@ -8,12 +8,15 @@ public static class LifeDiagnostic
 {
     public static void Run(string[] args)
     {
-        var ticks=args.Length>1?Math.Clamp(int.Parse(args[1]),1,20000):1000;
+        var ticks=args.Length>1?Math.Clamp(int.Parse(args[1]),1,72000):1000;
         var seed=args.Length>2?int.Parse(args[2]):20261101;
         var system=args.Length>3?int.Parse(args[3]):0;
         var world=new GameWorld(WorldCatalog.Generate(seed,system)) {MeasureTimings=true};
         var times = new double[ticks];
         var near=new List<int>();var departures=0;var arrivals=0;var extraction=0;
+        var minimumPopulation = world.Npcs.Count;
+        var activityKinds = new Dictionary<string, int>();
+        var combatEvents = new Dictionary<string, int>();
         var slowTicks = new List<SlowTick>();
         long allocated = 0;
         var initialCollections = Enumerable.Range(0, GC.MaxGeneration + 1).Select(GC.CollectionCount).ToArray();
@@ -37,9 +40,20 @@ public static class LifeDiagnostic
                         Describe(sweep.A), Describe(sweep.B))));
             }
             near.Add(world.Npcs.Count(n=>!n.InWarp&&Vec3d.Distance(n.Position,world.Catalog.Station.Position)<150000));
+            minimumPopulation = Math.Min(minimumPopulation, world.Npcs.Count(npc => !npc.Combat.Destroyed));
             if (i%2000==1999) Console.Error.WriteLine($"life progress: tick={i+1}, time={world.TimeSeconds:F0}s, deliveries={world.Npcs.Sum(n=>n.Work!.Deliveries)}");
             while(world.TryTakeActivity(out var activity))
-            {if(activity.Kind=="departure")departures++;if(activity.Kind=="arrival")arrivals++;if(activity.Kind=="extraction")extraction++;}
+            {
+                activityKinds[activity.Kind] = activityKinds.GetValueOrDefault(activity.Kind) + 1;
+                if(activity.Kind=="departure")departures++;
+                if(activity.Kind=="arrival")arrivals++;
+                if(activity.Kind=="extraction")extraction++;
+            }
+            while (world.TryTakeCombatEvent(out var combat))
+            {
+                var kind = combat.Kind.ToString();
+                combatEvents[kind] = combatEvents.GetValueOrDefault(kind) + 1;
+            }
         }
         var state = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(world.BuildSnapshot())));
         Array.Sort(times);
@@ -55,6 +69,12 @@ public static class LifeDiagnostic
             collision_ms_per_tick=world.CollisionMilliseconds/ticks,
             static_ms_per_tick=world.StaticCollisionMilliseconds/ticks,dynamic_ms_per_tick=world.DynamicCollisionMilliseconds/ticks,near_mean=near.Average(),near_max=near.Max(),
             departures,arrivals,extraction,deliveries=world.Npcs.Sum(n=>n.Work!.Deliveries),
+            activityKinds, combatEvents, minimumPopulation, wrecks = world.Wrecks.Count,
+            factionPopulation = world.Npcs.GroupBy(GameWorld.Affiliation).Select(group => new
+            {
+                faction = group.Key.ToString(), live = group.Count(ship => !ship.Combat.Destroyed),
+                replacements = group.Sum(ship => ship.Work!.Security.Replacements),
+            }),
             hull_activity=world.Npcs.GroupBy(ship=>ship.Hull.Key).Select(g=>new {hull=g.Key,ships=g.Count(),
                 jobs=g.Sum(ship=>ship.Work!.CompletedJobs),deliveries=g.Sum(ship=>ship.Work!.Deliveries)}),
             body_hotspots=world.CollisionBodyHotspots.OrderByDescending(p=>p.Value).Take(4).Select(p=>new {p.Key,ms=p.Value/ticks,kind=world.Catalog.Find(p.Key)?.Kind.ToString()}),

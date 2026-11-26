@@ -231,5 +231,19 @@
   "combat_low_energy": "low energy",
   "combat_out_of_range": "Target out of weapon range",
   "combat_align": "Turn toward the target",
-  "combat_aimed": "Target in firing arc"
+  "combat_aimed": "Target in firing arc",
+  "npc_job_raider": "Raider",
+  "security_trade": "Patrolled trade area",
+  "security_industry": "Industrial area",
+  "security_corridor": "Transit corridor",
+  "security_frontier": "Frontier",
+  "security_pirate": "Pirate territory",
+  "security_uninhabited": "Uninhabited space",
+  "faction_civilian": "Civilian organization",
+  "faction_security": "Security patrol",
+  "faction_independent": "Independent pilot",
+  "faction_pirate": "Pirate organization",
+  "standing_hostile": "Hostile",
+  "standing_neutral": "Neutral",
+  "standing_friendly": "Friendly"
 }

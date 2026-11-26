@@ -17,7 +17,7 @@ public sealed class NpcRoute
 public sealed class ShipState
 {
     public required uint Id { get; init; }
-    public required string Name { get; init; }
+    public required string Name { get; set; }
     public bool IsPlayer { get; init; }
     public bool TransponderEnabled { get; set; } = true;
     public string Role { get; init; } = "Courier";

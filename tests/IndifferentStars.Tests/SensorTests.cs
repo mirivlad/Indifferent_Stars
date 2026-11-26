@@ -68,7 +68,8 @@ public sealed class SensorTests
     public void SensorPacketsAreBoundedValidatedAndRoundTrip()
     {
         var contacts = Enumerable.Range(1,8).Select(i => new SensorContact((uint)i,new string('X',48),
-            new Vec3d(1e12, 2, 3),Vec3d.Zero,ContactSource.Transponder,100,true,3)).ToArray();
+            new Vec3d(1e12, 2, 3),Vec3d.Zero,ContactSource.Transponder,100,true,3,
+            Faction: Faction.Civilian, Standing: FactionStanding.Friendly)).ToArray();
         var packet = ProtocolCodec.Encode(new SensorContactsMessage(4, contacts));
         Assert.True(packet.Length <= ProtocolConstants.MaxPacketSize);
         Assert.True(ProtocolCodec.TryDecode(packet,out var decoded,out _));
@@ -76,6 +77,8 @@ public sealed class SensorTests
         Assert.False(ProtocolCodec.TryDecode(packet[..^1],out _,out _));
         var invalid = ProtocolCodec.Encode(new SensorContactsMessage(1,new[]{contacts[0] with {Source=(ContactSource)255}}));
         Assert.False(ProtocolCodec.TryDecode(invalid,out _,out _));
+        var invalidFaction = ProtocolCodec.Encode(new SensorContactsMessage(1, new[] { contacts[0] with { Faction = (Faction)254 } }));
+        Assert.False(ProtocolCodec.TryDecode(invalidFaction, out _, out _));
         Assert.Throws<ArgumentException>(() => ProtocolCodec.Encode(new SensorContactsMessage(1, contacts.Concat(contacts).ToArray())));
     }
 }

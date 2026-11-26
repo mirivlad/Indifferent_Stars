@@ -147,6 +147,8 @@ public static class ProtocolCodec
                     WriteVec3(writer, contact.Position); WriteVec3(writer, contact.Velocity);
                     writer.Write((byte)contact.Source); writer.Write(contact.ObservedAtMs);
                     writer.Write(contact.Transponder); writer.Write(contact.DestinationId); writer.Write((byte)contact.Kind);
+                    writer.Write(contact.Faction is { } faction ? (byte)faction : byte.MaxValue);
+                    writer.Write((sbyte)contact.Standing);
                 }
                 break;
             case SnapshotMessage snapshot:
@@ -534,7 +536,12 @@ public static class ProtocolCodec
             var observed = reader.ReadUInt64(); var transponder = reader.ReadBoolean(); var destination = reader.ReadUInt32();
             var kind = (EntityKind)reader.ReadByte();
             if (kind != 0 && !Enum.IsDefined(kind)) throw new InvalidDataException("Invalid contact kind.");
-            contacts[i] = new(id, name, position, velocity, source, observed, transponder, destination, kind);
+            var factionCode = reader.ReadByte();
+            Faction? faction = factionCode == byte.MaxValue ? null : (Faction)factionCode;
+            var standing = (FactionStanding)reader.ReadSByte();
+            if (faction is { } known && !Enum.IsDefined(known) || !Enum.IsDefined(standing))
+                throw new InvalidDataException("Invalid contact affiliation.");
+            contacts[i] = new(id, name, position, velocity, source, observed, transponder, destination, kind, faction, standing);
         }
         return new(tick, contacts);
     }
@@ -752,6 +759,8 @@ public static class ProtocolCodec
             writer.Write(entry.CommodityId);
             writer.Write(entry.StationStock);
             writer.Write(entry.PlayerQuantity);
+            writer.Write(entry.BuyPrice);
+            writer.Write(entry.SellPrice);
         }
     }
 
@@ -772,9 +781,11 @@ public static class ProtocolCodec
             var id = reader.ReadUInt16();
             var stock = reader.ReadInt32();
             var quantity = reader.ReadInt32();
-            if (stock < 0 || quantity < 0)
+            var buy = reader.ReadInt32();
+            var sell = reader.ReadInt32();
+            if (stock < 0 || quantity < 0 || buy < 0 || sell < 0)
                 throw new InvalidDataException("Negative market quantity.");
-            entries[i] = new MarketEntry(id, stock, quantity);
+            entries[i] = new MarketEntry(id, stock, quantity, buy, sell);
         }
 
         return new MarketState(credits, cargoUsed, capacity, entries);

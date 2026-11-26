@@ -13,7 +13,7 @@ public sealed class NpcActivityTests
         Assert.Equal(a.Npcs.Select(n=>n.Name),b.Npcs.Select(n=>n.Name));
         Assert.Equal(a.Npcs.Select(n=>n.Position),b.Npcs.Select(n=>n.Position));
         Assert.Equal(a.Npcs.Count,a.Npcs.Select(n=>n.Name).Distinct().Count());
-        Assert.Equal(4,a.Npcs.Select(n=>n.Work!.Occupation).Distinct().Count());
+        Assert.Equal(Enum.GetValues<NpcOccupation>().Order(), a.Npcs.Select(npc => npc.Work!.Occupation).Distinct().Order());
         Assert.Equal(a.Catalog.Stations.Count,a.Npcs.Select(n=>n.Work!.HomeStationId).Distinct().Count());
         Assert.True(a.Npcs.Count>=8);
         for(var i=0;i<100;i++){a.Tick(.05);b.Tick(.05);}
@@ -27,10 +27,12 @@ public sealed class NpcActivityTests
         {
             var catalog=WorldCatalog.Generate(20261101,system); levels.Add(catalog.ActivityLevel);
             var world=new GameWorld(catalog);
+            var workers = world.Npcs.Where(npc => npc.Work!.Occupation != NpcOccupation.Raider).ToArray();
             foreach (var station in catalog.Stations)
-                Assert.Equal(catalog.WorkerCount(station),world.Npcs.Count(n=>n.Work!.HomeStationId==station.Id));
+                Assert.Equal(catalog.WorkerCount(station),workers.Count(n=>n.Work!.HomeStationId==station.Id));
             Assert.True(catalog.WorkerCount(catalog.Station)>catalog.WorkerCount(catalog.Stations.First(s=>s.Purpose==StationPurpose.Research)));
-            Assert.All(world.Npcs,n=>Assert.Contains(catalog.Stations,s=>Vec3d.Distance(s.Position,n.Position)<10_000));
+            Assert.All(workers,n=>Assert.Contains(catalog.Stations,s=>Vec3d.Distance(s.Position,n.Position)<10_000));
+            Assert.Equal(2 * catalog.RaiderTerritories.Length, world.Npcs.Count - workers.Length);
         }
         Assert.Equal(3,levels.Count);
     }

@@ -189,8 +189,12 @@ public sealed partial class GameMain
                 (_catalog.Find((int)status.TargetId)?.Name??_catalog.FindCelestial((int)status.TargetId)?.Name??"")+"\n":"")+
             (_sensorContacts.TryGetValue(_targetId,out var sensor) ?
                 SensorSource(sensor.Source)+" · "+Math.Max(0, _serverTick * _serverTickSeconds - sensor.ObservedAtMs/1000.0).ToString("F1")+" s\n"+
+                (sensor.Faction is { } faction ? Locale.Text("faction_"+faction.ToString().ToLowerInvariant())+" · "+
+                    Locale.Text("standing_"+sensor.Standing.ToString().ToLowerInvariant())+"\n" : "")+
                 (sensor.Kind==0 ? Locale.Text("sensor_velocity_unknown") : Locale.Text("sensor_velocity")+": "+NavigationPanel.Distance(sensor.Velocity.Length)+"/s · "+sensor.Velocity.Normalized())+"\n"+
                 (_catalog.Find((int)sensor.DestinationId)?.Name??"")+"\n" : "")+
+            (_catalog.Find((int)_targetId) is { Kind: BodyKind.Station } station ?
+                Locale.Text("security_"+_catalog.SecurityAt(station.Position).ToString().ToLowerInvariant())+"\n" : "")+
             Locale.Text("information_sensors"));
     }
 }

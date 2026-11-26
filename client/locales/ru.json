@@ -231,5 +231,19 @@
   "combat_low_energy": "мало энергии",
   "combat_out_of_range": "Цель вне дальности оружия",
   "combat_align": "Доверните на цель",
-  "combat_aimed": "Цель в секторе огня"
+  "combat_aimed": "Цель в секторе огня",
+  "npc_job_raider": "Рейдер",
+  "security_trade": "Охраняемый торговый район",
+  "security_industry": "Промышленный район",
+  "security_corridor": "Транспортный коридор",
+  "security_frontier": "Пограничная область",
+  "security_pirate": "Пиратская территория",
+  "security_uninhabited": "Необитаемый космос",
+  "faction_civilian": "Гражданская организация",
+  "faction_security": "Силы безопасности",
+  "faction_independent": "Независимый пилот",
+  "faction_pirate": "Пиратская организация",
+  "standing_hostile": "Враждебное отношение",
+  "standing_neutral": "Нейтральное отношение",
+  "standing_friendly": "Дружественное отношение"
 }

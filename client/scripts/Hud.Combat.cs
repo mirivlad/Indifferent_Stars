@@ -11,6 +11,8 @@ public sealed partial class Hud
     private Label _combatWeapon = null!;
     private Label _combatTarget = null!;
     private Label _combatWarning = null!;
+    private Label _securityZone = null!;
+    private SecurityZone? _lastSecurityZone;
 
     private void BuildCombat()
     {
@@ -30,6 +32,17 @@ public sealed partial class Hud
         _combatPanel.AddChild(_combatWeapon);
         _combatPanel.AddChild(_combatTarget);
         _combatPanel.AddChild(_combatWarning);
+        _securityZone = MakeLabel("", 13, Dim);
+        Place(_securityZone, 0, 0, new Vector2(28, 176), new Vector2(332, 20));
+        _root.AddChild(_securityZone);
+    }
+
+    public void SetSecurityZone(SecurityZone zone)
+    {
+        if (_lastSecurityZone == zone) return;
+        _lastSecurityZone = zone;
+        _securityZone.Text = Locale.Text("security_" + zone.ToString().ToLowerInvariant());
+        _securityZone.AddThemeColorOverride("font_color", zone is SecurityZone.Pirate or SecurityZone.Frontier ? Warm : Dim);
     }
 
     public void SetCombat(CombatStatusMessage? status, HullDefinition? hull, double? range, double facing,

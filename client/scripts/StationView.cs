@@ -93,12 +93,14 @@ public sealed partial class StationView : CanvasLayer
                 continue;
 
             var entry = FindEntry(state, commodity.Id);
+            var buy = entry.BuyPrice > 0 ? entry.BuyPrice : commodity.BuyPrice;
+            var sell = entry.SellPrice > 0 ? entry.SellPrice : commodity.SellPrice;
             row.Stock.Text = entry.StationStock.ToString();
             row.Aboard.Text = entry.PlayerQuantity.ToString();
-            row.Buy.Text = Locale.Format("trade_buy_price", commodity.BuyPrice);
-            row.Sell.Text = Locale.Format("trade_sell_price", commodity.SellPrice);
+            row.Buy.Text = Locale.Format("trade_buy_price", buy);
+            row.Sell.Text = Locale.Format("trade_sell_price", sell);
             row.Buy.Disabled = entry.StationStock <= 0 ||
-                               state.Credits < commodity.BuyPrice ||
+                               state.Credits < buy ||
                                state.CargoUsed >= state.CargoCapacity;
             row.Sell.Disabled = entry.PlayerQuantity <= 0;
         }

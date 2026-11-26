@@ -120,6 +120,7 @@ public sealed partial class Hud : CanvasLayer
     /// <summary>Re-applies static text after the client language changes.</summary>
     public void RefreshLanguage()
     {
+        _lastSecurityZone = null;
         _modeLabel.Text = Locale.Text(_modeKey);
         RenderSystem();
         SetConnection(_connectionState, _connectionText, _ping);

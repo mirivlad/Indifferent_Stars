@@ -12,7 +12,11 @@ public sealed record SavedSimulation(
     ulong Tick, double TimeSeconds, uint NextPlayerId, ShipState[] Npcs,
     Dictionary<int, Dictionary<ushort, int>> StationStocks, Dictionary<int, int> Deposits,
     int[] Surveyed, ulong ActivitySequence, WorldActivity[] RecentActivities,
-    ulong CombatSequence = 0, FlightProjectile[]? Projectiles = null, WorldWreck[]? Wrecks = null);
+    ulong CombatSequence = 0, FlightProjectile[]? Projectiles = null, WorldWreck[]? Wrecks = null,
+    SavedSecurity? Security = null);
+
+public sealed record SavedSecurity(SecurityOffense[] Offenses, Dictionary<int, int> PirateSupplies,
+    Dictionary<int, double> ReplacementOrders);
 
 public sealed partial class GameWorld
 {
@@ -21,7 +25,8 @@ public sealed partial class GameWorld
     public SavedSimulation CaptureSimulation() => new(
         TickCount, TimeSeconds, _nextPlayerId, _npcs.ToArray(), _stationStocks,
         _deposits, SurveyedObjects.Order().ToArray(), _activitySequence, _activityHistory.ToArray(),
-        _combatSequence, _projectiles.ToArray(), _wrecks.ToArray());
+        _combatSequence, _projectiles.ToArray(), _wrecks.ToArray(),
+        new SavedSecurity(_securityOffenses.Values.ToArray(), new(_raiderSupplies), new(_replacementOrders)));
 
     public SavedPlayer CapturePlayer(uint id)
     {
@@ -31,8 +36,9 @@ public sealed partial class GameWorld
 
     public void RestoreSimulation(SavedSimulation state)
     {
+        var expectedNpcs = state.Security is null ? _npcs.Where(npc => npc.Id < FirstRaiderId) : _npcs;
         if (_players.Count != 0 || state.NextPlayerId < 10000 || !double.IsFinite(state.TimeSeconds) || state.TimeSeconds < 0 ||
-            !state.Npcs.Select(npc => npc.Id).SequenceEqual(_npcs.Select(npc => npc.Id)) ||
+            !state.Npcs.Select(npc => npc.Id).SequenceEqual(expectedNpcs.Select(npc => npc.Id)) ||
             !state.StationStocks.Keys.Order().SequenceEqual(_stationStocks.Keys.Order()) ||
             state.StationStocks.Values.Any(stock => stock.Count != CommodityCatalog.All.Count ||
                 stock.Any(item => CommodityCatalog.Find(item.Key) is null || item.Value < 0)) ||
@@ -40,11 +46,28 @@ public sealed partial class GameWorld
                 !npc.Position.IsFinite || !npc.Velocity.IsFinite))
             throw new InvalidOperationException("Saved simulation does not match this world.");
 
+        var newRaiders = state.Security is null ? _npcs.Where(npc => npc.Id >= FirstRaiderId).ToArray() : Array.Empty<ShipState>();
+        if (state.Security is { } security)
+        {
+            if (!security.PirateSupplies.Keys.Order().SequenceEqual(_raiderSupplies.Keys.Order()) ||
+                security.PirateSupplies.Values.Any(quantity => quantity is < 0 or > 150) ||
+                security.ReplacementOrders.Any(order => order.Key == int.MinValue || Catalog.Find(Math.Abs(order.Key))?.Kind != BodyKind.Station ||
+                    !double.IsFinite(order.Value) || order.Value < 0) ||
+                security.Offenses.Any(offense => !offense.Position.IsFinite || !double.IsFinite(offense.ExpiresAt)))
+                throw new InvalidOperationException("Saved security state does not match this world.");
+            _raiderSupplies.Clear();
+            foreach (var (id, quantity) in security.PirateSupplies) _raiderSupplies.Add(id, quantity);
+            _replacementOrders.Clear();
+            foreach (var (id, availableAt) in security.ReplacementOrders) _replacementOrders.Add(id, availableAt);
+            _securityOffenses.Clear();
+            foreach (var offense in security.Offenses) _securityOffenses.Add(offense.Suspect, offense);
+        }
         TickCount = state.Tick;
         TimeSeconds = state.TimeSeconds;
         _nextPlayerId = state.NextPlayerId;
         _npcs.Clear();
         _npcs.AddRange(state.Npcs);
+        _npcs.AddRange(newRaiders);
         _stationStocks.Clear();
         foreach (var (id, stock) in state.StationStocks) _stationStocks.Add(id, stock);
         _deposits.Clear();
