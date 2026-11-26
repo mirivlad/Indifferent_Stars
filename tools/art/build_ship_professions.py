@@ -132,7 +132,7 @@ def bright(name, color):
     art.MATERIALS[name] = material
 
 
-def build_variant(variant, shape, generator):
+def build_variant(variant, shape, generator, dependencies=()):
     art.SIZE = 768
     art.TEXTURES = SOURCES / "profession_textures"
     art.TEXTURES.mkdir(parents=True, exist_ok=True)
@@ -191,7 +191,7 @@ def build_variant(variant, shape, generator):
         "attachments_metres": {obj.name: [obj.location.x,obj.location.z,-obj.location.y] for obj in ship.MARKERS},
         "textures": [art.SIZE, art.SIZE],
         "source_sha256": {Path(source).name: hashlib.sha256(Path(source).read_bytes()).hexdigest()
-            for source in (generator, shape.__code__.co_filename, __file__, tern.__file__, ship.__file__, art.__file__)},
+            for source in (generator, shape.__code__.co_filename, __file__, tern.__file__, ship.__file__, art.__file__, *dependencies)},
         "provenance": "Original project geometry, markings and procedural materials. No third-party assets.",
         "glb_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
     }

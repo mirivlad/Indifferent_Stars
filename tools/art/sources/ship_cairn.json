@@ -1,0 +1,79 @@
+{
+  "asset": "ship_cairn",
+  "generator": "build_ship_variants.py",
+  "blender": "5.2.2 LTS",
+  "bounds_metres": [
+    [
+      -6.208959579467773,
+      -3.190000057220459,
+      -20.81999969482422
+    ],
+    [
+      6.208959579467773,
+      7.929999828338623,
+      24.065000534057617
+    ]
+  ],
+  "triangles": 3964,
+  "attachments_metres": {
+    "PilotEye": [
+      0.0,
+      2.180000066757202,
+      -18.719999313354492
+    ],
+    "MainNozzle_0": [
+      3.2330675849457247e-16,
+      6.130000114440918,
+      24.1299991607666
+    ],
+    "Maneuver_tail_0": [
+      4.33831111463221e-16,
+      7.934999942779541,
+      17.940000534057617
+    ],
+    "MainNozzle_1": [
+      -4.5726141929626465,
+      -1.7899999618530273,
+      24.1299991607666
+    ],
+    "Maneuver_tail_1": [
+      -6.13578987121582,
+      -2.692499876022339,
+      17.940000534057617
+    ],
+    "MainNozzle_2": [
+      4.5726141929626465,
+      -1.7899999618530273,
+      24.1299991607666
+    ],
+    "Maneuver_tail_2": [
+      6.13578987121582,
+      -2.692499876022339,
+      17.940000534057617
+    ],
+    "DockMount": [
+      0.0,
+      -3.109999895095825,
+      -10.329999923706055
+    ],
+    "EquipmentMount_pump": [
+      0.0,
+      2.9800000190734863,
+      -14.270000457763672
+    ]
+  },
+  "textures": [
+    768,
+    768
+  ],
+  "source_sha256": {
+    "build_ship_variants.py": "e53b9564fb8c5c7db363757cb5516f2aa34b5c71afb3d5cf7f1e2c4dfad5adca",
+    "build_ship_professions.py": "63078dc38d1a058e9d734eb4b0fb16c7110abd429a8ff29a19927790dbfe06b3",
+    "build_ship_tern.py": "10fa15335a99c6a5af8c6d09db5524f90ad7c45d4505536850e24ec03bc8fadb",
+    "build_ship.py": "3c6a8a08b8cac4756d23277ed3f4d8540855f25f55ce0bd335862b201f08c38e",
+    "build_station.py": "524491c13767a45b3144c65d9cdbd29ec31f087cc39b34b556e63fe36b1f8fbf",
+    "build_ship_specialists.py": "0c57e0be13c54e9c3999b8c040d4e19ef1278e9876dcbdfbca0acc1599bd71f0"
+  },
+  "provenance": "Original project geometry, markings and procedural materials. No third-party assets.",
+  "glb_sha256": "ac36072d01427422f6bb3dba4147112c7ee7fbc76294643be42439bf4351c31a"
+}

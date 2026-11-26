@@ -94,10 +94,10 @@ public static class HullCatalog
     public static bool Contains(ushort id) => ById.ContainsKey(id);
     public static HullDefinition? Find(string key) => All.FirstOrDefault(hull =>
         hull.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-    public static ushort ForWorker(NpcOccupation role, StationPurpose purpose, uint shipId)
+    public static ushort ForWorker(NpcOccupation role, StationPurpose purpose, int roleSlot)
     {
         var eligible = All.Where(hull => hull.WorkerRole == role &&
             (hull.StationPurpose is null || hull.StationPurpose == purpose)).ToArray();
-        return eligible.Length == 0 ? LegacyWorker : eligible[shipId % (uint)eligible.Length].Id;
+        return eligible.Length == 0 ? LegacyWorker : eligible[roleSlot % eligible.Length].Id;
     }
 }

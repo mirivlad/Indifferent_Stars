@@ -1,0 +1,79 @@
+{
+  "asset": "ship_skua",
+  "generator": "build_ship_variants.py",
+  "blender": "5.2.2 LTS",
+  "bounds_metres": [
+    [
+      -4.429999828338623,
+      -2.1500000953674316,
+      -11.050000190734863
+    ],
+    [
+      4.429999828338623,
+      2.6600000858306885,
+      11.764999389648438
+    ]
+  ],
+  "triangles": 2692,
+  "attachments_metres": {
+    "PilotEye": [
+      0.0,
+      1.9199999570846558,
+      -9.420000076293945
+    ],
+    "MainNozzle_1": [
+      -2.4700000286102295,
+      0.6399999856948853,
+      11.829999923706055
+    ],
+    "Maneuver_side_1": [
+      -4.434999942779541,
+      -0.9100000262260437,
+      1.659999966621399
+    ],
+    "Maneuver_keel_1": [
+      -2.4200000762939453,
+      -2.1550002098083496,
+      3.390000104904175
+    ],
+    "MainNozzle_3": [
+      2.4700000286102295,
+      0.6399999856948853,
+      11.829999923706055
+    ],
+    "Maneuver_side_3": [
+      4.434999942779541,
+      -0.9100000262260437,
+      1.659999966621399
+    ],
+    "Maneuver_keel_3": [
+      2.4200000762939453,
+      -2.1550002098083496,
+      3.390000104904175
+    ],
+    "DockMount": [
+      0.0,
+      -1.2300000190734863,
+      -7.75
+    ],
+    "EquipmentMount_tow": [
+      0.0,
+      -0.8100000023841858,
+      -9.75
+    ]
+  },
+  "textures": [
+    768,
+    768
+  ],
+  "source_sha256": {
+    "build_ship_variants.py": "e53b9564fb8c5c7db363757cb5516f2aa34b5c71afb3d5cf7f1e2c4dfad5adca",
+    "build_ship_professions.py": "63078dc38d1a058e9d734eb4b0fb16c7110abd429a8ff29a19927790dbfe06b3",
+    "build_ship_tern.py": "10fa15335a99c6a5af8c6d09db5524f90ad7c45d4505536850e24ec03bc8fadb",
+    "build_ship.py": "3c6a8a08b8cac4756d23277ed3f4d8540855f25f55ce0bd335862b201f08c38e",
+    "build_station.py": "524491c13767a45b3144c65d9cdbd29ec31f087cc39b34b556e63fe36b1f8fbf",
+    "build_ship_specialists.py": "0c57e0be13c54e9c3999b8c040d4e19ef1278e9876dcbdfbca0acc1599bd71f0"
+  },
+  "provenance": "Original project geometry, markings and procedural materials. No third-party assets.",
+  "glb_sha256": "845c698c76d563250b6f07523fc1fdf7b76827f949ca2f2e1b05562b922d369f"
+}

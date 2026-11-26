@@ -1,0 +1,79 @@
+{
+  "asset": "ship_dredge",
+  "generator": "build_ship_variants.py",
+  "blender": "5.2.2 LTS",
+  "bounds_metres": [
+    [
+      -4.319999694824219,
+      -4.420000076293945,
+      -10.199999809265137
+    ],
+    [
+      4.319999694824219,
+      3.350299835205078,
+      11.684999465942383
+    ]
+  ],
+  "triangles": 3876,
+  "attachments_metres": {
+    "PilotEye": [
+      0.0,
+      2.509999990463257,
+      -6.460000038146973
+    ],
+    "EquipmentMount_cutter": [
+      0.0,
+      -2.0799999237060547,
+      -6.039999961853027
+    ],
+    "MainNozzle_1": [
+      -2.880000114440918,
+      -0.5899999737739563,
+      11.75
+    ],
+    "Maneuver_side_1": [
+      -4.324999809265137,
+      -0.5400000214576721,
+      7.889999866485596
+    ],
+    "Maneuver_keel_1": [
+      -2.880000114440918,
+      -1.8450000286102295,
+      7.019999980926514
+    ],
+    "MainNozzle_3": [
+      2.880000114440918,
+      -0.5899999737739563,
+      11.75
+    ],
+    "Maneuver_side_3": [
+      4.324999809265137,
+      -0.5400000214576721,
+      7.889999866485596
+    ],
+    "Maneuver_keel_3": [
+      2.880000114440918,
+      -1.8450000286102295,
+      7.019999980926514
+    ],
+    "DockMount": [
+      0.0,
+      -1.7999999523162842,
+      6.650000095367432
+    ]
+  },
+  "textures": [
+    768,
+    768
+  ],
+  "source_sha256": {
+    "build_ship_variants.py": "e53b9564fb8c5c7db363757cb5516f2aa34b5c71afb3d5cf7f1e2c4dfad5adca",
+    "build_ship_professions.py": "63078dc38d1a058e9d734eb4b0fb16c7110abd429a8ff29a19927790dbfe06b3",
+    "build_ship_tern.py": "10fa15335a99c6a5af8c6d09db5524f90ad7c45d4505536850e24ec03bc8fadb",
+    "build_ship.py": "3c6a8a08b8cac4756d23277ed3f4d8540855f25f55ce0bd335862b201f08c38e",
+    "build_station.py": "524491c13767a45b3144c65d9cdbd29ec31f087cc39b34b556e63fe36b1f8fbf",
+    "build_ship_specialists.py": "0c57e0be13c54e9c3999b8c040d4e19ef1278e9876dcbdfbca0acc1599bd71f0"
+  },
+  "provenance": "Original project geometry, markings and procedural materials. No third-party assets.",
+  "glb_sha256": "486df0b27199367999a3335db4a96f12053c2b14a33aec8c25bd8077e6609652"
+}

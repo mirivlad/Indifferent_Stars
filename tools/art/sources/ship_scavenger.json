@@ -1,0 +1,84 @@
+{
+  "asset": "ship_scavenger",
+  "generator": "build_ship_variants.py",
+  "blender": "5.2.2 LTS",
+  "bounds_metres": [
+    [
+      -5.21999979019165,
+      -2.2899999618530273,
+      -10.230000495910645
+    ],
+    [
+      4.37999963760376,
+      2.810299873352051,
+      12.454999923706055
+    ]
+  ],
+  "triangles": 3640,
+  "attachments_metres": {
+    "PilotEye": [
+      -0.8100000023841858,
+      2.0799999237060547,
+      -6.909999847412109
+    ],
+    "MainNozzle_lower": [
+      2.950000047683716,
+      -1.1299999952316284,
+      12.520000457763672
+    ],
+    "MainNozzle_upper": [
+      2.950000047683716,
+      1.0800000429153442,
+      12.520000457763672
+    ],
+    "Maneuver_outrigger": [
+      4.384999752044678,
+      1.0199999809265137,
+      7.809999942779541
+    ],
+    "Maneuver_crescent": [
+      -5.224999904632568,
+      -0.2800000011920929,
+      -2.390000104904175
+    ],
+    "Maneuver_keel": [
+      2.950000047683716,
+      -2.2950000762939453,
+      7.670000076293945
+    ],
+    "Maneuver_fore": [
+      0.0,
+      -0.3499999940395355,
+      -10.235000610351562
+    ],
+    "EquipmentMount_crescent": [
+      -4.25,
+      0.23000000417232513,
+      -3.0899999141693115
+    ],
+    "EquipmentMount_salvage": [
+      2.950000047683716,
+      2.25,
+      5.909999847412109
+    ],
+    "DockMount": [
+      0.0,
+      -1.5299999713897705,
+      7.369999885559082
+    ]
+  },
+  "textures": [
+    768,
+    768
+  ],
+  "source_sha256": {
+    "build_ship_variants.py": "e53b9564fb8c5c7db363757cb5516f2aa34b5c71afb3d5cf7f1e2c4dfad5adca",
+    "build_ship_professions.py": "63078dc38d1a058e9d734eb4b0fb16c7110abd429a8ff29a19927790dbfe06b3",
+    "build_ship_tern.py": "10fa15335a99c6a5af8c6d09db5524f90ad7c45d4505536850e24ec03bc8fadb",
+    "build_ship.py": "3c6a8a08b8cac4756d23277ed3f4d8540855f25f55ce0bd335862b201f08c38e",
+    "build_station.py": "524491c13767a45b3144c65d9cdbd29ec31f087cc39b34b556e63fe36b1f8fbf",
+    "build_ship_specialists.py": "0c57e0be13c54e9c3999b8c040d4e19ef1278e9876dcbdfbca0acc1599bd71f0"
+  },
+  "provenance": "Original project geometry, markings and procedural materials. No third-party assets.",
+  "glb_sha256": "1ad82f3d233ace48d1985bd9eca7c33a83ee67496f1babb6f82060e5a63c99a6"
+}

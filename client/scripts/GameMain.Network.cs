@@ -396,7 +396,7 @@ public sealed partial class GameMain
                 ship.DisplayName,
                 ship.Track.Kind == EntityKind.Player ? "PLAYER" : "NPC",
                 ship.Track.WorldPosition,
-                8,
+                (float)ship.Hull.Radius,
                 true,
                 distance,
                 (float)(ship.Track.WorldPosition.Y - player.Y));
@@ -425,7 +425,7 @@ public sealed partial class GameMain
                 ship.DisplayName,
                 ship.Track.Kind == EntityKind.Player ? "PLAYER" : "NPC",
                 ship.Track.WorldPosition,
-                8,
+                (float)ship.Hull.Radius,
                 true,
                 (float)Vec3d.Distance(player,ship.Track.WorldPosition),
                 (float)(ship.Track.WorldPosition.Y - player.Y)));

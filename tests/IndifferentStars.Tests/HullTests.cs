@@ -47,11 +47,11 @@ public sealed class HullTests
     public void ExplorersAndMinersUseTheirOwnHullAndSensors()
     {
         var world = new GameWorld(WorldCatalog.Generate(20261101));
-        var miner = world.Npcs.First(ship => ship.Work!.Occupation == NpcOccupation.Miner);
+        var miners = world.Npcs.Where(ship => ship.Work!.Occupation == NpcOccupation.Miner).ToArray();
         var surveyor = world.Npcs.First(ship => ship.Work!.Occupation == NpcOccupation.Surveyor);
-        Assert.Equal("mole", miner.Hull.Key);
-        Assert.Equal("petrel", surveyor.Hull.Key);
-        Assert.Equal(10, miner.Hull.NpcLoad);
+        Assert.Contains(miners, ship => ship.Hull.Key == "mole" && ship.Hull.NpcLoad == 10);
+        Assert.Contains(miners, ship => ship.Hull.Key == "dredge" && ship.Hull.NpcLoad == 13);
+        Assert.Contains(surveyor.Hull.Key, new[] { "petrel", "ibis" });
 
         var courier = world.AddPlayer("Pilot");
         var target = world.AddPlayer("Passive target");
@@ -65,6 +65,8 @@ public sealed class HullTests
     [Theory]
     [InlineData("tern")]
     [InlineData("gannet")]
+    [InlineData("skua")]
+    [InlineData("cairn")]
     public void FreightWorkersCarryTheirHullLoadAndReduceRealStock(string key)
     {
         var world = new GameWorld(WorldCatalog.Generate(20261101, 7));
@@ -76,7 +78,9 @@ public sealed class HullTests
         Assert.Equal(NpcOccupation.Courier, work.Occupation);
         var station = world.Catalog.Find(work.HomeStationId)!;
         Assert.Equal(StationPurpose.Freight, station.Purpose);
-        Assert.Equal(hull.Id, HullCatalog.ForWorker(work.Occupation, station.Purpose, ship.Id));
+        var roleSlot = world.Npcs.Count(other => other.Id < ship.Id && other.Work!.HomeStationId == work.HomeStationId &&
+            other.Work.Occupation == work.Occupation);
+        Assert.Equal(hull.Id, HullCatalog.ForWorker(work.Occupation, station.Purpose, roleSlot));
         ship.Position = station.Position + IndifferentStars.Shared.Collision.ModelPose.StationDockingOffset;
         ship.DockingStationId = (uint)station.Id;
         ship.Docked = true;

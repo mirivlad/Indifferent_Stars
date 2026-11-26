@@ -41,6 +41,7 @@ public sealed partial class GameWorld
         foreach(var station in Catalog.Stations)
         {
             var count=Catalog.WorkerCount(station);
+            var roleSlots = new Dictionary<NpcOccupation, int>();
             for(var i=0;i<count;i++)
             {
                 var job=station.Purpose switch
@@ -50,10 +51,12 @@ public sealed partial class GameWorld
                     _ when i==1 || i==5 => NpcOccupation.Patrol,
                     _ => NpcOccupation.Courier,
                 };
+                var roleSlot = roleSlots.GetValueOrDefault(job);
+                roleSlots[job] = roleSlot + 1;
                 var spawn=station.Position+new Vec3d(Math.Cos(i*2.4)*(2200+i*180),2400+i*400,Math.Sin(i*2.4)*(2200+i*180));
                 var shipId = id++;
                 var ship=new ShipState {Id=shipId,Name=$"{names.Name()} {Catalog.SystemIndex+1}/{id-5000}",Role=job.ToString(),Position=spawn,
-                    HullId=HullCatalog.ForWorker(job, station.Purpose, shipId),
+                    HullId=HullCatalog.ForWorker(job, station.Purpose, roleSlot),
                     Work=new NpcWork {Occupation=job,HomeStationId=station.Id,TargetId=station.Id,Goal=spawn,Phase=NpcPhase.Waiting,Until=population.Between(1,12)}};
                 for(var attempt=0;!WarpSafe(ship,ship.Position,0);attempt++)
                 {
