@@ -26,7 +26,7 @@ public sealed partial class GameWorld
         ship.RouteRevision = request.RequestId;
         ship.RouteIndex = 0;
         ship.RouteActive = request.Enabled;
-        if (!request.Enabled && (ship.Cruising || ship.Velocity.Length > WorldCatalog.MaxBoostSpeed)) ship.CruiseBraking = true;
+        if (!request.Enabled && (ship.Cruising || ship.Velocity.Length > ship.Hull.BoostSpeed)) ship.CruiseBraking = true;
         ship.RouteWarping = ship.InWarp && request.Enabled;
         ship.RouteAdvanceAfterWarp = false;
         ship.RouteCruiseSeconds = 0;
@@ -86,11 +86,11 @@ public sealed partial class GameWorld
         var distance = Vec3d.Distance(ship.Position, destination);
         if (ApproachPilot.Arrived(ship, destination))
         { ship.RouteIndex++; ship.RouteCruiseSeconds = 0; return InputState.None; }
-        if (ship.Velocity.Length > WorldCatalog.MaxBoostSpeed && distance <
+        if (ship.Velocity.Length > ship.Hull.BoostSpeed && distance <
             ship.Velocity.LengthSquared / (2 * FlightModel.CruiseBrakeAcceleration) + ship.Velocity.Length * .15 + 20_000)
             return InputState.None with { Brake = true };
-        if (distance < 1_000_000 && !ship.Cruising && ship.Velocity.Length <= WorldCatalog.MaxBoostSpeed)
-            return ApproachPilot.Steer(ship, destination, maxSpeed: WorldCatalog.MaxBoostSpeed * .8) with { Boost = true };
+        if (distance < 1_000_000 && !ship.Cruising && ship.Velocity.Length <= ship.Hull.BoostSpeed)
+            return ApproachPilot.Steer(ship, destination, maxSpeed: ship.Hull.BoostSpeed * .8) with { Boost = true };
 
         // Leave the nearest solid surface before cruise. CCD still checks every ordinary-flight step.
         var nearest = WorldCatalog.CruiseClearance + 2000;
@@ -123,7 +123,7 @@ public sealed partial class GameWorld
         if (nearest < WorldCatalog.CruiseClearance + 2000)
         {
             if (escape.LengthSquared < .5) { ship.RouteActive = false; return InputState.None with { Brake = true }; }
-            return ApproachPilot.Steer(ship, ship.Position + escape * 20_000, maxSpeed: WorldCatalog.MaxBoostSpeed * .8) with { Boost = true };
+            return ApproachPilot.Steer(ship, ship.Position + escape * 20_000, maxSpeed: ship.Hull.BoostSpeed * .8) with { Boost = true };
         }
         var steer = ApproachPilot.Steer(ship, destination);
         var aligned = Vec3d.Dot(ship.Forward, (destination - ship.Position).Normalized()) > .995;
@@ -132,7 +132,7 @@ public sealed partial class GameWorld
         {
             var warp = WarpShip(ship, stop.TargetId, stop.Position, fromRoute: true);
             if (warp.Success) { ship.RouteWarping = true; ship.RouteAdvanceAfterWarp = true; }
-            else { ship.RouteActive = false; ship.ApproachTargetId = 0; ship.CruiseBraking = ship.Velocity.Length > WorldCatalog.MaxBoostSpeed; }
+            else { ship.RouteActive = false; ship.ApproachTargetId = 0; ship.CruiseBraking = ship.Velocity.Length > ship.Hull.BoostSpeed; }
             return InputState.None with { Brake = !warp.Success };
         }
         return steer with { Throttle = aligned ? 1 : 0, Cruise = aligned && CanCruise(ship), FlightAssist = true };

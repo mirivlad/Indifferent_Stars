@@ -39,17 +39,17 @@ public sealed partial class CockpitView : Node3D
         EmissionEnergyMultiplier = 0.55f,
     };
 
-    public CockpitView()
+    public CockpitView(Vector3? eye = null, bool freighter = false)
     {
         Name = "CockpitInterior";
-        Position = EyePosition - new Vector3(0, 1, .1f);
-        Build();
+        Position = (eye ?? EyePosition) - new Vector3(0, 1, .1f);
+        Build(freighter);
     }
 
     /// <summary>Eye position in ship-local metres. Shared with the camera code.</summary>
     public static readonly Vector3 EyePosition = new(0f, 1.85f, -5.25f);
 
-    private void Build()
+    private void Build(bool freighter)
     {
         var screen = new StandardMaterial3D
         {
@@ -100,9 +100,19 @@ public sealed partial class CockpitView : Node3D
         };
         AddRail(new Vector3(-1.5f, 0.48f, -2.4f), new Vector3(-1.55f, 1.6f, -1.5f), metal);
         AddRail(new Vector3(1.5f, 0.48f, -2.4f), new Vector3(1.55f, 1.6f, -1.5f), metal);
-        AddRail(new Vector3(-1.55f, 1.6f, -1.5f), new Vector3(-.95f, 1.85f, -1.3f), metal);
-        AddRail(new Vector3(1.55f, 1.6f, -1.5f), new Vector3(.95f, 1.85f, -1.3f), metal);
-        AddRail(new Vector3(-.95f, 1.85f, -1.3f), new Vector3(.95f, 1.85f, -1.3f), metal);
+        var leftHeader = freighter ? new Vector3(-1.43f, 1.95f, -1.45f) : new Vector3(-.95f, 1.85f, -1.3f);
+        var rightHeader = new Vector3(-leftHeader.X, leftHeader.Y, leftHeader.Z);
+        AddRail(new Vector3(-1.55f, 1.6f, -1.5f), leftHeader, metal);
+        AddRail(new Vector3(1.55f, 1.6f, -1.5f), rightHeader, metal);
+        AddRail(leftHeader, rightHeader, metal);
+        if (freighter)
+        {
+            AddRail(new Vector3(-1.48f, .55f, -2.35f), new Vector3(-1.58f, 1.78f, -.58f), metal);
+            AddRail(new Vector3(1.48f, .55f, -2.35f), new Vector3(1.58f, 1.78f, -.58f), metal);
+            AddBox(new Vector3(3.1f, .18f, .36f), new Vector3(0, .37f, -1.57f), FrameMaterial);
+            AddBox(new Vector3(.7f, .035f, .04f), new Vector3(-1.04f, .49f, -1.39f), warm);
+            AddBox(new Vector3(.7f, .035f, .04f), new Vector3(1.04f, .49f, -1.39f), warm);
+        }
         AddScreen(new Vector3(0, 0.32f, -1.48f), screen, new Vector3(0.9f, 0.24f, 0.02f));
         _flightScreen = AddInstrumentText(new Vector3(0, 0.32f, -1.455f), new Color(0.62f, 0.92f, 1), 22);
 

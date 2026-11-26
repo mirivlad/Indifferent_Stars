@@ -100,7 +100,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    for filename in ["ship_player.glb", "station_kestrel.glb", "asteroids.glb"]:
+    catalog = json.loads((ROOT / "src/IndifferentStars.Shared/World/Data/hulls.json").read_text())
+    for filename in [*(hull["Model"] + ".glb" for hull in catalog), "station_kestrel.glb", "asteroids.glb"]:
         for name, data in bake(ROOT / "client/assets/models" / filename).items():
             path = OUT / name
             if args.check:

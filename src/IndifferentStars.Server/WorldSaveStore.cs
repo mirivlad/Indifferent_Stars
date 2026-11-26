@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -18,11 +19,12 @@ internal sealed record SavedProfile(SavedPlayer Player, Guid TradeSession, Trade
 
 internal sealed record WorldSave(
     int FormatVersion, int GeneratorVersion, int Seed, int SystemIndex, string Geometry,
-    SavedSimulation Simulation, Dictionary<string, SavedProfile> Profiles);
+    SavedSimulation Simulation, Dictionary<string, SavedProfile> Profiles,
+    Dictionary<ushort, string>? HullGeometry = null);
 
 internal sealed class WorldSaveStore : IDisposable
 {
-    private const int CurrentVersion = 1;
+    private const int CurrentVersion = 2;
     private readonly string _path;
     private readonly FileStream _lease;
     private byte[]? _lastGood;
@@ -83,9 +85,19 @@ internal sealed class WorldSaveStore : IDisposable
                 throw new InvalidDataException("Save checksum mismatch.");
             var save = JsonSerializer.Deserialize<WorldSave>(bytes.AsSpan(65), Json)
                 ?? throw new InvalidDataException("Missing saved world.");
-            if (save.FormatVersion != CurrentVersion || save.GeneratorVersion != catalog.GeneratorVersion ||
-                save.Seed != catalog.Seed || save.SystemIndex != catalog.SystemIndex || save.Geometry != SurfaceMesh.Fingerprint)
+            // Format 1 ships have no hull ID. The default keeps the original
+            // player and worker hulls, including their exact collision scales.
+            if (save.FormatVersion is not (1 or CurrentVersion) || save.GeneratorVersion != catalog.GeneratorVersion ||
+                save.Seed != catalog.Seed || save.SystemIndex != catalog.SystemIndex || save.Geometry != SurfaceMesh.LegacyFingerprint)
                 throw new InvalidOperationException("Save format, generator, world seed, system or collision geometry differs.");
+            if (save.FormatVersion == CurrentVersion)
+            {
+                var ids = save.Simulation.Npcs.Select(ship => ship.EffectiveHullId)
+                    .Concat(save.Profiles.Values.Select(profile => profile.Player.Ship.EffectiveHullId)).Distinct();
+                if (save.HullGeometry is null || ids.Any(id => !HullCatalog.Contains(id) ||
+                        save.HullGeometry.GetValueOrDefault(id) != HullCatalog.Get(id).CollisionKey))
+                    throw new InvalidOperationException("The saved ship hull geometry differs.");
+            }
             _lastGood = bytes;
             return save;
         }
@@ -98,8 +110,11 @@ internal sealed class WorldSaveStore : IDisposable
 
     public void Write(GameWorld world, Dictionary<string, SavedProfile> profiles)
     {
+        var geometry = world.Npcs.Select(ship => ship.EffectiveHullId)
+            .Concat(profiles.Values.Select(profile => profile.Player.Ship.EffectiveHullId)).Distinct()
+            .ToDictionary(id => id, id => HullCatalog.Get(id).CollisionKey);
         var save = new WorldSave(CurrentVersion, world.Catalog.GeneratorVersion, world.Catalog.Seed,
-            world.Catalog.SystemIndex, SurfaceMesh.Fingerprint, world.CaptureSimulation(), profiles);
+            world.Catalog.SystemIndex, SurfaceMesh.LegacyFingerprint, world.CaptureSimulation(), profiles, geometry);
         var payload = JsonSerializer.SerializeToUtf8Bytes(save, Json);
         var blob = new byte[65 + payload.Length];
         Encoding.ASCII.GetBytes(Convert.ToHexString(SHA256.HashData(payload)) + "\n", blob);

@@ -101,6 +101,14 @@ tools/run-server.sh
 же адрес и порт в клиенте, где хранится ключ персонажа. Подробности и
 испытания восстановления описаны в [отчёте 015](docs/WORLD_PERSISTENCE_VERIFICATION.md).
 
+Проверочный полёт на грузовом Tern запускается отдельным локальным
+сервером. Список корпусов и контрольные кадры приведены в [галерее](docs/FLEET_GALLERY.md).
+
+```bash
+tools/run-server.sh --bind 127.0.0.1 --port 17894 --diagnostic-hull tern
+tools/run-client.sh --server 127.0.0.1:17894
+```
+
 ### 2. Клиент
 
 ```bash

@@ -1,5 +1,6 @@
 """Independent GLB/collision-surface check. Run with Blender --background --python."""
 import collections
+import json
 import pathlib
 import struct
 
@@ -12,7 +13,8 @@ def key(vertices):
     return tuple(sorted(tuple(round(float(c), 4) for c in v) for v in vertices))
 
 
-for name in ["ship_player", "station_kestrel"]:
+catalog = json.loads((ROOT / "src/IndifferentStars.Shared/World/Data/hulls.json").read_text())
+for name in [*(hull["Model"] for hull in catalog), "station_kestrel"]:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(ROOT / "client/assets/models" / (name + ".glb")))
     groups = []

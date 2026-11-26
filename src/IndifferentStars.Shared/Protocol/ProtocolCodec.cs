@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Text;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Shared.Protocol;
 
@@ -74,6 +75,7 @@ public static class ProtocolCodec
                 writer.Write(accepted.ServerTick);
                 writer.Write(accepted.TickRate);
                 writer.Write(accepted.SystemIndex);
+                writer.Write(accepted.HullId);
                 break;
 
             case HelloRejectedMessage rejected:
@@ -153,6 +155,7 @@ public static class ProtocolCodec
                     writer.Write(entity.OrbitTargetId); writer.Write(entity.OrbitAltitude); writer.Write(entity.OrbitRetrograde); writer.Write(entity.OrbitEstablished); writer.Write(entity.DockingStationId);
                     writer.Write(entity.Activity is not null);
                     if(entity.Activity is { } activity){writer.Write((byte)activity.Occupation);writer.Write((byte)activity.Phase);writer.Write(activity.TargetId);}
+                    writer.Write(entity.HullId);
                 }
                 break;
 
@@ -354,7 +357,7 @@ public static class ProtocolCodec
                     reader.ReadSingle(),
                     reader.ReadSingle(),
                     reader.ReadUInt64(),
-                    reader.ReadByte(), reader.ReadInt32()),
+                    reader.ReadByte(), reader.ReadInt32(), ReadHull(reader)),
 
                 MessageType.HelloRejected => new HelloRejectedMessage(
                     ReadString(reader, ProtocolConstants.MaxStringBytes)),
@@ -545,7 +548,7 @@ public static class ProtocolCodec
                 ReadRouteIndex(reader),
                 reader.ReadBoolean(),
                 reader.ReadBoolean(),
-                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean(), reader.ReadUInt32(), ReadNpcStatus(reader));
+                reader.ReadUInt32(), reader.ReadDouble(), reader.ReadBoolean(), reader.ReadBoolean(), reader.ReadUInt32(), ReadNpcStatus(reader), ReadHull(reader));
         }
 
         return new SnapshotMessage(tick, serverTimeMs, entities);
@@ -571,6 +574,13 @@ public static class ProtocolCodec
         var role=(NpcOccupation)reader.ReadByte();var phase=(NpcPhase)reader.ReadByte();
         if(!Enum.IsDefined(role)||!Enum.IsDefined(phase))throw new InvalidDataException("Invalid NPC status.");
         return new(role,phase,reader.ReadUInt32());
+    }
+
+    private static ushort ReadHull(BinaryReader reader)
+    {
+        var id = reader.ReadUInt16();
+        if (!HullCatalog.Contains(id)) throw new InvalidDataException($"Unknown ship hull #{id}.");
+        return id;
     }
 
     private static double? ReadOptionalDouble(BinaryReader reader) => reader.ReadBoolean() ? reader.ReadDouble() : null;

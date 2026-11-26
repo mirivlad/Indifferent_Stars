@@ -45,7 +45,7 @@ public sealed partial class GameWorld
             minimum = celestial is not null ? NavigationLimits.CelestialWarpMinimum(celestial) : NavigationLimits.LocalWarpMinimum;
             if (surfaceDistance is { } requestedGap && requestedGap < minimum)
                 return WarpFail(targetId, "warp_distance_min", minimum);
-            var desiredGap = surfaceDistance ?? Math.Max(minimum, (celestial?.AtmosphereHeight ?? 0) + WarpFlight.Clearance + SurfaceMesh.Ship.Radius);
+            var desiredGap = surfaceDistance ?? Math.Max(minimum, (celestial?.AtmosphereHeight ?? 0) + WarpFlight.Clearance + player.Hull.Radius);
             var center = targetShip?.Position ?? body?.Position ?? Catalog.CelestialOffset(celestial!);
             var distance = Vec3d.Distance(player.Position, center);
             if (!double.IsFinite(distance) || distance < 1) return WarpFail(targetId, "warp_invalid");
@@ -103,7 +103,7 @@ public sealed partial class GameWorld
 
     private bool WarpSafe(ShipState player, Vec3d position, double time, uint targetId = 0, double targetMinimum = 0)
     {
-        var clearance = WarpFlight.Clearance + SurfaceMesh.Ship.Radius;
+        var clearance = WarpFlight.Clearance + player.Hull.Radius;
         var tolerance = Math.Max(1e-5, position.Length * 2e-15);
         foreach (var body in _collisionBodies)
         {

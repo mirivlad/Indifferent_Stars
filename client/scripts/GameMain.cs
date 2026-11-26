@@ -792,7 +792,7 @@ public sealed partial class GameMain : Node3D
         {
             case ViewMode.Cockpit:
             {
-                var local = CockpitView.EyePosition;
+                var local = _playerShip.PilotEye;
                 var camPos = position + basis * local;
                 if (!LookingAround) _cockpitLook = Vector2.Zero;
                 var look = _cockpitLook;

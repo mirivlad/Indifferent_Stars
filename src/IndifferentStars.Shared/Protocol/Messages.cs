@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 23;
+    public const byte Version = 24;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -90,7 +90,8 @@ public sealed record HelloAcceptedMessage(
     float MaxSpeed,
     ulong ServerTick,
     byte TickRate,
-    int SystemIndex = 0) : IProtocolMessage
+    int SystemIndex = 0,
+    ushort HullId = 1) : IProtocolMessage
 {
     public MessageType Type => MessageType.HelloAccepted;
 }
@@ -158,7 +159,8 @@ public sealed record EntitySnapshot(
     bool OrbitRetrograde = false,
     bool OrbitEstablished = false,
     uint DockingStationId = 0,
-    NpcStatus? Activity = null)
+    NpcStatus? Activity = null,
+    ushort HullId = 0)
 {
 }
 

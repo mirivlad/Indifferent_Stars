@@ -44,6 +44,8 @@ public sealed partial class UdpGameServer : IDisposable
         _world = world;
 
         var address = IPAddress.Parse(config.BindAddress);
+        if (config.DiagnosticHullId is not null && (!IPAddress.IsLoopback(address) || config.SavePath is not null))
+            throw new ArgumentException("Diagnostic hulls require a loopback server with an ephemeral world.");
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         try
         {
@@ -370,7 +372,8 @@ public sealed partial class UdpGameServer : IDisposable
 
         var name = SanitizeName(hello.ClientName);
         var parked = profile is null ? null : _profiles.GetValueOrDefault(profile);
-        var ship = parked is not null ? _world.RestorePlayer(parked.Player) : _world.AddPlayer(name);
+        var ship = parked is not null ? _world.RestorePlayer(parked.Player) :
+            _world.AddPlayer(name, _config.DiagnosticHullId ?? HullCatalog.Courier);
         if (profile is not null) _profiles.Remove(profile);
         var session = new PlayerSession
         {
@@ -402,11 +405,11 @@ public sealed partial class UdpGameServer : IDisposable
             (float)ship.Yaw,
             _catalog.Seed,
             _catalog.SystemName,
-            (float)WorldCatalog.ScanRange,
+            (float)ship.Hull.ScanRange,
             (float)WarpFlight.Clearance,
-            (float)WorldCatalog.MaxBoostSpeed,
+            (float)ship.Hull.BoostSpeed,
             _world.TickCount,
-            (byte)_config.TickRate, _catalog.SystemIndex));
+            (byte)_config.TickRate, _catalog.SystemIndex, ship.Hull.Id));
         Send(session.Endpoint, new TransponderMessage(session.TransponderSequence, ship.TransponderEnabled));
     }
 

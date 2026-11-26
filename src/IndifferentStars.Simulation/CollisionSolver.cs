@@ -62,7 +62,7 @@ public static class CollisionSolver
     }
 
     private static double InverseInertia(ShipState ship) => ship.Docked?0:
-        1/(ship.MassKg*Math.Pow(IndifferentStars.Shared.Collision.SurfaceMesh.Ship.Radius*(ship.IsPlayer?1:IndifferentStars.Shared.Collision.ModelPose.NpcScale),2)*.4);
+        1/(ship.MassKg*Math.Pow(ship.Hull.Radius,2)*.4);
 
     private static void Apply(ShipState ship,Vec3d impulse,Vec3d arm,double inverseMass,double inverseInertia)
     {

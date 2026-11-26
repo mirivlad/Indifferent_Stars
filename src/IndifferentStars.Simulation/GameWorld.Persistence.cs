@@ -34,7 +34,8 @@ public sealed partial class GameWorld
             !state.StationStocks.Keys.Order().SequenceEqual(_stationStocks.Keys.Order()) ||
             state.StationStocks.Values.Any(stock => stock.Count != CommodityCatalog.All.Count ||
                 stock.Any(item => CommodityCatalog.Find(item.Key) is null || item.Value < 0)) ||
-            state.Npcs.Any(npc => npc.IsPlayer || npc.Work is null || !npc.Position.IsFinite || !npc.Velocity.IsFinite))
+            state.Npcs.Any(npc => npc.IsPlayer || npc.Work is null || !HullCatalog.Contains(npc.HullId) ||
+                !npc.Position.IsFinite || !npc.Velocity.IsFinite))
             throw new InvalidOperationException("Saved simulation does not match this world.");
 
         TickCount = state.Tick;

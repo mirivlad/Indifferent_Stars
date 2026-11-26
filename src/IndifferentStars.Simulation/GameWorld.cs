@@ -77,7 +77,7 @@ public sealed partial class GameWorld
     public double CollisionMilliseconds { get; private set; }
     public double InputTimeoutSeconds { get; set; } = 0.6;
 
-    public ShipState AddPlayer(string name)
+    public ShipState AddPlayer(string name, ushort hullId = HullCatalog.Courier)
     {
         var slot = _players.Count;
         var station = Catalog.Station.Position;
@@ -93,6 +93,7 @@ public sealed partial class GameWorld
             Id = _nextPlayerId++,
             Name = string.IsNullOrWhiteSpace(name) ? $"Captain {slot + 1}" : name,
             IsPlayer = true,
+            HullId = hullId,
             Position = position,
             Yaw = yaw,
             Pitch = pitch,
@@ -205,7 +206,7 @@ public sealed partial class GameWorld
 
     /// <summary>Current station market and account snapshot for one player.</summary>
     public MarketState? GetMarket(uint playerId) =>
-        _accounts.TryGetValue(playerId, out var account) ? BuildMarket(account) : null;
+        _accounts.TryGetValue(playerId, out var account) ? BuildMarket(account, _players[playerId].Hull.CargoCapacity) : null;
 
     /// <summary>
     /// Executes a buy or sell order against the station's in-memory stock.
@@ -215,15 +216,15 @@ public sealed partial class GameWorld
     {
         var player = GetPlayer(playerId);
         if (player is null || !_accounts.TryGetValue(playerId, out var account))
-            return TradeFail(null, "trade_invalid");
+            return TradeFail(null, null, "trade_invalid");
         if (!player.Docked)
-            return TradeFail(account, "trade_not_docked");
+            return TradeFail(player, account, "trade_not_docked");
         if (quantity <= 0 || quantity > CommodityCatalog.MaxTradeQuantity)
-            return TradeFail(account, "trade_invalid");
+            return TradeFail(player, account, "trade_invalid");
 
         var commodity = CommodityCatalog.Find(commodityId);
         if (commodity is null)
-            return TradeFail(account, "trade_unknown");
+            return TradeFail(player, account, "trade_unknown");
 
         var stationStock = _stationStocks[account.StationId];
         var stock = stationStock.GetValueOrDefault(commodityId);
@@ -235,11 +236,11 @@ public sealed partial class GameWorld
         {
             var total = commodity.BuyPrice * quantity;
             if (total > account.Credits)
-                return TradeFail(account, "trade_no_credits", name);
+                return TradeFail(player, account, "trade_no_credits", name);
             if (stock < quantity)
-                return TradeFail(account, "trade_no_stock", name);
-            if (cargoUsed + quantity > CommodityCatalog.CargoCapacity)
-                return TradeFail(account, "trade_no_space", name);
+                return TradeFail(player, account, "trade_no_stock", name);
+            if (cargoUsed + quantity > player.Hull.CargoCapacity)
+                return TradeFail(player, account, "trade_no_space", name);
 
             account.Credits -= total;
             account.Cargo[commodityId] = held + quantity;
@@ -248,7 +249,7 @@ public sealed partial class GameWorld
         }
 
         if (held < quantity)
-            return TradeFail(account, "trade_no_cargo", name);
+            return TradeFail(player, account, "trade_no_cargo", name);
         var revenue = commodity.SellPrice * quantity;
         account.Credits += revenue;
         account.Cargo[commodityId] = held - quantity;
@@ -256,7 +257,7 @@ public sealed partial class GameWorld
         return TradeSuccess(player, account, "trade_sold", name, quantity, revenue);
     }
 
-    private MarketState BuildMarket(PlayerAccount account)
+    private MarketState BuildMarket(PlayerAccount account, int capacity)
     {
         var entries = new MarketEntry[CommodityCatalog.All.Count];
         for (var i = 0; i < entries.Length; i++)
@@ -268,7 +269,7 @@ public sealed partial class GameWorld
                 account.Cargo.GetValueOrDefault(commodity.Id));
         }
 
-        return new MarketState(account.Credits, CargoUsed(account), CommodityCatalog.CargoCapacity, entries);
+        return new MarketState(account.Credits, CargoUsed(account), capacity, entries);
     }
 
     private static int CargoUsed(PlayerAccount account)
@@ -287,10 +288,10 @@ public sealed partial class GameWorld
         var russian = ServerText.Get("ru", key, ruArgs);
         RecordActivity(new WorldActivity(++_activitySequence, ship.Id, ship.Name, ship.Position,
             account.StationId, key, english, russian, false, TimeSeconds));
-        return new TradeOutcome(true, english, russian, BuildMarket(account));
+        return new TradeOutcome(true, english, russian, BuildMarket(account, ship.Hull.CargoCapacity));
     }
 
-    private TradeOutcome TradeFail(PlayerAccount? account, string key, string? commodityKey = null, params object[] args)
+    private TradeOutcome TradeFail(ShipState? ship, PlayerAccount? account, string key, string? commodityKey = null, params object[] args)
     {
         var enArgs = new List<object>(args.Length + 1);
         var ruArgs = new List<object>(args.Length + 1);
@@ -306,7 +307,7 @@ public sealed partial class GameWorld
             false,
             ServerText.Get("en", key, enArgs.ToArray()),
             ServerText.Get("ru", key, ruArgs.ToArray()),
-            account is null ? null : BuildMarket(account));
+            account is null || ship is null ? null : BuildMarket(account, ship.Hull.CargoCapacity));
     }
 
     public void Tick(double dt)
@@ -365,13 +366,14 @@ public sealed partial class GameWorld
             }
             if (!input.Cruise) ship.CruiseInhibited = false;
             ship.CruiseSpeedLimit = CruiseLimitAt(ship);
-            var cruiseSafe = (!input.Cruise && !ship.Cruising && ship.Velocity.Length <= WorldCatalog.MaxBoostSpeed) || CanCruise(ship);
-            if (!cruiseSafe && (ship.Cruising || ship.Velocity.Length > WorldCatalog.MaxBoostSpeed))
+            var boostSpeed = ship.Hull.BoostSpeed;
+            var cruiseSafe = (!input.Cruise && !ship.Cruising && ship.Velocity.Length <= boostSpeed) || CanCruise(ship);
+            if (!cruiseSafe && (ship.Cruising || ship.Velocity.Length > boostSpeed))
                 ship.CruiseBraking = true;
             if (input.Cruise && (!cruiseSafe || ship.CruiseInhibited || ship.CruiseBraking))
             {
                 ship.CruiseInhibited = true;
-                if (ship.Cruising || ship.Velocity.Length > WorldCatalog.MaxBoostSpeed) ship.CruiseBraking = true;
+                if (ship.Cruising || ship.Velocity.Length > boostSpeed) ship.CruiseBraking = true;
                 input = input with { Cruise = false };
             }
             if (ship.CruiseBraking)
@@ -507,20 +509,21 @@ public sealed partial class GameWorld
         if (player is null)
             return new ScanOutcome(false, targetId, ServerText.Get(language, "scan_failed"), ServerText.Get(language, "unknown_ship"));
 
+        var scanRange = player.Hull.ScanRange;
         var contactShip = _npcs.FirstOrDefault(n => n.Id == targetId) ?? _players.GetValueOrDefault(targetId);
         if (contactShip is not null && contactShip.Id != playerId)
         {
             var shipDistance = Vec3d.Distance(player.Position, contactShip.Position);
-            if (shipDistance > WorldCatalog.ScanRange)
-                return OutOfRange(targetId, shipDistance, language);
+            if (shipDistance > scanRange)
+                return OutOfRange(targetId, shipDistance, scanRange, language);
             return new ScanOutcome(true, targetId, ServerText.Get(language, "vessel_title", contactShip.Role, contactShip.Name), DescribeVessel(contactShip, language));
         }
 
         if (Catalog.FindCelestial((int)targetId) is { } celestial)
         {
             var realDistance = (celestial.SystemPosition - ToSystemPosition(player.Position)).Length - celestial.Radius;
-            if (realDistance > WorldCatalog.ScanRange)
-                return OutOfRange(targetId, realDistance, language);
+            if (realDistance > scanRange)
+                return OutOfRange(targetId, realDistance, scanRange, language);
             return new ScanOutcome(true, targetId, celestial.Name, DescribeCelestial(celestial, realDistance, language));
         }
 
@@ -528,17 +531,17 @@ public sealed partial class GameWorld
             return new ScanOutcome(false, targetId, ServerText.Get(language, "no_contact"), ServerText.Get(language, "unknown_contact"));
 
         var distance = Math.Max(0, Vec3d.Distance(player.Position, body.Position) - body.Radius);
-        if (distance > WorldCatalog.ScanRange)
-            return OutOfRange(targetId, distance, language);
+        if (distance > scanRange)
+            return OutOfRange(targetId, distance, scanRange, language);
 
         return new ScanOutcome(true, targetId, body.Name, DescribeBody(body, distance, language));
     }
 
-    private static ScanOutcome OutOfRange(uint targetId, double distance, string language) =>
+    private static ScanOutcome OutOfRange(uint targetId, double distance, double scanRange, string language) =>
         new(false,
             targetId,
             ServerText.Get(language, "out_of_range"),
-            ServerText.Get(language, "scanner_range", WorldCatalog.ScanRange / 1000, distance / 1000));
+            ServerText.Get(language, "scanner_range", scanRange / 1000, distance / 1000));
 
     /// <summary>Promotes a sector-local position into real system coordinates (double precision).</summary>
     private Vec3d ToSystemPosition(Vec3d local) => Catalog.LocalFrameOrigin + local;
@@ -568,7 +571,7 @@ public sealed partial class GameWorld
         !ship.InWarp && TimeSeconds-ship.ImpactAt<.6 ? ship.Impact : null,
         ship.RouteRevision, ship.RouteIndex, ship.RouteActive, ship.Boosting,
         ship.OrbitTargetId, ship.OrbitAltitude, ship.OrbitRetrograde, ship.OrbitEstablished, ship.DockingStationId,
-        ship.Work is { } work?new NpcStatus(work.Occupation,work.Phase,(uint)work.TargetId):null);
+        ship.Work is { } work?new NpcStatus(work.Occupation,work.Phase,(uint)work.TargetId):null, ship.Hull.Id);
 
     private string DescribeVessel(ShipState npc, string language)
     {
@@ -576,7 +579,7 @@ public sealed partial class GameWorld
         var heading = (npc.Yaw * 180.0 / Math.PI + 360) % 360;
         var work=npc.Work;
         var role=work is null?npc.Role:ServerText.Get(language,"npc_job_"+work.Occupation.ToString().ToLowerInvariant());
-        var description=ServerText.Get(language,"vessel",role,speed,heading);
+        var description=ServerText.Get(language,"vessel",$"{role} · {npc.Hull.Name}",speed,heading);
         if(work is null)return description;
         var target=Catalog.Find(work.TargetId)?.Name??Catalog.FindCelestial(work.TargetId)?.Name??Catalog.SystemName;
         return description+"\n"+ServerText.Get(language,"npc_activity",ServerText.Get(language,"npc_phase_"+work.Phase.ToString().ToLowerInvariant()),

@@ -58,10 +58,11 @@ public static class FlightModel
         ship.Boosting = input.Boost && ship.Throttle > 0.05;
         ship.Braking = input.Brake;
 
+        var hull = ship.Hull;
         var rotation = Quaternion.CreateFromYawPitchRoll(
-            (float)(input.Steer * YawRate * dt),
-            (float)(input.Pitch * PitchRate * dt),
-            (float)(input.Roll * RollRate * dt));
+            (float)(input.Steer * YawRate * hull.TurnFactor * dt),
+            (float)(input.Pitch * PitchRate * hull.TurnFactor * dt),
+            (float)(input.Roll * RollRate * hull.TurnFactor * dt));
         ship.Orientation = Quaternion.Normalize(ship.Orientation * rotation);
         var f = Vector3.Transform(-Vector3.UnitZ, ship.Orientation);
         var r = Vector3.Transform(Vector3.UnitX, ship.Orientation);
@@ -71,15 +72,15 @@ public static class FlightModel
         var up = new Vec3d(u.X, u.Y, u.Z);
 
         var throttle = ship.Throttle;
-        var acceleration = ship.Cruising ? CruiseAcceleration : Acceleration;
+        var acceleration = ship.Cruising ? CruiseAcceleration : hull.Thrust;
         var primaryAccel = throttle >= 0
             ? throttle * acceleration * (ship.Boosting && !ship.Cruising ? 2.2 : 1.0)
             : throttle * acceleration * ReverseFactor;
         if (input.Brake)
         {
             var speed = ship.Velocity.Length;
-            var braking = speed > WorldCatalog.MaxBoostSpeed || ship.Cruising || ship.CruiseBraking
-                ? CruiseBrakeAcceleration : BrakeAcceleration;
+            var braking = speed > hull.BoostSpeed || ship.Cruising || ship.CruiseBraking
+                ? CruiseBrakeAcceleration : hull.BrakeThrust;
             ship.Velocity = speed <= braking * dt
                 ? Vec3d.Zero
                 : ship.Velocity * ((speed - braking * dt) / speed);
@@ -94,16 +95,17 @@ public static class FlightModel
                 primaryAccel = 0;
                 previousSpeed = speed;
             }
-            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * VerticalAcceleration) + right * (input.Strafe * VerticalAcceleration)) * dt;
+            ship.Velocity += (forward * primaryAccel + up * (input.Vertical * hull.ManeuverThrust) +
+                right * (input.Strafe * hull.ManeuverThrust)) * dt;
             if (input.FlightAssist)
             {
-                var limit = VerticalAcceleration * dt;
+                var limit = hull.ManeuverThrust * dt;
                 if (input.Strafe == 0)
                     ship.Velocity += right * Math.Clamp(-Vec3d.Dot(ship.Velocity, right), -limit, limit);
                 if (input.Vertical == 0)
                     ship.Velocity += up * Math.Clamp(-Vec3d.Dot(ship.Velocity, up), -limit, limit);
             }
-            var maxSpeed = ship.Cruising ? ship.CruiseSpeedLimit : ship.Boosting ? WorldCatalog.MaxBoostSpeed : WorldCatalog.MaxSpeed;
+            var maxSpeed = ship.Cruising ? ship.CruiseSpeedLimit : ship.Boosting ? hull.BoostSpeed : hull.MaxSpeed;
             var allowedSpeed = Math.Max(previousSpeed, maxSpeed);
             if (ship.Velocity.Length > allowedSpeed)
                 ship.Velocity = ship.Velocity.Normalized() * allowedSpeed;

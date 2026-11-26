@@ -143,7 +143,7 @@ public sealed partial class GameMain
         if (_catalog.Seed != welcome.WorldSeed || _catalog.SystemIndex != welcome.SystemIndex)
             RebuildStaticWorld(welcome.WorldSeed,welcome.SystemIndex);
 
-        var createShip = _playerShip is null || _playerShip.Id != welcome.PlayerId;
+        var createShip = _playerShip is null || _playerShip.Id != welcome.PlayerId || _playerShip.Hull.Id != welcome.HullId;
         if (createShip)
         {
             _routePoints.Clear(); _confirmedRoute.Clear();
@@ -154,7 +154,7 @@ public sealed partial class GameMain
             if (_remoteShips.Remove(welcome.PlayerId, out var staleView))
                 staleView.QueueFree();
 
-            _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality);
+            _playerShip = new ShipView(welcome.PlayerId, true, welcome.PlayerName, _highQuality, welcome.HullId);
             _playerShip.ImpactOccurred += impact =>
             {
                 _impactShake=Mathf.Max(_impactShake,Mathf.Clamp(Mathf.Log(1+impact.NormalSpeed)/4.6f,0,1));
@@ -163,7 +163,7 @@ public sealed partial class GameMain
             _playerShip.SetEngineEffects(_settings.EngineEffects);
             _playerShip.SetParticles(_settings.Particles);
             _dynamicRoot.AddChild(_playerShip);
-            _cockpit = new CockpitView { Visible = false };
+            _cockpit = new CockpitView(_playerShip.PilotEye, _playerShip.Hull.Class == "LightFreighter") { Visible = false };
             _playerShip.AddChild(_cockpit);
             _cockpit.Visible = _mode == ViewMode.Cockpit;
             _playerShip.SetExternalModelVisible(_mode != ViewMode.Cockpit);
@@ -214,9 +214,10 @@ public sealed partial class GameMain
                 continue;
             }
 
-            if (!_remoteShips.TryGetValue(entity.Id, out var view))
+            if (!_remoteShips.TryGetValue(entity.Id, out var view) || view.Hull.Id != entity.HullId)
             {
-                view = new ShipView(entity.Id, false, entity.Name, _highQuality);
+                view?.QueueFree();
+                view = new ShipView(entity.Id, false, entity.Name, _highQuality, entity.HullId);
                 view.SetEngineEffects(_settings.EngineEffects);
                 view.SetParticles(_settings.Particles);
                 _remoteRoot.AddChild(view);

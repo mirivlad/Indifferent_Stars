@@ -102,7 +102,9 @@ public sealed class SurfaceMesh
         return v + twice * q.W + Vec3d.Cross(axis, twice);
     }
 
-    public static string Fingerprint => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+    public static string Fingerprint => HullCatalog.Fingerprint;
+
+    public static string LegacyFingerprint => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
         System.Text.Encoding.UTF8.GetBytes(Ship.SourceHash + Station.SourceHash + Asteroids[0].SourceHash +
             FormattableString.Invariant($"|pose-v2|world-gen-{GalaxyLayout.GeneratorVersion}|assembly-{StationAssembly.Version}|{ModelPose.StationScale:R}|{ModelPose.StationSpin:R}|{ModelPose.NpcScale:R}|{ModelPose.StationDockingOffset.X:R}|{ModelPose.StationDockingOffset.Y:R}|{ModelPose.StationDockingOffset.Z:R}"))));
 

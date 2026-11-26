@@ -8,5 +8,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Collision/*.bin" />
+    <EmbeddedResource Include="World/Data/hulls.json" />
   </ItemGroup>
 </Project>

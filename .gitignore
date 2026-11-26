@@ -25,4 +25,5 @@ tools/art/sources/*.blend1
 # Reproducible intermediate PNGs are packed into the source .blend and final GLB.
 tools/art/sources/station_textures/
 tools/art/sources/ship_textures/
+tools/art/sources/tern_textures/
 tools/art/__pycache__/

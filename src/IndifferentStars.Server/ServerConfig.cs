@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Server;
 
@@ -13,6 +14,7 @@ public sealed record ServerConfig
     public int SystemIndex { get; init; }
     public int MaxPlayers { get; init; } = 8;
     public string? SavePath { get; init; }
+    public ushort? DiagnosticHullId { get; init; }
 
     public TimeSpan TickInterval => TimeSpan.FromSeconds(1.0 / TickRate);
     public TimeSpan SnapshotInterval => TimeSpan.FromSeconds(1.0 / SnapshotRate);
@@ -60,6 +62,10 @@ public sealed record ServerConfig
                         throw new ArgumentException("--save requires a world file path.");
                     config = config with { SavePath = path };
                     break;
+                case "--diagnostic-hull":
+                    var hull = HullCatalog.Find(Next() ?? "") ?? throw new ArgumentException("Unknown diagnostic hull.");
+                    config = config with { DiagnosticHullId = hull.Id };
+                    break;
                 case "--help" or "-h":
                     PrintHelp();
                     Environment.Exit(0);
@@ -91,6 +97,7 @@ public sealed record ServerConfig
               --system <index>        Seeded system index (default 0; available count depends on seed)
               --max-players <1-64>    Player cap (default 8)
               --save <path>           Persistent local world file (env IS_SAVE)
+              --diagnostic-hull <id>  Start a loopback test pilot in the named hull (wren, tern)
               --help                  Show this help
             """);
     }

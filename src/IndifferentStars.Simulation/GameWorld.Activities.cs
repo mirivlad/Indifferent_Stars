@@ -52,6 +52,7 @@ public sealed partial class GameWorld
                 };
                 var spawn=station.Position+new Vec3d(Math.Cos(i*2.4)*(2200+i*180),2400+i*400,Math.Sin(i*2.4)*(2200+i*180));
                 var ship=new ShipState {Id=id++,Name=$"{names.Name()} {Catalog.SystemIndex+1}/{id-5000}",Role=job.ToString(),Position=spawn,
+                    HullId=job==NpcOccupation.Courier?HullCatalog.FreightHull(station.Purpose):HullCatalog.LegacyWorker,
                     Work=new NpcWork {Occupation=job,HomeStationId=station.Id,TargetId=station.Id,Goal=spawn,Phase=NpcPhase.Waiting,Until=population.Between(1,12)}};
                 for(var attempt=0;!WarpSafe(ship,ship.Position,0);attempt++)
                 {
@@ -131,7 +132,7 @@ public sealed partial class GameWorld
     {
         var work=ship.Work!;work.Phase=NpcPhase.Disabled;work.Until=TimeSeconds+35;
         ship.RouteActive=false;ship.ApproachTargetId=0;ship.DockingGranted=false;
-        ship.CruiseBraking=ship.Velocity.Length>WorldCatalog.MaxBoostSpeed;
+        ship.CruiseBraking=ship.Velocity.Length>ship.Hull.BoostSpeed;
         Activity(ship,"fault",$"Technical hold: {reason}. Last known position transmitted.",$"Техническая остановка: {russian}. Передаю последнюю позицию.",true);
     }
     private void StepWorker(ShipState ship,double dt,HashSet<uint> warping)
@@ -167,7 +168,7 @@ public sealed partial class GameWorld
                     if(available is null){WaitOutside(ship,20);return;}
                     work.CommodityId=available.Id;
                 }
-                work.Cargo=Math.Min(6,_stationStocks[station.Id][work.CommodityId]);
+                work.Cargo=Math.Min(ship.Hull.NpcLoad,_stationStocks[station.Id][work.CommodityId]);
                 _stationStocks[station.Id][work.CommodityId]-=work.Cargo;
                 var destinations=Catalog.Stations.Where(s=>s.Id!=station.Id).ToArray();
                 var random=new SeedStream(Catalog.Seed,(int)ship.Id,$"cargo-{Catalog.SystemIndex}-{work.Deliveries}");var destination=destinations[random.Range(0,destinations.Length)];

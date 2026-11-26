@@ -19,8 +19,11 @@ public readonly record struct SurfacePose(SurfaceMesh Mesh, double Scale, Vec3d 
 
 public static class WorldSurfaces
 {
-    public static SurfacePose Ship(ShipState ship, Vec3d position, Quaternion rotation) =>
-        new(SurfaceMesh.Ship, ship.IsPlayer ? 1 : ModelPose.NpcScale, position, rotation);
+    public static SurfacePose Ship(ShipState ship, Vec3d position, Quaternion rotation)
+    {
+        var hull = ship.Hull;
+        return new(hull.Surface, hull.Scale, position, rotation);
+    }
 
     public static SurfacePose Body(WorldCatalog catalog, StaticBody body, double time) =>
         body.Kind == BodyKind.Station

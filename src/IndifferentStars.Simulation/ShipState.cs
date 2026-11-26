@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Simulation;
 
@@ -20,11 +21,14 @@ public sealed class ShipState
     public bool IsPlayer { get; init; }
     public bool TransponderEnabled { get; set; } = true;
     public string Role { get; init; } = "Courier";
+    public ushort HullId { get; init; }
+    public ushort EffectiveHullId => IsPlayer && HullId == HullCatalog.LegacyWorker ? HullCatalog.Courier : HullId;
+    public HullDefinition Hull => HullCatalog.Get(EffectiveHullId);
 
     public Vec3d Position { get; set; }
     public Vec3d Velocity { get; set; }
     public Vec3d AngularVelocity { get; set; }
-    public double MassKg => 20_000 * (IsPlayer ? 1 : Math.Pow(IndifferentStars.Shared.Collision.ModelPose.NpcScale,3));
+    public double MassKg => Hull.MassKg;
     public ImpactState? Impact { get; set; }
     public double ImpactAt { get; set; } = -100;
     public uint ImpactSequence { get; set; }

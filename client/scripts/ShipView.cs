@@ -5,6 +5,7 @@ using Godot;
 using IndifferentStars.Shared;
 using IndifferentStars.Shared.Protocol;
 using IndifferentStars.Shared.Collision;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Client;
 
@@ -29,12 +30,13 @@ public sealed partial class ShipView : Node3D
     private bool _externalVisible = true;
     private bool _engineEffects = true;
 
-    public ShipView(uint id, bool isPlayer, string name, bool highQuality)
+    public ShipView(uint id, bool isPlayer, string name, bool highQuality, ushort? hullId = null)
     {
         Id = id;
         IsPlayer = isPlayer;
         DisplayName = name;
         HighQuality = highQuality;
+        Hull = HullCatalog.Get(hullId ?? (isPlayer ? HullCatalog.Courier : HullCatalog.LegacyWorker));
         Name = $"Ship_{id}";
         Build();
     }
@@ -43,6 +45,8 @@ public sealed partial class ShipView : Node3D
     public bool IsPlayer { get; }
     public string DisplayName { get; set; }
     public bool HighQuality { get; }
+    public HullDefinition Hull { get; }
+    public Vector3 PilotEye { get; private set; }
     public ShipTrack Track { get; } = new();
     public EntityKind Kind => Track.Kind;
     public bool Boosting { get; set; }
@@ -133,16 +137,17 @@ public sealed partial class ShipView : Node3D
         _modelRoot = new Node3D { Name = "ModelRoot" };
         AddChild(_modelRoot);
 
-        var scene = ResourceLoader.Exists("res://assets/models/ship_player.glb")
-            ? GD.Load<PackedScene>("res://assets/models/ship_player.glb")
+        var path = $"res://assets/models/{Hull.Model}.glb";
+        var scene = ResourceLoader.Exists(path)
+            ? GD.Load<PackedScene>(path)
             : null;
 
         if (scene is not null)
         {
             var model = scene.Instantiate<Node3D>();
             model.Name = "GlbModel";
-            model.Scale = Vector3.One * (IsPlayer ? 1.0f : (float)ModelPose.NpcScale);
-            if (!IsPlayer)
+            model.Scale = Vector3.One * (float)Hull.Scale;
+            if (!IsPlayer && Hull.Id == HullCatalog.LegacyWorker)
                 TintModel(model, Id);
             _modelRoot.AddChild(model);
             foreach (var marker in model.FindChildren("MainNozzle_*", "Node3D", true, false).OfType<Node3D>().OrderBy(node => node.Name.ToString()))
@@ -152,8 +157,16 @@ public sealed partial class ShipView : Node3D
                 var transform = ModelTransform(marker);
                 _maneuverSockets.Add((transform.Origin, -transform.Basis.Z.Normalized()));
             }
-            if (_mainNozzles.Count != 2 || _maneuverSockets.Count != 14)
-                throw new InvalidOperationException("The ship must export two main nozzles and fourteen maneuver outlets.");
+            if (_mainNozzles.Count != Hull.MainNozzles || _maneuverSockets.Count != Hull.ManeuverNozzles)
+                throw new InvalidOperationException($"{Hull.Name} nozzle counts differ from the hull definition.");
+            var eye = model.FindChild(Hull.PilotEye, true, false) as Node3D ??
+                throw new InvalidOperationException($"{Hull.Name} is missing its cockpit eye.");
+            PilotEye = ModelTransform(eye).Origin;
+            foreach (var mount in Hull.Hardpoints)
+                if (model.FindChild(mount, true, false) is not Node3D)
+                    throw new InvalidOperationException($"{Hull.Name} is missing mount '{mount}'.");
+            if (Hull.DockMount is { } dock && model.FindChild(dock, true, false) is not Node3D)
+                throw new InvalidOperationException($"{Hull.Name} is missing its docking mount.");
         }
         else
         {

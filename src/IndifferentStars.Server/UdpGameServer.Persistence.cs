@@ -5,6 +5,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using IndifferentStars.Shared.Protocol;
+using IndifferentStars.Shared.World;
 
 namespace IndifferentStars.Server;
 
@@ -25,11 +26,11 @@ public sealed partial class UdpGameServer
             var player = profile.Player;
             var ship = player.Ship;
             if (key.Length != 64 || !key.All(Uri.IsHexDigit) || !ship.IsPlayer || ship.Id < 10000 ||
-                ship.Id >= stored.Simulation.NextPlayerId || !ids.Add(ship.Id) || !ship.Position.IsFinite ||
+                ship.Id >= stored.Simulation.NextPlayerId || !ids.Add(ship.Id) || !HullCatalog.Contains(ship.HullId) || !ship.Position.IsFinite ||
                 !ship.Velocity.IsFinite || player.Credits < 0 || !double.IsFinite(player.CapturedAt) ||
-                _catalog.Find(player.StationId)?.Kind != IndifferentStars.Shared.World.BodyKind.Station ||
+                _catalog.Find(player.StationId)?.Kind != BodyKind.Station ||
                 ((ship.Docked || ship.DockingGranted) &&
-                _catalog.Find((int)ship.DockingStationId)?.Kind != IndifferentStars.Shared.World.BodyKind.Station))
+                _catalog.Find((int)ship.DockingStationId)?.Kind != BodyKind.Station))
                 throw new InvalidOperationException("Invalid persisted player.");
             _profiles.Add(key, profile);
         }

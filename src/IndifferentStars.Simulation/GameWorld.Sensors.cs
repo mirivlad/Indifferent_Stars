@@ -15,7 +15,7 @@ public sealed partial class GameWorld
         if (viewer.Id == target.Id || target.InWarp) return null;
         if (target.TransponderEnabled) return ContactSource.Transponder;
         var distance = Vec3d.Distance(viewer.Position, target.Position);
-        if (distance <= WorldCatalog.TacticalRange) return ContactSource.Tactical;
+        if (distance <= viewer.Hull.TacticalRange) return ContactSource.Tactical;
         if (distance <= WorldCatalog.DistantSensorRange && (target.Cruising || target.Boosting || HasClusterSignal(target)))
             return ContactSource.DistantSignal;
         return null;
