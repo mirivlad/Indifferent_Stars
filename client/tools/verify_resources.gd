@@ -5,6 +5,8 @@ const IMPORTS = {
 	"res://assets/models/asteroids.glb": "PackedScene",
 	"res://assets/models/ship_player.glb": "PackedScene",
 	"res://assets/models/ship_tern.glb": "PackedScene",
+	"res://assets/models/ship_mole.glb": "PackedScene",
+	"res://assets/models/ship_petrel.glb": "PackedScene",
 	"res://assets/models/station_kestrel.glb": "PackedScene",
 	"res://assets/music/A Speck Among Stars.mp3": "AudioStream",
 	"res://assets/music/The Endless Silence.mp3": "AudioStream",

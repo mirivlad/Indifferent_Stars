@@ -26,13 +26,40 @@ public sealed class HullTests
         Assert.NotSame(courier.Hull.Surface, pose.Mesh);
         Assert.Equal(definition.Id, world.BuildSnapshot().Single(ship => ship.Id == freighter.Id).HullId);
 
-        var vertices = pose.Mesh.GetVertices().ToArray();
-        var bounds = new Vec3d(
-            vertices.Max(v => v.X) - vertices.Min(v => v.X),
-            vertices.Max(v => v.Y) - vertices.Min(v => v.Y),
-            vertices.Max(v => v.Z) - vertices.Min(v => v.Z));
-        Assert.InRange(Vec3d.Distance(bounds, new Vec3d(definition.Dimensions[0], definition.Dimensions[1],
-            definition.Dimensions[2])), 0, .03);
+    }
+
+    [Fact]
+    public void AllHullDimensionsMatchTheCollisionVertices()
+    {
+        foreach (var definition in HullCatalog.All)
+        {
+            var vertices = definition.Surface.GetVertices().ToArray();
+            var bounds = new Vec3d(
+                vertices.Max(v => v.X) - vertices.Min(v => v.X),
+                vertices.Max(v => v.Y) - vertices.Min(v => v.Y),
+                vertices.Max(v => v.Z) - vertices.Min(v => v.Z));
+            Assert.InRange(Vec3d.Distance(bounds, new Vec3d(definition.Dimensions[0], definition.Dimensions[1],
+                definition.Dimensions[2])), 0, .03);
+        }
+    }
+
+    [Fact]
+    public void ExplorersAndMinersUseTheirOwnHullAndSensors()
+    {
+        var world = new GameWorld(WorldCatalog.Generate(20261101));
+        var miner = world.Npcs.First(ship => ship.Work!.Occupation == NpcOccupation.Miner);
+        var surveyor = world.Npcs.First(ship => ship.Work!.Occupation == NpcOccupation.Surveyor);
+        Assert.Equal("mole", miner.Hull.Key);
+        Assert.Equal("petrel", surveyor.Hull.Key);
+        Assert.Equal(10, miner.Hull.NpcLoad);
+
+        var courier = world.AddPlayer("Pilot");
+        var target = world.AddPlayer("Passive target");
+        courier.Position = surveyor.Position;
+        target.Position = surveyor.Position + new Vec3d(4_000_000, 0, 0);
+        target.TransponderEnabled = false;
+        Assert.Null(world.Detect(courier, target));
+        Assert.Equal(ContactSource.Tactical, world.Detect(surveyor, target));
     }
 
     [Fact]
@@ -47,7 +74,7 @@ public sealed class HullTests
         Assert.Equal(NpcOccupation.Courier, work.Occupation);
         var station = world.Catalog.Find(work.HomeStationId)!;
         Assert.Equal(StationPurpose.Freight, station.Purpose);
-        Assert.Equal(tern.Id, HullCatalog.FreightHull(station.Purpose));
+        Assert.Equal(tern.Id, HullCatalog.ForWorker(work.Occupation, station.Purpose, ship.Id));
         ship.Position = station.Position + IndifferentStars.Shared.Collision.ModelPose.StationDockingOffset;
         ship.DockingStationId = (uint)station.Id;
         ship.Docked = true;

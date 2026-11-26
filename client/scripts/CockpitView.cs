@@ -39,18 +39,19 @@ public sealed partial class CockpitView : Node3D
         EmissionEnergyMultiplier = 0.55f,
     };
 
-    public CockpitView(Vector3? eye = null, bool freighter = false)
+    public CockpitView(Vector3? eye = null, string hullClass = "Courier")
     {
         Name = "CockpitInterior";
         Position = (eye ?? EyePosition) - new Vector3(0, 1, .1f);
-        Build(freighter);
+        Build(hullClass);
     }
 
     /// <summary>Eye position in ship-local metres. Shared with the camera code.</summary>
     public static readonly Vector3 EyePosition = new(0f, 1.85f, -5.25f);
 
-    private void Build(bool freighter)
+    private void Build(string hullClass)
     {
+        var freighter = hullClass == "LightFreighter";
         var screen = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
@@ -100,7 +101,13 @@ public sealed partial class CockpitView : Node3D
         };
         AddRail(new Vector3(-1.5f, 0.48f, -2.4f), new Vector3(-1.55f, 1.6f, -1.5f), metal);
         AddRail(new Vector3(1.5f, 0.48f, -2.4f), new Vector3(1.55f, 1.6f, -1.5f), metal);
-        var leftHeader = freighter ? new Vector3(-1.43f, 1.95f, -1.45f) : new Vector3(-.95f, 1.85f, -1.3f);
+        var leftHeader = hullClass switch
+        {
+            "LightFreighter" => new Vector3(-1.43f, 1.95f, -1.45f),
+            "Miner" => new Vector3(-1.22f, 1.83f, -1.7f),
+            "Explorer" => new Vector3(-1.08f, 2.07f, -1.2f),
+            _ => new Vector3(-.95f, 1.85f, -1.3f),
+        };
         var rightHeader = new Vector3(-leftHeader.X, leftHeader.Y, leftHeader.Z);
         AddRail(new Vector3(-1.55f, 1.6f, -1.5f), leftHeader, metal);
         AddRail(new Vector3(1.55f, 1.6f, -1.5f), rightHeader, metal);
@@ -112,6 +119,19 @@ public sealed partial class CockpitView : Node3D
             AddBox(new Vector3(3.1f, .18f, .36f), new Vector3(0, .37f, -1.57f), FrameMaterial);
             AddBox(new Vector3(.7f, .035f, .04f), new Vector3(-1.04f, .49f, -1.39f), warm);
             AddBox(new Vector3(.7f, .035f, .04f), new Vector3(1.04f, .49f, -1.39f), warm);
+        }
+        if (hullClass == "Miner")
+        {
+            AddRail(new Vector3(-1.78f, .64f, -1.42f), new Vector3(-1.18f, .59f, -2.28f), metal);
+            AddRail(new Vector3(1.78f, .64f, -1.42f), new Vector3(1.18f, .59f, -2.28f), metal);
+            AddBox(new Vector3(2.2f, .12f, .52f), new Vector3(0, .38f, -1.91f), FrameMaterial);
+        }
+        if (hullClass == "Explorer")
+        {
+            AddRail(leftHeader, leftHeader + new Vector3(-.16f, .1f, 1.24f), metal);
+            AddRail(rightHeader, rightHeader + new Vector3(.16f, .1f, 1.24f), metal);
+            AddBox(new Vector3(.36f, .28f, .68f), new Vector3(1.38f, .51f, -1.14f), FrameMaterial);
+            AddBox(new Vector3(.19f, .018f, .12f), new Vector3(1.38f, .661f, -1.28f), AccentMaterial);
         }
         AddScreen(new Vector3(0, 0.32f, -1.48f), screen, new Vector3(0.9f, 0.24f, 0.02f));
         _flightScreen = AddInstrumentText(new Vector3(0, 0.32f, -1.455f), new Color(0.62f, 0.92f, 1), 22);

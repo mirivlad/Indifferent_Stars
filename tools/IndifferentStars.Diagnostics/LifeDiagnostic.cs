@@ -55,6 +55,8 @@ public static class LifeDiagnostic
             collision_ms_per_tick=world.CollisionMilliseconds/ticks,
             static_ms_per_tick=world.StaticCollisionMilliseconds/ticks,dynamic_ms_per_tick=world.DynamicCollisionMilliseconds/ticks,near_mean=near.Average(),near_max=near.Max(),
             departures,arrivals,extraction,deliveries=world.Npcs.Sum(n=>n.Work!.Deliveries),
+            hull_activity=world.Npcs.GroupBy(ship=>ship.Hull.Key).Select(g=>new {hull=g.Key,ships=g.Count(),
+                jobs=g.Sum(ship=>ship.Work!.CompletedJobs),deliveries=g.Sum(ship=>ship.Work!.Deliveries)}),
             body_hotspots=world.CollisionBodyHotspots.OrderByDescending(p=>p.Value).Take(4).Select(p=>new {p.Key,ms=p.Value/ticks,kind=world.Catalog.Find(p.Key)?.Kind.ToString()}),
             hotspots=world.CollisionHotspots.OrderByDescending(p=>p.Value).Take(6).Select(p=>new {p.Key,ms=p.Value/ticks,ship=world.Npcs.Where(n=>n.Id==p.Key).Select(n=>new {pos=n.Position.ToString(),goal=n.Work!.Goal,speed=n.Velocity.Length,phase=n.Work.Phase.ToString(),hit=n.ImpactSequence,home=n.Work.HomeStationId})}),
             phases=world.Npcs.GroupBy(n=>n.Work!.Phase.ToString()).ToDictionary(g=>g.Key,g=>g.Count())}));

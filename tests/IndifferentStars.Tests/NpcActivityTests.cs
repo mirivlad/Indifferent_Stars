@@ -77,7 +77,8 @@ public sealed class NpcActivityTests
         var world=new GameWorld(WorldCatalog.Generate(20261101));var miner=world.Npcs.First(n=>n.Work!.Occupation==NpcOccupation.Miner);
         var work=miner.Work!;var source=world.Catalog.Find(work.TargetId)!;var count=world.DepositRemaining(source.Id);
         miner.Position=work.Goal;miner.Velocity=Vec3d.Zero;miner.RouteActive=false;work.Phase=NpcPhase.Working;work.Until=0;
-        world.Tick(.05);Assert.Equal(count-6,world.DepositRemaining(source.Id));Assert.Equal(6,work.Cargo);Assert.True(miner.RouteActive);
+        world.Tick(.05);Assert.Equal(count-miner.Hull.NpcLoad,world.DepositRemaining(source.Id));
+        Assert.Equal(miner.Hull.NpcLoad,work.Cargo);Assert.True(miner.RouteActive);
         var survey=world.Npcs.First(n=>n.Work!.Occupation==NpcOccupation.Surveyor);var target=survey.Work!.TargetId;
         survey.Position=survey.Work.Goal;survey.Velocity=Vec3d.Zero;survey.RouteActive=false;survey.Work.Phase=NpcPhase.Working;survey.Work.Until=0;
         world.Tick(.05);Assert.Contains(target,world.SurveyedObjects);Assert.Contains(world.Activities,e=>e.SourceId==survey.Id&&e.Kind=="survey"&&e.SystemWide);

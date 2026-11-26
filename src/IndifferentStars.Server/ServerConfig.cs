@@ -97,7 +97,7 @@ public sealed record ServerConfig
               --system <index>        Seeded system index (default 0; available count depends on seed)
               --max-players <1-64>    Player cap (default 8)
               --save <path>           Persistent local world file (env IS_SAVE)
-              --diagnostic-hull <id>  Start a loopback test pilot in the named hull (wren, tern)
+              --diagnostic-hull <key> Start a loopback test pilot in a hull from the catalog
               --help                  Show this help
             """);
     }

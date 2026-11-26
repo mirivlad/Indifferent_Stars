@@ -26,4 +26,5 @@ tools/art/sources/*.blend1
 tools/art/sources/station_textures/
 tools/art/sources/ship_textures/
 tools/art/sources/tern_textures/
+tools/art/sources/profession_textures/
 tools/art/__pycache__/

@@ -51,8 +51,9 @@ public sealed partial class GameWorld
                     _ => NpcOccupation.Courier,
                 };
                 var spawn=station.Position+new Vec3d(Math.Cos(i*2.4)*(2200+i*180),2400+i*400,Math.Sin(i*2.4)*(2200+i*180));
-                var ship=new ShipState {Id=id++,Name=$"{names.Name()} {Catalog.SystemIndex+1}/{id-5000}",Role=job.ToString(),Position=spawn,
-                    HullId=job==NpcOccupation.Courier?HullCatalog.FreightHull(station.Purpose):HullCatalog.LegacyWorker,
+                var shipId = id++;
+                var ship=new ShipState {Id=shipId,Name=$"{names.Name()} {Catalog.SystemIndex+1}/{id-5000}",Role=job.ToString(),Position=spawn,
+                    HullId=HullCatalog.ForWorker(job, station.Purpose, shipId),
                     Work=new NpcWork {Occupation=job,HomeStationId=station.Id,TargetId=station.Id,Goal=spawn,Phase=NpcPhase.Waiting,Until=population.Between(1,12)}};
                 for(var attempt=0;!WarpSafe(ship,ship.Position,0);attempt++)
                 {
@@ -219,7 +220,7 @@ public sealed partial class GameWorld
             if(work.Occupation==NpcOccupation.Miner)
             {
                 var body=Catalog.Find(work.TargetId)!;work.CommodityId=body.Icy?(ushort)1:(ushort)5;
-                work.Cargo=Math.Min(6,DepositRemaining(body.Id));_deposits[body.Id]-=work.Cargo;
+                work.Cargo=Math.Min(ship.Hull.NpcLoad,DepositRemaining(body.Id));_deposits[body.Id]-=work.Cargo;
                 Activity(ship,"extraction",$"Extracted {work.Cargo} units at {body.Name}.",$"Извлечено {work.Cargo} ед. ресурса: {body.Name}.");
                 var home=Catalog.Find(work.HomeStationId)!;Journey(ship,home.Id,HoldingPoint(ship,home));
             }

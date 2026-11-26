@@ -163,7 +163,7 @@ public sealed partial class GameMain
             _playerShip.SetEngineEffects(_settings.EngineEffects);
             _playerShip.SetParticles(_settings.Particles);
             _dynamicRoot.AddChild(_playerShip);
-            _cockpit = new CockpitView(_playerShip.PilotEye, _playerShip.Hull.Class == "LightFreighter") { Visible = false };
+            _cockpit = new CockpitView(_playerShip.PilotEye, _playerShip.Hull.Class) { Visible = false };
             _playerShip.AddChild(_cockpit);
             _cockpit.Visible = _mode == ViewMode.Cockpit;
             _playerShip.SetExternalModelVisible(_mode != ViewMode.Cockpit);
