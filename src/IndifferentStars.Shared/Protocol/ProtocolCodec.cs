@@ -317,6 +317,7 @@ public static class ProtocolCodec
                 writer.Write(tradeRequest.Quantity);
                 writer.Write(tradeRequest.Buy);
                 WriteGuid(writer, tradeRequest.ClientId);
+                writer.Write(tradeRequest.LimitPrice);
                 break;
 
             case TradeResultMessage tradeResult:
@@ -484,7 +485,7 @@ public static class ProtocolCodec
                     reader.ReadUInt16(),
                     reader.ReadInt32(),
                     reader.ReadBoolean(),
-                    ReadGuid(reader)),
+                    ReadGuid(reader), reader.ReadInt32()),
                 MessageType.TradeResult => new TradeResultMessage(
                     reader.ReadUInt32(),
                     reader.ReadBoolean(),
@@ -753,6 +754,8 @@ public static class ProtocolCodec
         writer.Write(state.Credits);
         writer.Write(state.CargoUsed);
         writer.Write(state.CargoCapacity);
+        writer.Write(state.StationId);
+        writer.Write(state.Tick);
         writer.Write((ushort)state.Entries.Length);
         foreach (var entry in state.Entries)
         {
@@ -761,6 +764,8 @@ public static class ProtocolCodec
             writer.Write(entry.PlayerQuantity);
             writer.Write(entry.BuyPrice);
             writer.Write(entry.SellPrice);
+            writer.Write(entry.Capacity);
+            writer.Write(entry.Demand);
         }
     }
 
@@ -769,6 +774,8 @@ public static class ProtocolCodec
         var credits = reader.ReadInt32();
         var cargoUsed = reader.ReadInt32();
         var capacity = reader.ReadInt32();
+        var station = reader.ReadUInt32();
+        var tick = reader.ReadUInt64();
         var count = reader.ReadUInt16();
         if (count > ProtocolConstants.MaxMarketEntries)
             throw new InvalidDataException($"Market entry count {count} exceeds limit.");
@@ -783,12 +790,15 @@ public static class ProtocolCodec
             var quantity = reader.ReadInt32();
             var buy = reader.ReadInt32();
             var sell = reader.ReadInt32();
-            if (stock < 0 || quantity < 0 || buy < 0 || sell < 0)
-                throw new InvalidDataException("Negative market quantity.");
-            entries[i] = new MarketEntry(id, stock, quantity, buy, sell);
+            var storage = reader.ReadInt32();
+            var demand = reader.ReadInt32();
+            if (stock < 0 || quantity < 0 || buy < 0 || sell < 0 || storage < 0 || demand < 0 ||
+                (storage > 0 && (stock > storage || demand > storage - stock)))
+                throw new InvalidDataException("Invalid market row.");
+            entries[i] = new MarketEntry(id, stock, quantity, buy, sell, storage, demand);
         }
 
-        return new MarketState(credits, cargoUsed, capacity, entries);
+        return new MarketState(credits, cargoUsed, capacity, entries, station, tick);
     }
 
     private static void WriteGuid(BinaryWriter writer, Guid value) => writer.Write(value.ToByteArray());

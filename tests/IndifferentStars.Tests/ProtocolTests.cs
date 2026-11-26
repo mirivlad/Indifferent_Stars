@@ -54,10 +54,10 @@ public sealed class ProtocolTests
             new MarketRequestMessage(11),
             new MarketStateMessage(11, new MarketState(5000, 2, 40, new[]
             {
-                new MarketEntry(1, 158, 2),
+                new MarketEntry(1, 158, 2, 13, 9, 640, 482),
                 new MarketEntry(2, 120, 0),
-            })),
-            new TradeRequestMessage(12, 1, 2, true, Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666")),
+            }, 3, 82)),
+            new TradeRequestMessage(12, 1, 2, true, Guid.Parse("b5c6d7e8-1111-2222-3333-444455556666"), 13),
             new TradeResultMessage(12, true, "Purchased water ×2 for 24 credits.", "Куплено: вода ×2 за 24 кредитов.",
                 new MarketState(4976, 2, 40, new[] { new MarketEntry(1, 158, 2) })),
         };
@@ -114,6 +114,8 @@ public sealed class ProtocolTests
         Assert.Equal(expected.Credits, actual.Credits);
         Assert.Equal(expected.CargoUsed, actual.CargoUsed);
         Assert.Equal(expected.CargoCapacity, actual.CargoCapacity);
+        Assert.Equal(expected.StationId, actual.StationId);
+        Assert.Equal(expected.Tick, actual.Tick);
         Assert.Equal(expected.Entries, actual.Entries);
     }
 

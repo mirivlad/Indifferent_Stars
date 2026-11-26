@@ -80,6 +80,8 @@
   "trade_failed":"TRADE REJECTED", "trade_complete":"TRADE COMPLETE",
   "commodity_water":"Water", "commodity_food":"Food", "commodity_medicine":"Medicine",
   "commodity_fuel":"Fuel", "commodity_ore":"Ore", "commodity_components":"Components",
+  "commodity_metal":"Refined metal", "commodity_equipment":"Equipment",
+  "trade_demand":"The station can buy {0} units",
   "cockpit_speed":"SPD {0:F0} m/s", "cockpit_throttle":"THR {0}{1:F0}%",
   "cockpit_target":"TGT {0}", "cockpit_range":"RNG {0:F2} km   ALT {1}{2:F0} m",
   "cockpit_status":"{0}   {1}", "cockpit_no_target":"NO TARGET",

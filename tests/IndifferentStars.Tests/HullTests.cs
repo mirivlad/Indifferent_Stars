@@ -86,12 +86,12 @@ public sealed class HullTests
         ship.Docked = true;
         work.Phase = NpcPhase.Loading;
         work.Until = 0;
-        var before = world.StationStock(station.Id, 2);
+        var before = CommodityCatalog.All.ToDictionary(good => good.Id, good => world.StationStock(station.Id, good.Id));
 
         world.Tick(.05);
 
         Assert.True(ship.RouteActive);
         Assert.Equal(hull.NpcLoad, work.Cargo);
-        Assert.Equal(before - work.Cargo, world.StationStock(station.Id, work.CommodityId));
+        Assert.Equal(before[work.CommodityId] - work.Cargo, world.StationStock(station.Id, work.CommodityId));
     }
 }

@@ -500,7 +500,7 @@ public sealed partial class UdpGameServer : IDisposable
             return;
         }
 
-        var outcome = _world.Trade(session.PlayerId, request.CommodityId, request.Quantity, request.Buy);
+        var outcome = _world.Trade(session.PlayerId, request.CommodityId, request.Quantity, request.Buy, request.LimitPrice);
         var state = outcome.State ?? new MarketState(0, 0, 0, Array.Empty<MarketEntry>());
         var response = new TradeResultMessage(
             request.RequestId,

@@ -58,8 +58,7 @@ public sealed partial class GameWorld
         Catalog = catalog;
         _collisionBodies = catalog.LocalBodies;
         _fixedSurfaces = catalog.Asteroids.ToDictionary(body => body.Id, body => WorldSurfaces.Body(catalog, body, 0));
-        foreach(var station in catalog.Stations)
-            _stationStocks[station.Id]=CommodityCatalog.All.ToDictionary(c=>c.Id,c=>c.InitialStock);
+        InitializeEconomy();
         BuildCollisionRegions();
         SpawnWorkers();
         SpawnRaiders();
@@ -216,14 +215,14 @@ public sealed partial class GameWorld
     /// Executes a buy or sell order against the station's in-memory stock.
     /// The server owns credits, cargo and stock; clients only send intents.
     /// </summary>
-    public TradeOutcome Trade(uint playerId, ushort commodityId, int quantity, bool buy)
+    public TradeOutcome Trade(uint playerId, ushort commodityId, int quantity, bool buy, int limitPrice = 0)
     {
         var player = GetPlayer(playerId);
         if (player is null || !_accounts.TryGetValue(playerId, out var account))
             return TradeFail(null, null, "trade_invalid");
         if (!player.Docked)
             return TradeFail(player, account, "trade_not_docked");
-        if (quantity <= 0 || quantity > CommodityCatalog.MaxTradeQuantity)
+        if (quantity <= 0 || quantity > CommodityCatalog.MaxTradeQuantity || limitPrice < 0)
             return TradeFail(player, account, "trade_invalid");
 
         var commodity = CommodityCatalog.Find(commodityId);
@@ -231,15 +230,18 @@ public sealed partial class GameWorld
             return TradeFail(player, account, "trade_unknown");
 
         var stationStock = _stationStocks[account.StationId];
+        var ledger = _stationLedgers[account.StationId];
         var stock = stationStock.GetValueOrDefault(commodityId);
         var held = account.Cargo.GetValueOrDefault(commodityId);
         var cargoUsed = CargoUsed(account);
         var name = commodity.Key;
-        var premium = StationPricePremium(account.StationId, commodity.Id);
+        var quote = Quote(account.StationId, commodity);
+        if (limitPrice > 0 && (buy ? quote.BuyPrice > limitPrice : quote.SellPrice < limitPrice))
+            return TradeFail(player, account, "trade_price_changed", name);
 
         if (buy)
         {
-            var total = (commodity.BuyPrice + premium) * quantity;
+            var total = quote.BuyPrice * quantity;
             if (total > account.Credits)
                 return TradeFail(player, account, "trade_no_credits", name);
             if (stock < quantity)
@@ -248,6 +250,7 @@ public sealed partial class GameWorld
                 return TradeFail(player, account, "trade_no_space", name);
 
             account.Credits -= total;
+            ledger.Credits += total;
             account.Cargo[commodityId] = held + quantity;
             stationStock[commodityId] = stock - quantity;
             return TradeSuccess(player, account, "trade_bought", name, quantity, total);
@@ -255,8 +258,13 @@ public sealed partial class GameWorld
 
         if (held < quantity)
             return TradeFail(player, account, "trade_no_cargo", name);
-        var revenue = (commodity.SellPrice + premium) * quantity;
+        if (quantity > quote.Capacity - quote.StationStock)
+            return TradeFail(player, account, "trade_station_full", name);
+        if (quantity > quote.Demand)
+            return TradeFail(player, account, "trade_station_budget", name);
+        var revenue = quote.SellPrice * quantity;
         account.Credits += revenue;
+        ledger.Credits -= revenue;
         account.Cargo[commodityId] = held - quantity;
         stationStock[commodityId] = stock + quantity;
         return TradeSuccess(player, account, "trade_sold", name, quantity, revenue);
@@ -268,14 +276,10 @@ public sealed partial class GameWorld
         for (var i = 0; i < entries.Length; i++)
         {
             var commodity = CommodityCatalog.All[i];
-            var premium = StationPricePremium(account.StationId, commodity.Id);
-            entries[i] = new MarketEntry(
-                commodity.Id,
-                _stationStocks[account.StationId].GetValueOrDefault(commodity.Id),
-                account.Cargo.GetValueOrDefault(commodity.Id), commodity.BuyPrice + premium, commodity.SellPrice + premium);
+            entries[i] = Quote(account.StationId, commodity, account.Cargo.GetValueOrDefault(commodity.Id));
         }
 
-        return new MarketState(account.Credits, CargoUsed(account), capacity, entries);
+        return new MarketState(account.Credits, CargoUsed(account), capacity, entries, (uint)account.StationId, TickCount);
     }
 
     private static int CargoUsed(PlayerAccount account)
@@ -318,6 +322,7 @@ public sealed partial class GameWorld
 
     public void Tick(double dt)
     {
+        StepEconomy();
         StepReplacements();
         var warping = _players.Values.Concat(_npcs).Where(ship => ship.InWarp).Select(ship => ship.Id).ToHashSet();
         var starts = _players.Values.Concat(_npcs).ToDictionary(ship => ship.Id, ship => (ship.Position, ship.Orientation));

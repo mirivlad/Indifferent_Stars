@@ -79,14 +79,15 @@ public sealed partial class GameWorld
     }
     private void Journey(ShipState ship,int target,Vec3d point)
     {
-        var work=ship.Work!;ship.Docked=false;ship.DockingGranted=false;ship.DockingStationId=0;
+        var work=ship.Work!;
+        var departureStation = Catalog.Find((int)ship.DockingStationId) ?? Catalog.Find(work.HomeStationId)!;
+        ship.Docked=false;ship.DockingGranted=false;ship.DockingStationId=0;
         work.TargetId=target;work.Goal=point;work.Phase=NpcPhase.Travelling;
-        var home=Catalog.Find(work.HomeStationId)!;
         var departure=ship.Position;
-        var local=ship.Position-home.Position;
-        var departureHeight=home.Radius+WorldCatalog.CruiseClearance+2000;
-        var leaving=Vec3d.Distance(ship.Position,home.Position)<departureHeight && local.Y<departureHeight;
-        if(leaving) departure=new Vec3d(ship.Position.X,home.Position.Y+departureHeight,ship.Position.Z);
+        var local=ship.Position-departureStation.Position;
+        var departureHeight=departureStation.Radius+WorldCatalog.CruiseClearance+2000;
+        var leaving=local.Length<departureHeight && local.Y<departureHeight;
+        if(leaving) departure=new Vec3d(ship.Position.X,departureStation.Position.Y+departureHeight,ship.Position.Z);
         ship.NavigationRoute=leaving
             ? new[]{new NavigationPoint(0,departure),new NavigationPoint(0,point)}
             : new[]{new NavigationPoint(0,point)};
@@ -100,7 +101,7 @@ public sealed partial class GameWorld
     {
         var work=ship.Work!;
         var random=new SeedStream(Catalog.Seed,(int)ship.Id,$"assignment-{Catalog.SystemIndex}-{work.CompletedJobs}-{work.Deliveries}");
-        if(work.Occupation==NpcOccupation.Courier)
+        if(work.Occupation==NpcOccupation.Courier || work.Cargo>0)
         {
             var home=Catalog.Find(work.HomeStationId)!;
             work.TargetId=home.Id;work.Goal=HoldingPoint(ship,home);work.Phase=NpcPhase.Docking;
@@ -157,29 +158,26 @@ public sealed partial class GameWorld
             var station=Catalog.Find((int)ship.DockingStationId)!;
             if(work.Cargo>0)
             {
-                _stationStocks[station.Id][work.CommodityId]+=work.Cargo;
-                Activity(ship,"arrival",$"Delivered {work.Cargo} cargo units to {station.Name}.",$"Доставлено {work.Cargo} ед. груза на {station.Name}.");
-                work.Cargo=0;work.Deliveries++;work.Phase=NpcPhase.Loading;work.Until=TimeSeconds+4;
-                if(work.Occupation==NpcOccupation.Courier)work.HomeStationId=station.Id;
+                var delivered = UnloadFreight(ship, station);
+                if (delivered > 0)
+                {
+                    Activity(ship,"arrival",$"Delivered {delivered} cargo units to {station.Name}.",$"Доставлено {delivered} ед. груза на {station.Name}.");
+                    work.Deliveries++;
+                    if(work.Occupation==NpcOccupation.Courier)work.HomeStationId=station.Id;
+                }
+                if (work.Cargo > 0)
+                {
+                    if (!RerouteCargo(ship, station)) WaitOutside(ship, 20);
+                }
+                else
+                {
+                    work.Phase=NpcPhase.Loading;
+                    work.Until=TimeSeconds+4;
+                }
                 return;
             }
             if(work.Occupation==NpcOccupation.Courier)
-            {
-                var destinations=Catalog.Stations.Where(s=>s.Id!=station.Id &&
-                    (work.Security.RouteAvoidanceUntil <= TimeSeconds || s.Purpose == StationPurpose.Trade)).ToArray();
-                if(destinations.Length==0){WaitOutside(ship,20);return;}
-                work.CommodityId=station.Purpose switch {StationPurpose.Mining=>(ushort)5,StationPurpose.Research=>(ushort)3,StationPurpose.Freight=>(ushort)2,_=>(ushort)6};
-                if(_stationStocks[station.Id][work.CommodityId]<=0)
-                {
-                    var available=CommodityCatalog.All.FirstOrDefault(c=>_stationStocks[station.Id][c.Id]>0);
-                    if(available is null){WaitOutside(ship,20);return;}
-                    work.CommodityId=available.Id;
-                }
-                work.Cargo=Math.Min(ship.Hull.NpcLoad,_stationStocks[station.Id][work.CommodityId]);
-                _stationStocks[station.Id][work.CommodityId]-=work.Cargo;
-                var random=new SeedStream(Catalog.Seed,(int)ship.Id,$"cargo-{Catalog.SystemIndex}-{work.Deliveries}");var destination=destinations[random.Range(0,destinations.Length)];
-                Journey(ship,destination.Id,HoldingPoint(ship,destination));
-            }
+                LoadFreight(ship, station);
             else NextAssignment(ship);
             return;
         }

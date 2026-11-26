@@ -382,6 +382,7 @@ public sealed partial class GameWorld
         }
         Activity(ship, "ship_destroyed", $"Ship lost at the reported coordinates: {ship.Name}.",
             $"Корабль потерян в переданной точке. Позывной {ship.Name}.", true);
+        foreach (var (commodity, quantity) in cargo) RecordUnits(_cargoLost, commodity, quantity);
         _wrecks.Add(new WorldWreck(_combatSequence, ship.Name, ship.Position, TimeSeconds + 600, cargo));
     }
 
@@ -412,8 +413,11 @@ public sealed partial class GameWorld
         var damage = integrity - state.Hull + integrity * .4 - state.Armor;
         var cost = (int)Math.Ceiling(Math.Max(0, damage) * 3);
         var account = _accounts[ship.Id];
-        if (cost > account.Credits) return false;
+        var parts = (int)Math.Ceiling(Math.Max(0, damage) / 18);
+        if (cost > account.Credits || StationStock(account.StationId, CommodityCatalog.Components) < parts) return false;
         account.Credits -= cost;
+        _stationLedgers[account.StationId].Credits += cost;
+        Consume(account.StationId, CommodityCatalog.Components, parts);
         state.Hull = integrity;
         state.Armor = integrity * .4;
         state.Engines = state.Sensors = state.Weapons = 1;

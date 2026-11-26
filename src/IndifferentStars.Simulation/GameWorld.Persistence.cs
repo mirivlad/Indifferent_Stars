@@ -13,7 +13,7 @@ public sealed record SavedSimulation(
     Dictionary<int, Dictionary<ushort, int>> StationStocks, Dictionary<int, int> Deposits,
     int[] Surveyed, ulong ActivitySequence, WorldActivity[] RecentActivities,
     ulong CombatSequence = 0, FlightProjectile[]? Projectiles = null, WorldWreck[]? Wrecks = null,
-    SavedSecurity? Security = null);
+    SavedSecurity? Security = null, SavedEconomy? Economy = null);
 
 public sealed record SavedSecurity(SecurityOffense[] Offenses, Dictionary<int, int> PirateSupplies,
     Dictionary<int, double> ReplacementOrders);
@@ -26,7 +26,8 @@ public sealed partial class GameWorld
         TickCount, TimeSeconds, _nextPlayerId, _npcs.ToArray(), _stationStocks,
         _deposits, SurveyedObjects.Order().ToArray(), _activitySequence, _activityHistory.ToArray(),
         _combatSequence, _projectiles.ToArray(), _wrecks.ToArray(),
-        new SavedSecurity(_securityOffenses.Values.ToArray(), new(_raiderSupplies), new(_replacementOrders)));
+        new SavedSecurity(_securityOffenses.Values.ToArray(), new(_raiderSupplies), new(_replacementOrders)),
+        new SavedEconomy(_nextProduction, new(_stationLedgers), new(_cargoLost)));
 
     public SavedPlayer CapturePlayer(uint id)
     {
@@ -40,13 +41,27 @@ public sealed partial class GameWorld
         if (_players.Count != 0 || state.NextPlayerId < 10000 || !double.IsFinite(state.TimeSeconds) || state.TimeSeconds < 0 ||
             !state.Npcs.Select(npc => npc.Id).SequenceEqual(expectedNpcs.Select(npc => npc.Id)) ||
             !state.StationStocks.Keys.Order().SequenceEqual(_stationStocks.Keys.Order()) ||
-            state.StationStocks.Values.Any(stock => stock.Count != CommodityCatalog.All.Count ||
-                stock.Any(item => CommodityCatalog.Find(item.Key) is null || item.Value < 0)) ||
+            state.StationStocks.Values.Any(stock =>
+                !CommodityCatalog.All.Where(good => state.Economy is not null || good.Id <= CommodityCatalog.Components)
+                    .All(good => stock.ContainsKey(good.Id)) || !ValidUnits(stock)) ||
             state.Npcs.Any(npc => npc.IsPlayer || npc.Work is null || !HullCatalog.Contains(npc.HullId) ||
                 !npc.Position.IsFinite || !npc.Velocity.IsFinite))
             throw new InvalidOperationException("Saved simulation does not match this world.");
 
         var newRaiders = state.Security is null ? _npcs.Where(npc => npc.Id >= FirstRaiderId).ToArray() : Array.Empty<ShipState>();
+        if (state.Economy is { } economy)
+        {
+            if (!double.IsFinite(economy.NextProduction) || economy.NextProduction < 0 ||
+                !economy.Stations.Keys.Order().SequenceEqual(_stationLedgers.Keys.Order()) || !ValidUnits(economy.CargoLost) ||
+                economy.Stations.Values.Any(ledger => ledger.Credits < 0 || !ValidUnits(ledger.Produced) || !ValidUnits(ledger.Consumed)))
+                throw new InvalidOperationException("Saved economy does not match this world.");
+            _nextProduction = economy.NextProduction;
+            _stationLedgers.Clear();
+            foreach (var (id, ledger) in economy.Stations) _stationLedgers.Add(id, ledger);
+            _cargoLost.Clear();
+            foreach (var (commodity, amount) in economy.CargoLost) _cargoLost.Add(commodity, amount);
+        }
+        else _nextProduction = state.TimeSeconds + EconomyRules.ProductionInterval;
         if (state.Security is { } security)
         {
             if (!security.PirateSupplies.Keys.Order().SequenceEqual(_raiderSupplies.Keys.Order()) ||
@@ -69,7 +84,12 @@ public sealed partial class GameWorld
         _npcs.AddRange(state.Npcs);
         _npcs.AddRange(newRaiders);
         _stationStocks.Clear();
-        foreach (var (id, stock) in state.StationStocks) _stationStocks.Add(id, stock);
+        foreach (var (id, stock) in state.StationStocks)
+        {
+            var station = Catalog.Find(id)!;
+            _stationStocks.Add(id, CommodityCatalog.All.ToDictionary(good => good.Id,
+                good => stock.GetValueOrDefault(good.Id, EconomyRules.InitialStock(station.Purpose, good))));
+        }
         _deposits.Clear();
         foreach (var (id, count) in state.Deposits) _deposits.Add(id, count);
         SurveyedObjects.Clear();
@@ -85,6 +105,9 @@ public sealed partial class GameWorld
         _wrecks.Clear();
         if (state.Wrecks is { } wrecks) _wrecks.AddRange(wrecks);
     }
+
+    private static bool ValidUnits(Dictionary<ushort, int> units) =>
+        units.All(item => CommodityCatalog.Find(item.Key) is not null && item.Value >= 0);
 
     public ShipState RestorePlayer(SavedPlayer saved)
     {

@@ -42,13 +42,14 @@ public sealed partial class StationView : CanvasLayer
     private Label _status = null!;
     private Button _undock = null!;
     private MarketState? _market;
+    private uint _stationId;
     private string _stationName = "";
     private string _statusText = "";
     private bool _statusSuccess;
 
     public event Action? CommsRequested;
     public event Action? UndockRequested;
-    public event Action<ushort, int, bool>? TradeRequested;
+    public event Action<ushort, int, bool, int>? TradeRequested;
 
     public StationView()
     {
@@ -61,8 +62,9 @@ public sealed partial class StationView : CanvasLayer
 
     public bool HasMarket => _market is not null;
 
-    public void SetDocked(bool docked, string stationName)
+    public void SetDocked(bool docked, uint stationId, string stationName)
     {
+        _stationId = docked ? stationId : 0;
         if (!docked)
         {
             Visible = false;
@@ -83,6 +85,7 @@ public sealed partial class StationView : CanvasLayer
 
     public void UpdateMarket(MarketState state)
     {
+        if (_stationId == 0 || state.StationId != _stationId || state.Tick < (_market?.Tick ?? 0)) return;
         _market = state;
         _credits.Text = Locale.Format("trade_credits", state.Credits);
         _cargo.Text = Locale.Format("trade_cargo", state.CargoUsed, state.CargoCapacity);
@@ -95,18 +98,27 @@ public sealed partial class StationView : CanvasLayer
             var entry = FindEntry(state, commodity.Id);
             var buy = entry.BuyPrice > 0 ? entry.BuyPrice : commodity.BuyPrice;
             var sell = entry.SellPrice > 0 ? entry.SellPrice : commodity.SellPrice;
-            row.Stock.Text = entry.StationStock.ToString();
+            row.Stock.Text = entry.Capacity > 0 ? $"{entry.StationStock}/{entry.Capacity}" : entry.StationStock.ToString();
+            row.Stock.TooltipText = entry.Capacity > 0 ? Locale.Format("trade_demand", entry.Demand) : "";
             row.Aboard.Text = entry.PlayerQuantity.ToString();
             row.Buy.Text = Locale.Format("trade_buy_price", buy);
             row.Sell.Text = Locale.Format("trade_sell_price", sell);
             row.Buy.Disabled = entry.StationStock <= 0 ||
                                state.Credits < buy ||
                                state.CargoUsed >= state.CargoCapacity;
-            row.Sell.Disabled = entry.PlayerQuantity <= 0;
+            row.Sell.Disabled = entry.PlayerQuantity <= 0 || (entry.Capacity > 0 && entry.Demand == 0);
         }
 
         if (string.IsNullOrEmpty(_statusText))
             _status.Visible = false;
+    }
+
+    private void Order(ushort id, bool buy)
+    {
+        if (_market is not { } market) return;
+        var quote = FindEntry(market, id);
+        var price = buy ? quote.BuyPrice : quote.SellPrice;
+        if (price > 0) TradeRequested?.Invoke(id, 1, buy, price);
     }
 
     public void ShowStatus(string text, bool success)
@@ -214,7 +226,7 @@ public sealed partial class StationView : CanvasLayer
 
         var scroll = new ScrollContainer
         {
-            CustomMinimumSize = new Vector2(0, 280),
+            CustomMinimumSize = new Vector2(0, 318),
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
         };
@@ -245,12 +257,12 @@ public sealed partial class StationView : CanvasLayer
             grid.AddChild(aboard);
 
             var id = commodity.Id;
-            var buy = new Button { CustomMinimumSize = new Vector2(140, 0) };
-            buy.Pressed += () => TradeRequested?.Invoke(id, 1, true);
+            var buy = new Button { Name = $"MarketBuy_{id}", CustomMinimumSize = new Vector2(140, 0), Disabled = true };
+            buy.Pressed += () => Order(id, true);
             grid.AddChild(buy);
 
-            var sell = new Button { CustomMinimumSize = new Vector2(140, 0) };
-            sell.Pressed += () => TradeRequested?.Invoke(id, 1, false);
+            var sell = new Button { CustomMinimumSize = new Vector2(140, 0), Disabled = true };
+            sell.Pressed += () => Order(id, false);
             grid.AddChild(sell);
 
             _rows[id] = new Row { Name = name, Stock = stock, Aboard = aboard, Buy = buy, Sell = sell };

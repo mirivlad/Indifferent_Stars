@@ -80,6 +80,8 @@
   "trade_failed":"СДЕЛКА ОТКЛОНЕНА", "trade_complete":"СДЕЛКА ЗАВЕРШЕНА",
   "commodity_water":"Вода", "commodity_food":"Продовольствие", "commodity_medicine":"Медикаменты",
   "commodity_fuel":"Топливо", "commodity_ore":"Руда", "commodity_components":"Компоненты",
+  "commodity_metal":"Металлы", "commodity_equipment":"Оборудование",
+  "trade_demand":"Станция готова купить {0} ед.",
   "cockpit_speed":"СКОР {0:F0} м/с", "cockpit_throttle":"ТЯГА {0}{1:F0}%",
   "cockpit_target":"ЦЕЛЬ {0}", "cockpit_range":"ДИСТ {0:F2} км   ВЫС {1}{2:F0} м",
   "cockpit_status":"{0}   {1}", "cockpit_no_target":"НЕТ ЦЕЛИ",

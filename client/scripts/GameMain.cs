@@ -296,18 +296,19 @@ public sealed partial class GameMain : Node3D
             var docked = _playerShip.Track.Docked;
             if (_stationView.Visible != docked)
             {
-                _stationView.SetDocked(docked, _catalog.Find((int)_playerShip.Track.DockingStationId)?.Name??_catalog.Station.Name);
+                _stationView.SetDocked(docked, _playerShip.Track.DockingStationId,
+                    _catalog.Find((int)_playerShip.Track.DockingStationId)?.Name ?? _catalog.Station.Name);
                 _marketRetry = 0;
                 if (docked)
                     Input.MouseMode = Input.MouseModeEnum.Visible;
             }
-            if (docked && !_stationView.HasMarket && _net is not null)
+            if (docked && _net is not null)
             {
                 _marketRetry -= dt;
                 if (_marketRetry <= 0)
                 {
                     _net.RequestMarket();
-                    _marketRetry = 0.8f;
+                    _marketRetry = _stationView.HasMarket ? 1.8f : .8f;
                 }
             }
         }
@@ -622,7 +623,7 @@ public sealed partial class GameMain : Node3D
         AddChild(_stationView);
         _stationView.CommsRequested += () => _net?.RequestComms(_playerShip?.Track.DockingStationId??(uint)_catalog.Station.Id);
         _stationView.UndockRequested += RequestUndock;
-        _stationView.TradeRequested += (commodity, quantity, buy) => _net?.RequestTrade(commodity, quantity, buy);
+        _stationView.TradeRequested += (commodity, quantity, buy, price) => _net?.RequestTrade(commodity, quantity, buy, price);
     }
 
     private void BuildContactMenu()

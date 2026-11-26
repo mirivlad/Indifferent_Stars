@@ -244,7 +244,7 @@ public sealed partial class NetworkClient : IDisposable
                     break;
 
                 case TradeResultMessage trade:
-                    if (_pendingTrade is { } pendingTrade && pendingTrade.Id == trade.RequestId)
+                    if (_pendingTrade is { } pendingTrade && pendingTrade.Message.RequestId == trade.RequestId)
                         _pendingTrade = null;
                     TradeCompleted?.Invoke(trade);
                     break;

@@ -24,7 +24,7 @@ internal sealed record WorldSave(
 
 internal sealed class WorldSaveStore : IDisposable
 {
-    private const int CurrentVersion = 4;
+    private const int CurrentVersion = 5;
     private readonly string _path;
     private readonly FileStream _lease;
     private byte[]? _lastGood;
@@ -88,7 +88,8 @@ internal sealed class WorldSaveStore : IDisposable
             // Format 1 ships have no hull ID. The default keeps the original
             // player and worker hulls, including their exact collision scales.
             if (save.FormatVersion is < 1 or > CurrentVersion ||
-                (save.FormatVersion == CurrentVersion && save.Simulation.Security is null) ||
+                (save.FormatVersion >= 4 && save.Simulation.Security is null) ||
+                (save.FormatVersion >= 5 && save.Simulation.Economy is null) ||
                 save.GeneratorVersion != catalog.GeneratorVersion ||
                 save.Seed != catalog.Seed || save.SystemIndex != catalog.SystemIndex || save.Geometry != SurfaceMesh.LegacyFingerprint)
                 throw new InvalidOperationException("Save format, generator, world seed, system or collision geometry differs.");

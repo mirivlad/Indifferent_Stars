@@ -5,7 +5,7 @@ namespace IndifferentStars.Shared.Protocol;
 
 public static class ProtocolConstants
 {
-    public const byte Version = 26;
+    public const byte Version = 27;
     public const byte Magic0 = (byte)'I';
     public const byte Magic1 = (byte)'S';
     public const int HeaderSize = 4;
@@ -246,12 +246,14 @@ public sealed record DockResultMessage(bool Undock, bool Accepted) : IProtocolMe
 }
 
 /// <summary>One row of the station market as seen by a specific player.</summary>
-public sealed record MarketEntry(ushort CommodityId, int StationStock, int PlayerQuantity, int BuyPrice = 0, int SellPrice = 0)
+public sealed record MarketEntry(ushort CommodityId, int StationStock, int PlayerQuantity, int BuyPrice = 0, int SellPrice = 0,
+    int Capacity = 0, int Demand = 0)
 {
 }
 
 /// <summary>Player account and the station stock snapshot. Server-authoritative.</summary>
-public sealed record MarketState(int Credits, int CargoUsed, int CargoCapacity, MarketEntry[] Entries)
+public sealed record MarketState(int Credits, int CargoUsed, int CargoCapacity, MarketEntry[] Entries,
+    uint StationId = 0, ulong Tick = 0)
 {
 }
 
@@ -266,7 +268,7 @@ public sealed record MarketStateMessage(uint RequestId, MarketState State) : IPr
 }
 
 public sealed record TradeRequestMessage(uint RequestId, ushort CommodityId, int Quantity, bool Buy,
-    Guid ClientId = default) : IProtocolMessage
+    Guid ClientId = default, int LimitPrice = 0) : IProtocolMessage
 {
     public MessageType Type => MessageType.TradeRequest;
 }

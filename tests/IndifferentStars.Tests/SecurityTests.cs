@@ -161,15 +161,17 @@ public sealed class SecurityTests
         Assert.True(world.Trade(trader.Id, 3, 2, true).Success);
         var beforeSales = world.GetMarket(trader.Id)!.Credits;
         DockAt(StationPurpose.Research);
+        var safeBid = world.GetMarket(trader.Id)!.Entries.Single(entry => entry.CommodityId == 5).SellPrice;
         var safe = world.Trade(trader.Id, 5, 2, false);
         Assert.True(safe.Success);
-        Assert.Equal(54, Assert.Single(safe.State!.Entries, entry => entry.CommodityId == 5).SellPrice);
-        Assert.Equal(beforeSales + 108, safe.State.Credits);
+        Assert.Equal(54, safeBid);
+        Assert.Equal(beforeSales + safeBid * 2, safe.State!.Credits);
         DockAt(StationPurpose.Mining);
+        var exposedBid = world.GetMarket(trader.Id)!.Entries.Single(entry => entry.CommodityId == 3).SellPrice;
         var exposed = world.Trade(trader.Id, 3, 2, false);
         Assert.True(exposed.Success);
-        Assert.Equal(81, Assert.Single(exposed.State!.Entries, entry => entry.CommodityId == 3).SellPrice);
-        Assert.Equal(CommodityCatalog.StartingCredits + 12 + 32, exposed.State.Credits);
+        Assert.Equal(81, exposedBid);
+        Assert.Equal(CommodityCatalog.StartingCredits + 12 + 32, exposed.State!.Credits);
 
         void DockAt(StationPurpose purpose)
         {

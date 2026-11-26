@@ -14,6 +14,8 @@ public sealed class NpcWork
     public int Cargo { get; set; }
     public int CompletedJobs { get; set; }
     public int Deliveries { get; set; }
+    public int TradeCredits { get; set; } = EconomyRules.StartingFreightCapital;
+    public double EmptyTransferAvailableAt { get; set; }
     public bool FaultUsed { get; set; }
     public NpcSecurity Security { get; set; } = new();
 }

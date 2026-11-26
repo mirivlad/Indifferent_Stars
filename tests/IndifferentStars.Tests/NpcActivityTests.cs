@@ -64,13 +64,20 @@ public sealed class NpcActivityTests
         ship.Docked=true;ship.DockingStationId=(uint)source.Id;ship.Position=source.Position+ModelPose.StationDockingOffset;
         work.Until=0;work.Phase=NpcPhase.Loading;
         var before=CommodityCatalog.All.ToDictionary(c=>c.Id,c=>world.Catalog.Stations.Sum(s=>world.StationStock(s.Id,c.Id)));
+        var capital = work.TradeCredits;
+        var originTreasury = world.CaptureSimulation().Economy!.Stations[source.Id].Credits;
         world.Tick(.05);Assert.Equal(6,work.Cargo);Assert.True(ship.RouteActive);Assert.False(ship.Docked);
+        Assert.True(work.TradeCredits < capital);
+        Assert.Equal(capital - work.TradeCredits, world.CaptureSimulation().Economy!.Stations[source.Id].Credits - originTreasury);
         var commodity=work.CommodityId;Assert.Equal(before[commodity]-6,world.Catalog.Stations.Sum(s=>world.StationStock(s.Id,commodity)));
         var destination=world.Catalog.Find(work.TargetId)!;
+        var destinationTreasury = world.CaptureSimulation().Economy!.Stations[destination.Id].Credits;
+        var cargoCapital = work.TradeCredits;
         ship.Position=destination.Position+ModelPose.StationDockingOffset;ship.Velocity=Vec3d.Zero;
         ship.Docked=true;ship.DockingStationId=(uint)destination.Id;ship.RouteActive=false;work.Phase=NpcPhase.Unloading;work.Until=0;
         world.Tick(.05);Assert.Equal(0,work.Cargo);Assert.Equal(1,work.Deliveries);
         Assert.Equal(before[commodity],world.Catalog.Stations.Sum(s=>world.StationStock(s.Id,commodity)));
+        Assert.Equal(work.TradeCredits - cargoCapital, destinationTreasury - world.CaptureSimulation().Economy!.Stations[destination.Id].Credits);
         Assert.Contains(world.Activities,e=>e.SourceId==ship.Id&&e.Kind=="arrival");
     }
     [Fact]

@@ -8,7 +8,7 @@ public sealed partial class NetworkClient
 {
     private (uint Id, uint Target, double StartedAt, double LastResendAt)? _pendingScan;
     private (uint Id, uint Target, IndifferentStars.Shared.Vec3d? Destination, double? SurfaceDistance, double StartedAt, double LastResendAt)? _pendingWarp;
-    private (uint Id, ushort Commodity, int Quantity, bool Buy, double StartedAt, double LastResendAt)? _pendingTrade;
+    private (TradeRequestMessage Message, double StartedAt, double LastResendAt)? _pendingTrade;
     private (OrbitRequestMessage Message, double Started, double Sent)? _pendingOrbit;
     public event Action<OrbitResultMessage>? OrbitCompleted;
     public bool IsOrbitPending => _pendingOrbit.HasValue;
@@ -79,15 +79,15 @@ public sealed partial class NetworkClient
             Send(new MarketRequestMessage(_requestSequence++));
     }
 
-    public void RequestTrade(ushort commodityId, int quantity, bool buy)
+    public void RequestTrade(ushort commodityId, int quantity, bool buy, int limitPrice = 0)
     {
         if (State != ConnectionState.Connected || _pendingTrade.HasValue)
             return;
 
         var now = NowSeconds();
-        var id = _requestSequence++;
-        _pendingTrade = (id, commodityId, quantity, buy, now, now);
-        Send(new TradeRequestMessage(id, commodityId, quantity, buy, _clientId));
+        var message = new TradeRequestMessage(_requestSequence++, commodityId, quantity, buy, _clientId, limitPrice);
+        _pendingTrade = (message, now, now);
+        Send(message);
     }
 
     public void RequestWarp(uint targetId, IndifferentStars.Shared.Vec3d? destination = null, double? surfaceDistance = null)
@@ -168,8 +168,8 @@ public sealed partial class NetworkClient
             }
             else if (now - trade.LastResendAt > 0.5)
             {
-                _pendingTrade = (trade.Id, trade.Commodity, trade.Quantity, trade.Buy, trade.StartedAt, now);
-                Send(new TradeRequestMessage(trade.Id, trade.Commodity, trade.Quantity, trade.Buy, _clientId));
+                _pendingTrade = (trade.Message, trade.StartedAt, now);
+                Send(trade.Message);
             }
         }
     }

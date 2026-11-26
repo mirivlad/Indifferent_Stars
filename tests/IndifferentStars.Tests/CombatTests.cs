@@ -128,6 +128,7 @@ public sealed class CombatTests
         Assert.True(target.Combat.Destroyed);
         Assert.Equal(0, world.GetMarket(target.Id)!.CargoUsed);
         Assert.Equal(2, Assert.Single(world.Wrecks).Cargo[(ushort)1]);
+        Assert.Equal(2, world.CaptureSimulation().Economy!.CargoLost[(ushort)1]);
         Assert.Equal(world.Wrecks[0].Position, Assert.Single(world.BuildWreckContacts(shooter).Contacts).Position);
         Assert.False(world.ApplyCombatCommand(target.Id, new CombatCommandMessage(2, CombatCommand.Recover)));
         for (var i = 0; i < 162; i++) world.Tick(.05);

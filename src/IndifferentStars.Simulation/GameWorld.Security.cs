@@ -81,14 +81,14 @@ public sealed partial class GameWorld
             if (_replacementOrders.GetValueOrDefault(workshop) > TimeSeconds) continue;
             var cost = pirate ? 12 : 8;
             var stock = _stationStocks[station.Id];
-            const ushort parts = 6;
+            const ushort parts = CommodityCatalog.Components;
             if ((pirate ? _raiderSupplies.GetValueOrDefault(station.Id) : stock[parts]) < cost) continue;
-            var position = pirate ? Catalog.RaiderTerritories.Single(region => region.StationId == station.Id).Hideout
+            var position = pirate ? RaiderBerth(ship, Catalog.RaiderTerritories.Single(region => region.StationId == station.Id))
                 : HoldingPoint(ship, station);
             position += Vec3d.Up * (500 + ship.Id % 13 * 200);
             if (!WarpSafe(ship, position, TimeSeconds)) continue;
             if (pirate) _raiderSupplies[station.Id] -= cost;
-            else stock[parts] -= cost;
+            else Consume(station.Id, parts, cost);
             _replacementOrders[workshop] = TimeSeconds + 55;
             var generation = work.Security.Replacements + 1;
             work.Security = new NpcSecurity { Replacements = generation };
@@ -293,14 +293,15 @@ public sealed partial class GameWorld
         state.TargetId = 0;
         if (brain.Returning)
         {
-            if (ApproachPilot.Arrived(ship, territory.Hideout))
+            var berth = RaiderBerth(ship, territory);
+            if (ApproachPilot.Arrived(ship, berth))
             {
                 ServiceRaider(ship);
                 brain.Returning = false;
                 brain.ThreatId = 0;
                 work.Goal = territory.PatrolPoint;
             }
-            else work.Goal = territory.Hideout;
+            else work.Goal = berth;
         }
         else if (ApproachPilot.Arrived(ship, work.Goal))
         {
@@ -311,6 +312,9 @@ public sealed partial class GameWorld
         FlightModel.StepControlled(ship, StationClearance(ship) ??
             ApproachPilot.Steer(ship, work.Goal, maxSpeed: ship.Hull.MaxSpeed), dt);
     }
+
+    private static Vec3d RaiderBerth(ShipState ship, RaiderTerritory territory) =>
+        territory.Hideout + new Vec3d(900 * (ship.Id % 2), 0, 0);
 
     private ShipState? RaiderTarget(ShipState raider, RaiderTerritory territory)
     {
@@ -367,7 +371,8 @@ public sealed partial class GameWorld
         var brain = ship.Work!.Security;
         var range = Math.Min(18_000, ship.Hull.TacticalRange * ship.Combat.Sensors);
         if (assess && brain.SalvageTarget == 0)
-            brain.SalvageTarget = _wrecks.Where(wreck => wreck.Cargo.Count != 0 && Vec3d.Distance(wreck.Position, ship.Position) <= range)
+            brain.SalvageTarget = _wrecks.Where(wreck => wreck.Cargo.Count != 0 && Vec3d.Distance(wreck.Position, ship.Position) <= range &&
+                    !_npcs.Any(other => !other.Combat.Destroyed && other.Work?.Security.SalvageTarget == wreck.Id))
                 .MinBy(wreck => Vec3d.Distance(wreck.Position, ship.Position))?.Id ?? 0;
         var target = brain.SalvageTarget == 0 ? null : _wrecks.Find(wreck => wreck.Id == brain.SalvageTarget);
         if (target is null || target.Cargo.Count == 0)

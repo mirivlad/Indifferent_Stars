@@ -17,6 +17,9 @@ public static class LifeDiagnostic
         var minimumPopulation = world.Npcs.Count;
         var activityKinds = new Dictionary<string, int>();
         var combatEvents = new Dictionary<string, int>();
+        var deliveryTimeline = new List<int>();
+        var shortageSamples = 0;
+        var fullStorageSamples = 0;
         var slowTicks = new List<SlowTick>();
         long allocated = 0;
         var initialCollections = Enumerable.Range(0, GC.MaxGeneration + 1).Select(GC.CollectionCount).ToArray();
@@ -41,7 +44,18 @@ public static class LifeDiagnostic
             }
             near.Add(world.Npcs.Count(n=>!n.InWarp&&Vec3d.Distance(n.Position,world.Catalog.Station.Position)<150000));
             minimumPopulation = Math.Min(minimumPopulation, world.Npcs.Count(npc => !npc.Combat.Destroyed));
+            if (i % 300 == 0)
+            {
+                foreach (var station in world.Catalog.Stations)
+                foreach (var good in CommodityCatalog.All)
+                {
+                    var stock = world.StationStock(station.Id, good.Id);
+                    if (stock == 0) shortageSamples++;
+                    if (stock >= EconomyRules.Capacity(good)) fullStorageSamples++;
+                }
+            }
             if (i%2000==1999) Console.Error.WriteLine($"life progress: tick={i+1}, time={world.TimeSeconds:F0}s, deliveries={world.Npcs.Sum(n=>n.Work!.Deliveries)}");
+            if (i % 6000 == 5999) deliveryTimeline.Add(world.Npcs.Sum(npc => npc.Work!.Deliveries));
             while(world.TryTakeActivity(out var activity))
             {
                 activityKinds[activity.Kind] = activityKinds.GetValueOrDefault(activity.Kind) + 1;
@@ -56,6 +70,7 @@ public static class LifeDiagnostic
             }
         }
         var state = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(world.BuildSnapshot())));
+        var economy = world.CaptureSimulation().Economy!;
         Array.Sort(times);
         Console.WriteLine(JsonSerializer.Serialize(new {seed,system,ticks,npcs=world.Npcs.Count,
             bodies=world.Catalog.LocalBodies.Count,activity=world.Catalog.ActivityLevel,
@@ -70,6 +85,17 @@ public static class LifeDiagnostic
             static_ms_per_tick=world.StaticCollisionMilliseconds/ticks,dynamic_ms_per_tick=world.DynamicCollisionMilliseconds/ticks,near_mean=near.Average(),near_max=near.Max(),
             departures,arrivals,extraction,deliveries=world.Npcs.Sum(n=>n.Work!.Deliveries),
             activityKinds, combatEvents, minimumPopulation, wrecks = world.Wrecks.Count,
+            economy = new
+            {
+                deliveryTimeline, shortageSamples, fullStorageSamples, cargoLost = economy.CargoLost,
+                stations = world.Catalog.Stations.Select(station => new
+                {
+                    station.Id, station.Name, purpose = station.Purpose.ToString(),
+                    economy.Stations[station.Id].Credits,
+                    economy.Stations[station.Id].Produced, economy.Stations[station.Id].Consumed,
+                    stocks = CommodityCatalog.All.ToDictionary(good => good.Key, good => world.StationStock(station.Id, good.Id)),
+                }),
+            },
             factionPopulation = world.Npcs.GroupBy(GameWorld.Affiliation).Select(group => new
             {
                 faction = group.Key.ToString(), live = group.Count(ship => !ship.Combat.Destroyed),
